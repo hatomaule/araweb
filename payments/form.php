@@ -8,6 +8,7 @@ $paymentForms = [
     'payments' => $user['role'] === 'operator'
         ? __DIR__ . '/operator_history.php'
         : __DIR__ . '/history.php',
+    'payment_confirmations' => __DIR__ . '/confirmations.php',
     'my_payments' => __DIR__ . '/my_history.php',
     'tenant_payments' => __DIR__ . '/tenant_history.php',
     'bank_settings' => __DIR__ . '/bank_settings.php',
@@ -16,6 +17,7 @@ $paymentForms = [
 if (!isset($paymentForms[$page])
     || ($page === 'my_payments' && $user['role'] !== 'seeker')
     || ($page === 'tenant_payments' && !in_array($user['role'], ['admin', 'operator'], true))
+    || ($page === 'payment_confirmations' && $user['role'] !== 'operator')
     || (in_array($page, ['operator_payment', 'payments', 'invoices', 'invoice_form', 'bank_settings'], true)
         && !in_array($user['role'], ['admin', 'operator'], true))
     ) {

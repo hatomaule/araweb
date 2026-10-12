@@ -763,3 +763,71 @@ td strong,.strong{color:#29344a;font-weight:700}
     .location-info-card h2{font-size:25px}
     .location-map-card .tiara-kos-map{height:290px}
 }
+
+.public-footer .tiara-brand{color:#42422e}
+.hero-inner{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);align-items:center;gap:22px;min-height:370px;padding:20px 26px 28px}
+.hero-copy{max-width:640px;padding:0}
+.hero-copy h1{max-width:680px;margin:10px 0 12px;font-size:clamp(36px,4.5vw,56px);letter-spacing:-2.6px}
+.hero-description{max-width:570px}
+.hero-actions{margin-top:18px}
+.hero-proof{margin-top:17px}
+.hero-showcase{display:block;max-width:none;margin:0}
+.hero-showcase .hero-art{width:100%;max-width:none;height:320px;margin:0;transform:scale(.88);transform-origin:center}
+.search-history-strip{max-width:1128px;margin:-7px auto 20px;padding:0 26px;display:flex;align-items:center;gap:13px;flex-wrap:wrap;color:#77745e;font-size:11px}
+.search-history-strip>strong{color:#4d5037;font-size:12px}
+.search-history-strip>div{display:flex;gap:7px;flex-wrap:wrap}
+.search-history-strip a{display:inline-flex;padding:6px 10px;border:1px solid #eeead9;border-radius:20px;background:#fffefa;color:#77745e;font-size:10px}
+.search-history-strip a:hover{border-color:#d7bd5d;color:#718a3d}
+.user-account-monitor{max-width:1128px;margin:0 auto 23px;padding:19px 22px;border:1px solid #eeead9;border-radius:15px;background:#fffefa;box-shadow:0 9px 24px #5a52200a}
+.user-account-monitor-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.user-account-monitor-heading h2{margin:5px 0 0;color:#41432f;font:700 17px 'Manrope',sans-serif}
+.user-account-monitor-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.user-account-monitor-grid article{display:grid;gap:6px;padding:12px;border-radius:10px;background:#f8f7ee}
+.user-account-monitor-grid article span{color:#8b876f;font-size:10px}
+.user-account-monitor-grid article strong{color:#444630;font:700 15px 'Manrope',sans-serif}
+.home-reviews-section{max-width:1180px;margin:0 auto;padding:5px 26px 64px}
+.home-reviews-section .rooms-section-heading h2{font-size:29px}
+.home-reviews-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.home-review-card{min-width:0;padding:17px;border:1px solid #eeead9;border-radius:13px;background:#fffefa;box-shadow:0 8px 24px #5a52200a}
+.home-review-card>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.home-review-card>div:first-child strong{color:#454632;font-size:12px}
+.home-review-card>div:first-child span{color:#d9ae2e;letter-spacing:1px}
+.home-review-card>small{display:block;margin-top:6px;color:#99947b;font-size:9px}
+.home-review-card>p{color:#6f705d;font-size:11px;line-height:1.7}
+.home-review-reply{margin:11px 0;padding:10px;border-left:2px solid #91a756;border-radius:0 8px 8px 0;background:#f5f7ed}
+.home-review-reply strong{color:#637b3b;font-size:10px}
+.home-review-reply p{margin:5px 0 0;color:#6f705d;font-size:10px;line-height:1.65}
+.home-review-card>.text-link{display:inline-block;margin-top:4px;font-size:10px}
+@media(max-width:900px){
+    .hero-inner{min-height:350px;padding:22px 22px 25px;gap:12px}
+    .hero-copy h1{font-size:clamp(36px,5vw,48px)}
+    .hero-showcase .hero-art{height:300px}
+    .search-history-strip{padding:0 22px}
+    .user-account-monitor{margin-right:22px;margin-left:22px}
+    .home-reviews-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+    .hero-inner{display:flex;min-height:0;gap:0;padding:30px 19px 18px}
+    .hero-copy h1{font-size:clamp(34px,9vw,42px);letter-spacing:-1.9px;margin:12px 0 10px}
+    .hero-description{font-size:11px;line-height:1.65}
+    .hero-actions{margin-top:14px}
+    .hero-proof{margin-top:13px}
+    .hero-showcase{margin-top:0}
+    .hero-showcase .hero-art{height:225px;transform:scale(.78);transform-origin:top center;margin:8px 0 -39px}
+    .sun-disc{width:190px;height:190px;right:calc(50% - 112px);top:5px}
+    .orbit-one{width:min(330px,100vw);height:210px;right:calc(50% - min(165px,50vw));top:8px}
+    .orbit-two{width:min(350px,105vw);height:230px;right:calc(50% - min(175px,52.5vw));top:0}
+    .house-art{right:calc(50% - 148px);bottom:1px;transform:scale(.78);transform-origin:bottom center}
+    .hero-room-tag{left:calc(50% - 167px);bottom:6px}
+    .plant-one{right:calc(50% - 159px);bottom:10px}
+    .plant-two{left:calc(50% - 145px);top:22px}
+    .leaf-left{left:calc(50% - 150px);bottom:43px}
+    .leaf-right{right:calc(50% - 151px);top:13px}
+    .search-history-strip{margin:0 auto 17px;padding:0 19px;align-items:flex-start;flex-direction:column;gap:8px}
+    .user-account-monitor{margin:0 15px 18px;padding:15px}
+    .user-account-monitor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .user-account-monitor-heading{align-items:flex-start}
+    .user-account-monitor-heading .location-directions-link{font-size:9px}
+    .home-reviews-section{padding:0 19px 45px}
+    .home-reviews-grid{grid-template-columns:1fr}
+}

@@ -77,7 +77,7 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=buildings" aria-label="Buka menu kos saya">⌂</a><div><span>Kos saya</span><strong><?= $ownerBuildingCount ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=rooms" aria-label="Buka menu kamar">▦</a><div><span>Jumlah kamar</span><strong><?= $ownerRoomCount ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon green stat-icon-link" href="index.php?page=payments" aria-label="Buka histori pembayaran">✓</a><div><span>Total pemasukan terkonfirmasi</span><strong><?= e(money($ownerPaymentSummary['collected'])) ?></strong></div></article>
-    <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=payments" aria-label="Buka pembayaran menunggu verifikasi">◷</a><div><span>Menunggu verifikasi</span><strong><?= e(money($ownerPaymentSummary['awaiting'])) ?></strong></div></article>
+    <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=payment_confirmations" aria-label="Buka pembayaran menunggu konfirmasi">◷</a><div><span>Menunggu verifikasi</span><strong><?= e(money($ownerPaymentSummary['awaiting'])) ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=operator_payment" aria-label="Buka input pembayaran">!</a><div><span>Tunggakan jatuh tempo</span><strong><?= e(money($ownerArrears)) ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=payments" aria-label="Buka histori pembayaran terkonfirmasi">▤</a><div><span>Pembayaran terkonfirmasi</span><strong><?= (int) $ownerPaymentSummary['confirmed_count'] ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=operator_bookings" aria-label="Buka booking menunggu">▣</a><div><span>Booking menunggu</span><strong><?= $ownerPendingBookings ?></strong></div></article>
@@ -117,3 +117,4 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
 </section>
 </div>
 <?php foreach ($ownerListings as $ownerListing): ?><div class="alert <?= $ownerListing['status'] === 'active' ? 'success' : 'info' ?>"><strong><?= e($ownerListing['name']) ?>:</strong> <?= $ownerListing['status'] === 'active' ? 'Tampil di pencarian pengguna.' : 'Listing sedang disembunyikan.' ?></div><?php endforeach; ?>
+<?php require __DIR__ . '/../reports/operator.php'; ?>

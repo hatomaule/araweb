@@ -57,14 +57,14 @@ if ($action === 'submit_review') {
             $review = $reviewScope->fetch();
             if (!$review) {
                 set_flash('error', 'Ulasan tidak ditemukan pada properti Anda.');
-                redirect('operator_reports');
+                redirect('dashboard');
             }
 
             if ($action === 'operator_review_reply') {
                 $reply = post_value('operator_reply');
                 if ($reply === '' || strlen($reply) > 3000) {
                     set_flash('error', 'Balasan ulasan wajib diisi dan maksimal 3.000 karakter.');
-                    redirect('operator_reports');
+                    redirect('dashboard');
                 }
                 $updateReply = $pdo->prepare(
                     'UPDATE property_reviews pr
@@ -81,7 +81,7 @@ if ($action === 'submit_review') {
                 if (post_value('confirm_review_action') !== 'yes'
                     || !in_array($visibility, ['published', 'hidden'], true)) {
                     set_flash('error', 'Konfirmasi dan status moderasi ulasan wajib dipilih.');
-                    redirect('operator_reports');
+                    redirect('dashboard');
                 }
                 $updateVisibility = $pdo->prepare(
                     'UPDATE property_reviews pr
@@ -94,7 +94,7 @@ if ($action === 'submit_review') {
                 ]);
                 set_flash('success', $visibility === 'hidden' ? 'Ulasan disembunyikan.' : 'Ulasan diterbitkan kembali.');
             }
-            redirect('operator_reports');
+            redirect('dashboard');
         }
 
         

@@ -45,6 +45,7 @@ const PAGE_MODULES = [
     'invoice_form' => 'payments',
     'operator_payment' => 'payments',
     'payments' => 'payments',
+    'payment_confirmations' => 'payments',
     'bank_settings' => 'payments',
     'payment_proof' => 'payments',
     'my_payments' => 'payments',

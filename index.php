@@ -15,7 +15,7 @@ $allowedPages = [
     'home', 'search', 'property', 'room', 'dashboard', 'buildings', 'building_form',
     'tenants', 'tenant_form', 'rooms', 'room_form', 'rentals', 'rental_form',
     'invoices', 'invoice_form', 'operator_payment', 'payments', 'bank_settings', 'my_bookings',
-    'my_payments', 'tenant_payments', 'booking_form', 'payment_proof', 'profile', 'search_history',
+    'my_payments', 'tenant_payments', 'booking_form', 'payment_proof', 'payment_confirmations', 'profile', 'search_history',
     'platform_dashboard', 'platform_owners', 'platform_accounts',
     'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users',
     'platform_operator_profile', 'platform_user_profile',
@@ -226,8 +226,7 @@ if ($user && $user['role'] === 'admin' && $page === 'platform_reports') {
 }
 if ($user && $user['role'] === 'admin'
     && in_array($page, [
-        'search_history', 'my_bookings', 'booking_form', 'my_payments',
-        'operator_reports', 'user_reports',
+        'search_history', 'my_bookings', 'booking_form', 'my_payments', 'operator_reports', 'user_reports',
     ], true)) {
     redirect('platform_dashboard');
 }
@@ -236,16 +235,19 @@ if ($user && $user['role'] === 'seeker'
         'payment_proof', 'profile', 'search_history', 'user_reports', 'change_password'], true)) {
     redirect('home');
 }
+if ($user && $user['role'] === 'operator' && $page === 'operator_reports') {
+    redirect('dashboard');
+}
 if ($user && $user['role'] === 'operator'
     && !in_array($page, ['home', 'search', 'dashboard', 'buildings', 'building_form', 'rooms',
         'room_form', 'tenants', 'tenant_form', 'tenant_payments', 'invoices',
         'invoice_form', 'operator_payment', 'payments', 'tenant_profile',
-        'operator_bookings', 'bank_settings', 'profile', 'payment_proof', 'operator_reports',
+        'operator_bookings', 'payment_confirmations', 'bank_settings', 'profile', 'payment_proof',
         'property', 'room', 'change_password'], true)) {
     redirect('dashboard');
 }
 if ($user && $user['role'] === 'admin'
-    && in_array($page, ['operator_bookings'], true)) {
+    && in_array($page, ['operator_bookings', 'payment_confirmations'], true)) {
     redirect('platform_dashboard');
 }
 require __DIR__ . '/payments/proof.php';
@@ -274,7 +276,8 @@ function page_title(string $page): string
         'buildings' => 'Gedung kos', 'building_form' => 'Form gedung',
         'rooms' => 'Kamar', 'room_form' => 'Form kamar', 'rentals' => 'Masa sewa',
         'rental_form' => 'Sewa baru', 'invoices' => 'Tagihan', 'invoice_form' => 'Buat tagihan',
-        'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran', 'bank_settings' => 'Rekening',
+        'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran',
+        'payment_confirmations' => 'Konfirmasi Pembayaran', 'bank_settings' => 'Rekening',
         'my_bookings' => 'Pesanan saya', 'booking_form' => 'Pesan kamar',
         'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil operator',
         'platform_user_profile' => 'Profil User',
@@ -286,7 +289,7 @@ function page_title(string $page): string
         'platform_seeker_accounts' => 'Akun User',
         'platform_unhoused_users' => 'User pengguna',
         'platform_listings' => 'Daftar kos', 'platform_reports' => 'Dashboard',
-        'operator_reports' => 'Analitik kos', 'user_reports' => 'Laporan pembayaran',
+        'operator_reports' => 'Laporan', 'user_reports' => 'Laporan pembayaran',
         'change_password' => 'Ganti password',
     ];
     return $titles[$page] ?? 'Ringkasan';
@@ -357,15 +360,12 @@ require __DIR__ . '/portal/public.php';
                         'dashboard' => ['▤', 'Laporan'],
                         'operator_payment' => ['＋', 'Input Pembayaran'],
                         'payments' => ['▤', 'Histori pembayaran'],
-                        'operator_bookings' => ['▣', 'Booking'],
-                        'operator_reports' => ['▤', 'Analitik kos'],
             ];
             if ($user['role'] === 'seeker') {
                 $nav = [
                     'home' => ['⌕', 'Cari kos'], 'my_bookings' => ['⌂', 'Booking saya'],
                     'my_payments' => ['▤', 'Riwayat pembayaran'],
-                    'user_reports' => ['▤', 'Laporan pembayaran'],
-                    'search_history' => ['◷', 'Riwayat pencarian'], 'profile' => ['♙', 'Profil'],
+                    'search_history' => ['◷', 'Riwayat pencarian'],
                 ];
             } elseif ($user['role'] === 'admin') {
                 $nav = [
@@ -386,6 +386,16 @@ require __DIR__ . '/portal/public.php';
                         </div>
                     </details>
                     <a class="<?= in_array($page, ['tenants', 'tenant_form', 'tenant_profile', 'tenant_payments'], true) ? 'active' : '' ?>" href="index.php?page=tenants"><span class="nav-icon">♙</span>Penghuni</a>
+                <?php endif; ?>
+                <?php if ($user['role'] === 'operator' && $target === 'payments'): ?>
+                    <?php $bookingMenuPages = ['operator_bookings', 'payment_confirmations']; ?>
+                    <details class="nav-group" <?= in_array($page, $bookingMenuPages, true) ? 'open' : '' ?>>
+                        <summary class="<?= in_array($page, $bookingMenuPages, true) ? 'active' : '' ?>"><span class="nav-icon">▣</span>Booking<span class="nav-chevron">⌄</span></summary>
+                        <div class="nav-submenu">
+                            <a class="<?= $page === 'operator_bookings' ? 'active' : '' ?>" href="index.php?page=operator_bookings">Daftar Booking</a>
+                            <a class="<?= $page === 'payment_confirmations' ? 'active' : '' ?>" href="index.php?page=payment_confirmations">Konfirmasi Pembayaran</a>
+                        </div>
+                    </details>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'admin' && $target === 'platform_dashboard'): ?>
                     <details class="nav-group" <?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile'], true) ? 'open' : '' ?>>
@@ -410,8 +420,6 @@ require __DIR__ . '/portal/public.php';
                 require __DIR__ . '/admin/form.php';
             elseif ($user['role'] === 'operator' && $page === 'dashboard'):
                 require __DIR__ . '/properties/operator_dashboard.php';
-            elseif ($user['role'] === 'operator' && $page === 'operator_reports'):
-                require __DIR__ . '/reports/operator.php';
             elseif ($user['role'] === 'seeker' && $page === 'user_reports'):
                 require __DIR__ . '/reports/user.php';
             elseif ($user['role'] === 'admin' && in_array($page, ['platform_operator_profile', 'platform_user_profile'], true)):

@@ -12,12 +12,12 @@ if ($page === 'payment_proof') {
          JOIN rooms rm ON rm.id=r.room_id JOIN kos_buildings b ON b.id=rm.building_id
          LEFT JOIN tenants t ON t.id=r.tenant_id
          WHERE p.id=:payment_id
-           AND (:is_admin=1 OR b.owner_user_id=:user_id OR t.user_id=:user_id)
+           AND (:is_admin=1 OR b.owner_user_id=:owner_user_id OR t.user_id=:tenant_user_id)
            AND p.payment_proof_path IS NOT NULL"
     );
     $proofQuery->execute([
         'payment_id' => $proofId, 'is_admin' => $user['role'] === 'admin' ? 1 : 0,
-        'user_id' => $user['id'],
+        'owner_user_id' => $user['id'], 'tenant_user_id' => $user['id'],
     ]);
     $proof = $proofQuery->fetch();
     $proofRoot = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'payments');
@@ -41,4 +41,3 @@ if ($page === 'payment_proof') {
     readfile($proofPath);
     exit;
 }
-

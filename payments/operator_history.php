@@ -29,7 +29,7 @@ $payments = rows(
                     <tr>
                         <td><?= e($payment['paid_at'] ? date_id($payment['paid_at']) : '—') ?></td>
                         <td><strong><?= e($payment['invoice_number']) ?></strong><small class="subline"><?= e(date_id($payment['period_start'])) ?> – <?= e(date_id($payment['period_end'])) ?></small>
-                            <?php if ($payment['payment_proof_path']): ?><small class="subline"><a class="text-link" href="index.php?page=payment_proof&amp;id=<?= (int) $payment['id'] ?>" target="_blank" rel="noopener noreferrer">Lihat bukti</a></small><?php endif; ?>
+                            <?php if ($payment['payment_proof_path']): ?><small class="subline"><a class="text-link" href="index.php?page=payment_proof&amp;id=<?= (int) $payment['id'] ?>">Lihat bukti</a></small><?php endif; ?>
                         </td>
                         <td><a class="text-link" href="index.php?page=tenant_profile&amp;id=<?= (int) $payment['tenant_id'] ?>"><?= e($payment['full_name']) ?></a><small class="subline"><?= e($payment['building_name']) ?> · Kamar <?= e($payment['room_number']) ?></small></td>
                         <td><?= e(['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wallet' => 'E-wallet', 'other' => 'Lainnya'][$payment['payment_method']] ?? $payment['payment_method']) ?></td>

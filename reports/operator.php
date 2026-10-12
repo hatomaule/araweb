@@ -23,10 +23,16 @@ $visitorEvents = rows(
      ORDER BY ae.occurred_at DESC,ae.id DESC LIMIT 50",
     ['id' => $ownerId]
 );
+$reviewReplyColumn = $pdo->query(
+    "SHOW COLUMNS FROM property_reviews LIKE 'operator_reply'"
+)->fetch();
+$reviewReplyFields = $reviewReplyColumn
+    ? 'pr.operator_reply,pr.operator_replied_at'
+    : 'NULL AS operator_reply,NULL AS operator_replied_at';
 $reviews = rows(
     $pdo,
     "SELECT pr.id,pr.building_id,pr.rating,pr.review_text,pr.status,pr.created_at,
-            pr.operator_reply,pr.operator_replied_at,b.name AS building_name,u.name AS reviewer_name
+            {$reviewReplyFields},b.name AS building_name,u.name AS reviewer_name
      FROM property_reviews pr
      JOIN kos_buildings b ON b.id=pr.building_id
      JOIN tenants t ON t.id=pr.tenant_id
@@ -37,7 +43,7 @@ $reviews = rows(
 );
 ?>
 <section class="page-heading">
-    <div><span class="eyebrow">ANALITIK PROPERTI</span><h2>Pengunjung dan ulasan</h2><p>Pantau pencarian, kunjungan, serta tanggapi ulasan pada properti yang Anda kelola.</p></div>
+    <div><span class="eyebrow">LAPORAN PROPERTI</span><h2>Pengunjung dan ulasan</h2><p>Pantau pencarian, kunjungan, serta tanggapi ulasan pada properti yang Anda kelola.</p></div>
 </section>
 <section class="panel">
     <div class="panel-heading"><div><h2>Pencarian dan pengunjung per kos</h2><p>Jumlah pengunjung unik dihitung dari aktivitas melihat kos atau kamar.</p></div></div>
@@ -75,12 +81,16 @@ $reviews = rows(
                     <span class="badge <?= e($review['status']) ?>"><?= e($review['status'] === 'published' ? 'Tampil' : 'Disembunyikan') ?></span>
                 </div>
                 <p><?= nl2br(e($review['review_text'])) ?></p>
-                <form method="post" class="review-reply-form">
-                    <?= csrf_field() ?><input type="hidden" name="action" value="operator_review_reply"><input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>">
-                    <label class="field"><span>Balasan pengelola</span><textarea name="operator_reply" rows="3" maxlength="3000" required><?= e($review['operator_reply'] ?? '') ?></textarea></label>
-                    <button class="button primary" type="submit"><?= $review['operator_reply'] ? 'Perbarui balasan' : 'Kirim balasan' ?></button>
-                    <a class="text-link" href="index.php?page=property&amp;id=<?= (int) $review['building_id'] ?>#review" target="_blank" rel="noopener noreferrer">Lihat ulasan di halaman kos ↗</a>
-                </form>
+                <?php if ($reviewReplyColumn): ?>
+                    <form method="post" class="review-reply-form">
+                        <?= csrf_field() ?><input type="hidden" name="action" value="operator_review_reply"><input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>">
+                        <label class="field"><span>Balasan pengelola</span><textarea name="operator_reply" rows="3" maxlength="3000" required><?= e($review['operator_reply'] ?? '') ?></textarea></label>
+                        <button class="button primary" type="submit"><?= $review['operator_reply'] ? 'Perbarui balasan' : 'Kirim balasan' ?></button>
+                        <a class="text-link" href="index.php?page=property&amp;id=<?= (int) $review['building_id'] ?>#review">Lihat ulasan di halaman kos</a>
+                    </form>
+                <?php elseif ($review['status'] === 'published'): ?>
+                    <p class="muted">Balasan pengelola belum tersedia pada database ini.</p>
+                <?php endif; ?>
                 <details class="review-moderation">
                     <summary>Moderasi ulasan</summary>
                     <form method="post" class="review-moderation-form">

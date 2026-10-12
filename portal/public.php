@@ -241,6 +241,34 @@ if (in_array($page, ['home', 'search'], true)) {
         ? rows($pdo, 'SELECT search_query,searched_at FROM search_history
             WHERE user_id=:user_id ORDER BY searched_at DESC,id DESC LIMIT 8', ['user_id' => $user['id']])
         : [];
+    $accountPanel = null;
+    if ($user && $user['role'] === 'seeker') {
+        $accountPanel = one(
+            $pdo,
+            "SELECT
+                (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+                 JOIN invoices i ON i.id=p.invoice_id JOIN rentals r ON r.id=i.rental_id
+                 JOIN tenants t ON t.id=r.tenant_id
+                 WHERE t.user_id=:paid_user AND p.status='confirmed') AS paid_total,
+                (SELECT COALESCE(SUM(GREATEST(i.amount_due-COALESCE(p.paid,0),0)),0)
+                 FROM invoices i JOIN rentals r ON r.id=i.rental_id
+                 JOIN tenants t ON t.id=r.tenant_id
+                 LEFT JOIN (SELECT invoice_id,SUM(amount) AS paid FROM payments
+                            WHERE status='confirmed' GROUP BY invoice_id) p ON p.invoice_id=i.id
+                 WHERE t.user_id=:open_user AND i.status='open') AS outstanding,
+                (SELECT COUNT(*) FROM payments p
+                 JOIN invoices i ON i.id=p.invoice_id JOIN rentals r ON r.id=i.rental_id
+                 JOIN tenants t ON t.id=r.tenant_id
+                 WHERE t.user_id=:pending_user AND p.status='pending') AS pending_payments,
+                (SELECT COUNT(*) FROM rentals r JOIN tenants t ON t.id=r.tenant_id
+                 WHERE t.user_id=:rental_user AND r.status='active'
+                   AND r.start_date<=CURDATE() AND (r.end_date IS NULL OR r.end_date>=CURDATE())) AS active_rentals",
+            [
+                'paid_user' => $user['id'], 'open_user' => $user['id'],
+                'pending_user' => $user['id'], 'rental_user' => $user['id'],
+            ]
+        );
+    }
     $roomPhotos = [];
     if ($publicRooms) {
         $roomIds = array_map(static fn(array $room): int => (int) $room['id'], $publicRooms);
@@ -417,6 +445,23 @@ if (in_array($page, ['home', 'search'], true)) {
         ];
     }
     $mapBuildings = array_values($mapBuildings);
+    $reviewReplyColumn = $pdo->query(
+        "SHOW COLUMNS FROM property_reviews LIKE 'operator_reply'"
+    )->fetch();
+    $reviewReplyFields = $reviewReplyColumn
+        ? 'pr.operator_reply,pr.operator_replied_at'
+        : 'NULL AS operator_reply,NULL AS operator_replied_at';
+    $homeReviews = rows(
+        $pdo,
+        "SELECT pr.building_id,pr.rating,pr.review_text,pr.created_at,{$reviewReplyFields},
+                b.name AS building_name,u.name AS reviewer_name
+         FROM property_reviews pr
+         JOIN kos_buildings b ON b.id=pr.building_id
+         JOIN tenants t ON t.id=pr.tenant_id
+         LEFT JOIN users u ON u.id=t.user_id
+         WHERE pr.status='published' AND b.status='active'
+         ORDER BY pr.created_at DESC,pr.id DESC LIMIT 6"
+    );
     ?>
     <!doctype html>
     <html lang="id">
@@ -477,6 +522,17 @@ if (in_array($page, ['home', 'search'], true)) {
                 </div>
                 <div class="hero-bottom-wave"></div>
             </section>
+            <?php if ($accountPanel): ?>
+                <section class="user-account-monitor" aria-labelledby="user-account-monitor-title">
+                    <div class="user-account-monitor-heading"><div><span class="section-eyebrow"><span></span> RINGKASAN AKUN</span><h2 id="user-account-monitor-title">Pantau akunmu</h2></div><a class="location-directions-link" href="index.php?page=user_reports">Buka laporan lengkap ↗</a></div>
+                    <div class="user-account-monitor-grid">
+                        <article><span>Total dibayar</span><strong><?= e(money($accountPanel['paid_total'])) ?></strong></article>
+                        <article><span>Sisa tagihan</span><strong><?= e(money($accountPanel['outstanding'])) ?></strong></article>
+                        <article><span>Pembayaran menunggu</span><strong><?= (int) $accountPanel['pending_payments'] ?></strong></article>
+                        <article><span>Masa sewa aktif</span><strong><?= (int) $accountPanel['active_rentals'] ?></strong></article>
+                    </div>
+                </section>
+            <?php endif; ?>
             <?php if ($savedSearches): ?><section class="search-history-strip"><strong>Pencarian terakhirmu</strong><div><?php foreach ($savedSearches as $savedSearch): ?><a href="index.php?page=home&amp;q=<?= rawurlencode($savedSearch['search_query']) ?>"><?= e($savedSearch['search_query']) ?></a><?php endforeach; ?></div></section><?php endif; ?>
             <section class="public-rooms-section" id="kamar">
                 <div class="rooms-section-heading">
@@ -585,6 +641,25 @@ if (in_array($page, ['home', 'search'], true)) {
                     <?php endif; ?>
                 <?php endif; ?>
             </section>
+            <?php if ($homeReviews): ?>
+                <section class="home-reviews-section" aria-labelledby="home-reviews-heading">
+                    <div class="rooms-section-heading">
+                        <div><div class="section-eyebrow"><span></span> CERITA PENGHUNI</div><h2 id="home-reviews-heading">Ulasan dan <span>balasan pengelola.</span></h2></div>
+                        <p>Komentar penghuni dan tanggapan pengelola, langsung menuju kos yang diulas.</p>
+                    </div>
+                    <div class="home-reviews-grid">
+                        <?php foreach ($homeReviews as $review): ?>
+                            <article class="home-review-card">
+                                <div><strong><?= e($review['reviewer_name'] ?: 'Penghuni') ?></strong><span><?= str_repeat('★', (int) $review['rating']) ?></span></div>
+                                <small><?= e(date_id($review['created_at'])) ?> · <?= e($review['building_name']) ?></small>
+                                <p><?= nl2br(e($review['review_text'])) ?></p>
+                                <?php if ($review['operator_reply']): ?><div class="home-review-reply"><strong>Balasan pengelola</strong><p><?= nl2br(e($review['operator_reply'])) ?></p></div><?php endif; ?>
+                                <a class="text-link" href="index.php?page=property&amp;id=<?= (int) $review['building_id'] ?>#review">Lihat ulasan di halaman kos ↗</a>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
             <section class="location-overview" id="peta" aria-labelledby="location-overview-heading">
                 <div class="location-overview-grid">
                     <div class="location-info-card">

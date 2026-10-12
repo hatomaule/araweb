@@ -100,6 +100,7 @@ if ($action === 'submit_booking_proof') {
             }
             $paymentId = (int) post_value('payment_id');
             $decision = $action === 'approve_payment_proof' ? 'confirmed' : 'rejected';
+            $returnPage = $user['role'] === 'admin' ? 'payments' : 'payment_confirmations';
             $pdo->beginTransaction();
             try {
                 $paymentQuery = $pdo->prepare(
@@ -121,7 +122,7 @@ if ($action === 'submit_booking_proof') {
                 if (!$payment) {
                     $pdo->rollBack();
                     set_flash('error', 'Bukti transfer tidak ditemukan atau sudah pernah diproses.');
-                    redirect($user['role'] === 'admin' ? 'payments' : 'operator_bookings');
+                    redirect($returnPage);
                 }
                 $update = $pdo->prepare('UPDATE payments SET status=:status WHERE id=:id');
                 $update->execute(['status' => $decision, 'id' => $paymentId]);
@@ -130,7 +131,7 @@ if ($action === 'submit_booking_proof') {
                         || !in_array($payment['rental_status'], ['upcoming', 'active'], true)) {
                         $pdo->rollBack();
                         set_flash('error', 'Tagihan atau masa booking sudah tidak dapat dikonfirmasi.');
-                        redirect($user['role'] === 'admin' ? 'payments' : 'operator_bookings');
+                        redirect($returnPage);
                     }
                     $total = $pdo->prepare(
                         "SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=:invoice_id AND status='confirmed'"
@@ -155,7 +156,7 @@ if ($action === 'submit_booking_proof') {
             set_flash('success', $decision === 'confirmed'
                 ? 'Pembayaran disetujui. Booking telah dikonfirmasi dan kamar tercatat terisi.'
                 : 'Bukti pembayaran ditolak. Pelanggan dapat mengunggah bukti baru.');
-            redirect('payments');
+            redirect($returnPage);
         }
 
         
