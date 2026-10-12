@@ -28,26 +28,14 @@ if ($page === 'room') {
         http_response_code(404);
         exit('Kamar tidak ditemukan atau belum tersedia untuk publik.');
     }
-    if (room_view_tracking_available($pdo)) {
-        $pdo->prepare(
-            "INSERT INTO property_activity_events (building_id,room_id,user_id,visitor_key,event_type)
-             VALUES (:building_id,:room_id,:user_id,:visitor_key,'room_view')"
-        )->execute([
-            'building_id' => $room['property_id'],
-            'room_id' => $room['id'],
-            'user_id' => $user['id'] ?? null,
-            'visitor_key' => analytics_visitor_key(),
-        ]);
-    } else {
-        $pdo->prepare(
-            "INSERT INTO property_activity_events (building_id,user_id,visitor_key,event_type)
-             VALUES (:building_id,:user_id,:visitor_key,'room_view')"
-        )->execute([
-            'building_id' => $room['property_id'],
-            'user_id' => $user['id'] ?? null,
-            'visitor_key' => analytics_visitor_key(),
-        ]);
-    }
+    $pdo->prepare(
+        "INSERT INTO property_activity_events (building_id,user_id,visitor_key,event_type)
+         VALUES (:building_id,:user_id,:visitor_key,'room_view')"
+    )->execute([
+        'building_id' => $room['property_id'],
+        'user_id' => $user['id'] ?? null,
+        'visitor_key' => analytics_visitor_key(),
+    ]);
     $roomPhotos = rows($pdo,
         "SELECT id,category,photo_path FROM room_photos WHERE room_id=:id
          ORDER BY (category='room') DESC,id", ['id' => $roomId]);
@@ -267,25 +255,10 @@ if (in_array($page, ['home', 'search'], true)) {
             $roomPhotos[(int) $photo['room_id']][] = $photo;
         }
     }
-    $popularRooms = [];
-    $roomViewTrackingAvailable = room_view_tracking_available($pdo);
-    if (!$searchTerm && $roomViewTrackingAvailable && $publicRooms) {
-        $roomIds = array_map(static fn(array $room): int => (int) $room['id'], $publicRooms);
-        $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
-        $roomViewStatement = $pdo->prepare(
-            "SELECT room_id,COUNT(*) AS view_count
-             FROM property_activity_events
-             WHERE room_id IN ({$placeholders}) AND event_type='room_view'
-             GROUP BY room_id"
-        );
-        $roomViewStatement->execute($roomIds);
-        $roomViewCounts = [];
-        foreach ($roomViewStatement->fetchAll() as $viewRow) {
-            $roomViewCounts[(int) $viewRow['room_id']] = (int) $viewRow['view_count'];
-        }
+    $roomListings = [];
+    if (!$searchTerm) {
         foreach ($publicRooms as $room) {
             $roomId = (int) $room['id'];
-            $room['view_count'] = $roomViewCounts[$roomId] ?? 0;
             $room['cover_photo'] = null;
             foreach ($roomPhotos[$roomId] ?? [] as $photo) {
                 if ($photo['category'] === 'room') {
@@ -293,17 +266,8 @@ if (in_array($page, ['home', 'search'], true)) {
                     break;
                 }
             }
-            $popularRooms[] = $room;
+            $roomListings[] = $room;
         }
-        usort(
-            $popularRooms,
-            static fn(array $first, array $second): int =>
-                $second['view_count'] <=> $first['view_count']
-                ?: $second['is_available'] <=> $first['is_available']
-                ?: strcmp($first['building_name'], $second['building_name'])
-                ?: strcmp($first['room_number'], $second['room_number'])
-        );
-        $popularRooms = array_slice($popularRooms, 0, 8);
     }
     $searchListings = [];
     foreach ($publicRooms as $room) {
@@ -598,36 +562,33 @@ if (in_array($page, ['home', 'search'], true)) {
                                 </div><?php else: ?><p class="property-carousel-empty">Belum ada ulasan kos yang dipublikasikan.</p><?php endif; ?>
                             </section>
                         <?php endforeach; ?>
-                        <section class="property-carousel-section" aria-labelledby="popular-rooms-heading">
+                        <section class="property-carousel-section" aria-labelledby="all-rooms-heading">
                             <div class="property-carousel-heading">
-                                <div><div class="section-eyebrow"><span></span> PILIHAN KAMAR</div><h3 id="popular-rooms-heading">Kamar paling banyak dilihat</h3></div>
-                                <?php if ($popularRooms): ?><div class="property-carousel-controls">
-                                    <button type="button" class="property-carousel-arrow" data-carousel-target="popular-rooms" data-carousel-direction="left" aria-label="Geser ke kiri" disabled>‹</button>
-                                    <button type="button" class="property-carousel-arrow" data-carousel-target="popular-rooms" data-carousel-direction="right" aria-label="Geser ke kanan">›</button>
+                                <div><div class="section-eyebrow"><span></span> JELAJAHI KAMAR</div><h3 id="all-rooms-heading">Daftar kamar</h3></div>
+                                <?php if ($roomListings): ?><div class="property-carousel-controls">
+                                    <button type="button" class="property-carousel-arrow" data-carousel-target="all-rooms" data-carousel-direction="left" aria-label="Geser ke kiri" disabled>‹</button>
+                                    <button type="button" class="property-carousel-arrow" data-carousel-target="all-rooms" data-carousel-direction="right" aria-label="Geser ke kanan">›</button>
                                 </div><?php endif; ?>
                             </div>
-                            <?php if ($popularRooms): ?>
-                                <div class="property-carousel-track" id="popular-rooms" tabindex="0" aria-label="Kamar paling banyak dilihat">
-                                    <?php foreach ($popularRooms as $room): ?>
+                            <?php if ($roomListings): ?>
+                                <div class="property-carousel-track" id="all-rooms" tabindex="0" aria-label="Daftar kamar">
+                                    <?php foreach ($roomListings as $room): ?>
                                         <a class="property-carousel-card" href="index.php?page=room&amp;id=<?= (int) $room['id'] ?>">
                                             <div class="property-carousel-visual">
                                                 <?php if ($room['cover_photo']): ?><img src="<?= e($room['cover_photo']) ?>" alt="Foto <?= e($room['room_type'] ?: 'kamar ' . $room['room_number']) ?>" loading="lazy"><?php else: ?><span class="listing-house-art" aria-hidden="true">⌂</span><small>Foto kamar dapat ditambahkan pengelola</small><?php endif; ?>
                                                 <span class="availability-pill <?= $room['is_available'] ? '' : 'unavailable' ?>"><i></i> <?= $room['is_available'] ? 'Tersedia' : 'Tidak tersedia' ?></span>
-                                                <span class="property-carousel-badge"><?= (int) $room['view_count'] ?> dilihat</span>
                                             </div>
                                             <div class="property-carousel-card-body">
                                                 <span class="property-carousel-address">⌖ <?= e($room['building_name']) ?> · <?= e($room['building_address']) ?></span>
                                                 <h4><?= e(($room['room_type'] ?: 'Kamar') . ' · ' . $room['room_number']) ?></h4>
-                                                <p class="property-carousel-rating"><span><?= e($room['floor'] ? 'Lantai ' . $room['floor'] : 'Lihat informasi lengkap kamar') ?></span></p>
+                                                <p class="property-carousel-rating"><span><?= e($room['floor'] ? 'Lantai ' . $room['floor'] : 'Detail kamar dan fasilitas') ?></span></p>
                                                 <div class="property-carousel-price"><span>Harga sewa</span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong></div>
                                             </div>
                                         </a>
                                     <?php endforeach; ?>
                                 </div>
-                            <?php elseif (!$roomViewTrackingAvailable): ?>
-                                <p class="property-carousel-empty">Pelacakan kamar populer belum aktif. Jalankan migration_room_view_tracking.sql untuk mulai mencatat kunjungan kamar.</p>
                             <?php else: ?>
-                                <p class="property-carousel-empty">Belum ada kamar yang dapat ditampilkan.</p>
+                                <p class="property-carousel-empty">Belum ada kamar terdaftar.</p>
                             <?php endif; ?>
                         </section>
                     <?php else: ?>

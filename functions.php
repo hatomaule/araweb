@@ -74,19 +74,6 @@ function analytics_visitor_key(): string
     return $_SESSION['analytics_visitor_key'];
 }
 
-function room_view_tracking_available(PDO $pdo): bool
-{
-    static $available;
-    if ($available !== null) {
-        return $available;
-    }
-
-    $column = $pdo->query("SHOW COLUMNS FROM property_activity_events LIKE 'room_id'");
-    $available = $column->fetch() !== false;
-
-    return $available;
-}
-
 function redirect(string $page = 'dashboard'): void
 {
     $fragment = '';
