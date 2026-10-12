@@ -712,22 +712,42 @@ td strong,.strong{color:#29344a;font-weight:700}
 .hero-map-heading>p{color:#999276}
 .hero-map-panel .tiara-kos-map{height:310px;border:0;border-radius:0;box-shadow:none;filter:saturate(.68) contrast(.94);opacity:.86;mask-image:radial-gradient(ellipse at center,#000 63%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse at center,#000 63%,transparent 100%)}
 .hero-map-panel .map-empty-state{background:transparent;border:0}
+.hero-showcase{display:block;max-width:740px;margin:8px auto 0}
+.hero-showcase .hero-art{width:100%;max-width:700px;margin:0 auto;transform:none}
+.location-overview{max-width:1180px;margin:0 auto;padding:0 26px 64px;scroll-margin-top:96px}
+.location-overview-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:18px;align-items:stretch}
+.location-info-card,.location-map-card{min-width:0;border:1px solid #eeead9;border-radius:16px;background:linear-gradient(145deg,#fffdf4,#f8f5e8);box-shadow:0 12px 30px #5a52200b}
+.location-info-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:30px}
+.location-info-card h2{max-width:390px;margin:16px 0 11px;color:#3b3d2c;font:800 clamp(22px,2.7vw,32px)/1.2 'Manrope',sans-serif;letter-spacing:-1.2px}
+.location-info-card>p{max-width:400px;margin:0;color:#85816f;font-size:12px;line-height:1.8}
+.location-info-address{display:flex;align-items:flex-start;gap:12px;margin-top:22px;padding:13px;border-radius:10px;background:#fffefa}
+.location-info-address>span{color:#d1a923;font-size:20px}
+.location-info-address strong,.location-info-address div>span{display:block}
+.location-info-address strong{margin-bottom:5px;color:#51513a;font-size:11px}
+.location-info-address div>span{color:#85816f;font-size:10px;line-height:1.6}
+.location-directions-link{display:inline-flex;align-items:center;gap:12px;margin-top:18px;color:#718a3d;font-size:11px;font-weight:700}
+.location-directions-link:hover{color:#4f682c}
+.location-map-card{padding:13px;background:#fffefa}
+.location-map-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 3px 11px}
+.location-map-heading>div{display:flex;align-items:center;gap:8px;color:#50513a;font-size:11px}
+.map-status-dot{width:7px;height:7px;border-radius:50%;background:#85a648;box-shadow:0 0 0 4px #eaf0db}
+.location-map-heading>small{color:#8a866f;font-size:10px}
+.location-map-card .tiara-kos-map{height:330px;border:0;border-radius:10px;box-shadow:none;filter:saturate(.78) contrast(.96)}
+.location-map-card .map-empty-state{min-height:330px}
 @media(max-width:900px){
     .hero-inner{padding:35px 22px 40px}
     .hero-copy h1{font-size:clamp(38px,5.5vw,50px);letter-spacing:-2.5px}
-    .hero-showcase{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:14px}
-    .hero-art{transform:scale(.8);transform-origin:center center;margin:-25px -35px}
-    .hero-map-panel{padding:13px}
-    .hero-map-heading{display:block}
-    .hero-map-heading>p{margin-top:6px}
-    .hero-map-panel .tiara-kos-map,.hero-map-panel .map-empty-state{height:270px;min-height:270px}
+    .hero-showcase{max-width:650px}
+    .location-overview-grid{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:13px}
+    .location-info-card{padding:22px}
+    .location-map-card .tiara-kos-map{height:300px}
 }
 @media(max-width:650px){
     .hero-inner{padding:34px 19px 39px}
     .hero-copy h1{font-size:clamp(36px,10vw,44px);letter-spacing:-2px;line-height:1.12}
     .hero-description{font-size:12px}
-    .hero-showcase{grid-template-columns:minmax(0,1fr);gap:5px;margin-top:6px}
-    .hero-art{height:285px;transform:none;margin:0}
+    .hero-showcase{margin-top:6px}
+    .hero-art{height:285px}
     .sun-disc{width:220px;height:220px;right:calc(50% - 112px);top:7px}
     .orbit-one{width:min(365px,105vw);height:235px;right:calc(50% - min(182px,52.5vw));top:16px}
     .orbit-two{width:min(390px,110vw);height:260px;right:calc(50% - min(195px,55vw));top:4px}
@@ -737,8 +757,9 @@ td strong,.strong{color:#29344a;font-weight:700}
     .plant-two{left:calc(50% - 155px);top:28px}
     .leaf-left{left:calc(50% - 155px);bottom:61px}
     .leaf-right{right:calc(50% - 160px);top:23px}
-    .hero-map-panel{padding:5px 0 0}
-    .hero-map-heading h2{font-size:16px}
-    .hero-map-panel .tiara-kos-map{height:280px;min-height:280px}
-    .hero-map-panel .map-empty-state{height:240px;min-height:240px;padding:20px 5px}
+    .location-overview{padding:0 19px 45px;scroll-margin-top:78px}
+    .location-overview-grid{grid-template-columns:minmax(0,1fr);gap:13px}
+    .location-info-card{padding:22px}
+    .location-info-card h2{font-size:25px}
+    .location-map-card .tiara-kos-map{height:290px}
 }

@@ -426,7 +426,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=20261012-wide-hero-soft-map">
+        <link rel="stylesheet" href="style.css?v=20261012-map-after-rooms">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -473,16 +473,6 @@ if (in_array($page, ['home', 'search'], true)) {
                             <div class="art-leaf leaf-left">✦</div><div class="art-leaf leaf-right">✦</div>
                             <div class="hero-room-tag"><span class="room-tag-icon">⌂</span><span><strong><?= $roomCount ?> kamar tersedia</strong><small>Siap jadi ruang ceritamu</small></span><b>↗</b></div>
                         </div>
-                        <section class="hero-map-panel" id="peta" aria-labelledby="hero-map-heading">
-                            <div class="hero-map-heading">
-                                <div><div class="hero-kicker"><span></span> TEMUKAN LOKASI</div><h2 id="hero-map-heading">Kos dekat dengan tujuanmu</h2></div>
-                                <p>Pilih penanda untuk melihat tipe kamar dan harga.</p>
-                            </div>
-                            <?php if ($mapBuildings): ?>
-                                <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di Araweb"></div>
-                                <script type="application/json" id="tiara-kos-map-data"><?= json_encode($mapBuildings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
-                            <?php else: ?><div class="map-empty-state"><span>⌖</span><strong>Lokasi belum tersedia di peta</strong><p>Pengelola perlu mengisi koordinat gedung dan menambahkan kamar kosong yang aktif.</p></div><?php endif; ?>
-                        </section>
                     </div>
                 </div>
                 <div class="hero-bottom-wave"></div>
@@ -594,6 +584,30 @@ if (in_array($page, ['home', 'search'], true)) {
                         <div class="rooms-empty"><span>⌂</span><h3>Belum ada kos terdaftar</h3><p>Kos yang sudah dipublikasikan akan tampil di sini.</p></div>
                     <?php endif; ?>
                 <?php endif; ?>
+            </section>
+            <section class="location-overview" id="peta" aria-labelledby="location-overview-heading">
+                <div class="location-overview-grid">
+                    <div class="location-info-card">
+                        <div class="section-eyebrow"><span></span> TEMUKAN LOKASI</div>
+                        <h2 id="location-overview-heading">Cari kos yang dekat dengan tujuanmu.</h2>
+                        <p>Lihat lokasi kos dan kamar yang tersedia di sekitar Gambesi. Pilih penanda pada peta untuk melihat tipe kamar dan harga sewanya.</p>
+                        <div class="location-info-address">
+                            <span aria-hidden="true">⌖</span>
+                            <div><strong>Alamat</strong><span>Maps Gambesi Tiara Kost,<br>Lapangan Pramuka Gambesi</span></div>
+                        </div>
+                        <a class="location-directions-link" href="https://www.google.com/maps/search/?api=1&amp;query=Maps%20Gambesi%20Tiara%20Kost%2C%20lapangan%20pramuka%20gambesi" target="_blank" rel="noopener noreferrer">Buka petunjuk lokasi <span aria-hidden="true">↗</span></a>
+                    </div>
+                    <div class="location-map-card">
+                        <div class="location-map-heading">
+                            <div><span class="map-status-dot"></span><strong><?= count($mapBuildings) ?> lokasi kos di peta</strong></div>
+                            <small><?= $roomCount ?> kamar tersedia</small>
+                        </div>
+                        <?php if ($mapBuildings): ?>
+                            <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di Araweb"></div>
+                            <script type="application/json" id="tiara-kos-map-data"><?= json_encode($mapBuildings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
+                        <?php else: ?><div class="map-empty-state"><span>⌖</span><strong>Lokasi belum tersedia di peta</strong><p>Pengelola perlu mengisi koordinat gedung dan menambahkan kamar kosong yang aktif.</p></div><?php endif; ?>
+                    </div>
+                </div>
             </section>
             <section class="public-contact" id="langkah-berikutnya"><div class="contact-sun">✳</div><div><span class="section-eyebrow">LANGKAH BERIKUTNYA</span><h2>Sudah menemukan kamar<br>yang terasa seperti rumah?</h2><p>Buka detail kos untuk melihat fasilitas, lokasi, harga, dan informasi pengelolanya.</p></div><a href="#kamar" class="contact-button">Lihat pilihan kamar <span>↑</span></a></section>
         </main>
