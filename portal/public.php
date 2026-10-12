@@ -426,7 +426,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=20261012-contact-footer">
+        <link rel="stylesheet" href="style.css?v=20261012-contact-footer-colors">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
