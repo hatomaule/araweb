@@ -239,13 +239,6 @@ td strong,.strong{color:#29344a;font-weight:700}
 .hero-room-tag small{margin-top:3px;color:#99947b;font-size:9px}
 .hero-room-tag>b{color:#93a14e;margin-left:6px;font-size:14px}
 .hero-bottom-wave{height:17px;position:absolute;bottom:-1px;left:0;right:0;background:#fffefa;clip-path:ellipse(56% 100% at 50% 100%)}
-.public-features{max-width:1020px;margin:-1px auto 0;min-height:112px;padding:18px 25px;display:flex;align-items:center;justify-content:space-between;gap:24px;background:#fffefa;position:relative;z-index:2}
-.feature-item{display:flex;align-items:center;gap:12px}
-.feature-icon{width:42px;height:42px;display:grid;place-items:center;background:#faf1d0;border-radius:50%;color:#95a14d;font-size:19px}
-.feature-item strong,.feature-item small{display:block}
-.feature-item strong{font:700 11px 'Manrope',sans-serif;color:#53543d}
-.feature-item small{font-size:9px;color:#99947e;margin-top:5px}
-.feature-divider{height:36px;width:1px;background:#eeeadd}
 .public-rooms-section{max-width:1180px;margin:auto;padding:64px 26px 80px}
 .rooms-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:27px}
 .rooms-section-heading h2{font:800 33px/1.24 'Manrope',sans-serif;color:#3b3d2c;letter-spacing:-1.4px;margin:13px 0 0}

@@ -426,7 +426,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=20261012-contact-footer-colors">
+        <link rel="stylesheet" href="style.css?v=20261012-remove-feature-strip">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -474,13 +474,6 @@ if (in_array($page, ['home', 'search'], true)) {
                     </div>
                 </div>
                 <div class="hero-bottom-wave"></div>
-            </section>
-            <section class="public-features" id="tentang">
-                <div class="feature-item"><span class="feature-icon">☀</span><span><strong>Suasana hangat</strong><small>Ruang untuk istirahat nyaman</small></span></div>
-                <div class="feature-divider"></div>
-                <div class="feature-item"><span class="feature-icon">⌖</span><span><strong>Praktis dan tenang</strong><small>Tempat tinggal yang terasa pas</small></span></div>
-                <div class="feature-divider"></div>
-                <div class="feature-item"><span class="feature-icon">♡</span><span><strong>Dirawat sepenuh hati</strong><small>Kenyamanan jadi prioritas</small></span></div>
             </section>
             <?php if ($savedSearches): ?><section class="search-history-strip"><strong>Pencarian terakhirmu</strong><div><?php foreach ($savedSearches as $savedSearch): ?><a href="index.php?page=home&amp;q=<?= rawurlencode($savedSearch['search_query']) ?>"><?= e($savedSearch['search_query']) ?></a><?php endforeach; ?></div></section><?php endif; ?>
             <section class="public-map-section" id="peta">
