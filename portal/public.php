@@ -426,7 +426,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="style.css?v=20261012-contact-footer">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -445,6 +445,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a class="nav-current" href="index.php">Beranda</a>
                     <a href="#kamar">Pilihan kos</a>
                     <a href="#peta">Peta lokasi</a>
+                    <a href="#kontak">Kontak</a>
                     <?php if (!$user): ?><a href="index.php?page=register&amp;role=operator">Daftarkan kos</a><?php endif; ?>
                 </div>
                 <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel pemilik kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="login-dialog">Masuk / Daftar<span aria-hidden="true">↗</span></button><?php endif; ?>
@@ -596,9 +597,38 @@ if (in_array($page, ['home', 'search'], true)) {
                     <?php endif; ?>
                 <?php endif; ?>
             </section>
-            <section class="public-contact" id="kontak"><div class="contact-sun">✳</div><div><span class="section-eyebrow">LANGKAH BERIKUTNYA</span><h2>Sudah menemukan kamar<br>yang terasa seperti rumah?</h2><p>Buka detail kos untuk melihat fasilitas, lokasi, harga, dan informasi pengelolanya.</p></div><a href="#kamar" class="contact-button">Lihat pilihan kamar <span>↑</span></a></section>
+            <section class="public-contact" id="langkah-berikutnya"><div class="contact-sun">✳</div><div><span class="section-eyebrow">LANGKAH BERIKUTNYA</span><h2>Sudah menemukan kamar<br>yang terasa seperti rumah?</h2><p>Buka detail kos untuk melihat fasilitas, lokasi, harga, dan informasi pengelolanya.</p></div><a href="#kamar" class="contact-button">Lihat pilihan kamar <span>↑</span></a></section>
         </main>
-        <footer class="public-footer"><a class="tiara-brand araweb-brand" href="#beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer>
+        <footer class="public-footer" id="kontak">
+            <div class="public-footer-inner">
+                <div class="public-footer-brand">
+                    <a class="tiara-brand araweb-brand" href="#beranda" aria-label="Araweb, kembali ke atas">
+                        <span class="tiara-brand-icon">A</span>
+                        <span>ara<span>web</span><small>HUNIAN NYAMAN</small></span>
+                    </a>
+                    <p>Temukan ruang nyaman untuk cerita barumu.</p>
+                </div>
+                <nav class="public-footer-links" aria-label="Tautan cepat">
+                    <h2>Tautan cepat</h2>
+                    <a href="#beranda">› <span>Beranda</span></a>
+                    <a href="#kamar">› <span>Daftar kos &amp; kamar</span></a>
+                    <a href="#peta">› <span>Peta lokasi</span></a>
+                    <a href="#kontak">› <span>Kontak</span></a>
+                </nav>
+                <section class="public-footer-contact" aria-labelledby="public-footer-contact-heading">
+                    <h2 id="public-footer-contact-heading">Kontak</h2>
+                    <a href="https://www.google.com/maps/search/?api=1&amp;query=Maps%20Gambesi%20Tiara%20Kost%2C%20lapangan%20pramuka%20gambesi" target="_blank" rel="noopener noreferrer">
+                        <span aria-hidden="true">⌖</span><span>Maps Gambesi Tiara Kost,<br>Lapangan Pramuka Gambesi</span>
+                    </a>
+                    <a href="tel:081342122105"><span aria-hidden="true">☎</span><span>081342122105</span></a>
+                    <a href="mailto:alstrazhila@gmail.com"><span aria-hidden="true">✉</span><span>alstrazhila@gmail.com</span></a>
+                </section>
+                <div class="public-footer-bottom">
+                    <span>© <?= date('Y') ?> Araweb. Hak cipta dilindungi.</span>
+                    <a href="#beranda" aria-label="Kembali ke atas">↑</a>
+                </div>
+            </div>
+        </footer>
         <?php if (!$user): ?><dialog class="action-dialog login-dialog" id="login-dialog"><div class="action-dialog-form"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">AKUN ARAWEB</span><h2>Masuk ke Araweb</h2><p>Lanjutkan ke halaman masuk untuk mengakses profil, booking, dan layanan akun kamu.</p><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><a class="button primary" href="index.php?page=login">Lanjut masuk</a></div></div></dialog><?php endif; ?>
         <?php if ($mapBuildings): ?>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
