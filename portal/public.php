@@ -426,7 +426,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=20261012-remove-feature-strip">
+        <link rel="stylesheet" href="style.css?v=20261012-hero-map-layout">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -465,24 +465,29 @@ if (in_array($page, ['home', 'search'], true)) {
                         </div>
                         <div class="hero-proof"><div class="proof-stars">★★★★★</div><span>Ruang nyaman untuk cerita barumu</span></div>
                     </div>
-                    <div class="hero-art" aria-label="Ilustrasi rumah Araweb">
-                        <div class="sun-disc"></div><div class="hero-plant plant-one">✳</div><div class="hero-plant plant-two">✳</div>
-                        <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-                        <div class="house-art"><div class="house-roof"></div><div class="house-top"><div class="house-window window-left"><i></i></div><div class="house-window window-right"><i></i></div></div><div class="house-awning"></div><div class="house-bottom"><div class="house-door"><i></i></div><div class="house-window window-bottom"><i></i></div></div><div class="house-sign">ARAWEB</div></div>
-                        <div class="art-leaf leaf-left">✦</div><div class="art-leaf leaf-right">✦</div>
-                        <div class="hero-room-tag"><span class="room-tag-icon">⌂</span><span><strong><?= $roomCount ?> kamar tersedia</strong><small>Siap jadi ruang ceritamu</small></span><b>↗</b></div>
+                    <div class="hero-showcase">
+                        <div class="hero-art" aria-label="Ilustrasi rumah Araweb">
+                            <div class="sun-disc"></div><div class="hero-plant plant-one">✳</div><div class="hero-plant plant-two">✳</div>
+                            <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+                            <div class="house-art"><div class="house-roof"></div><div class="house-top"><div class="house-window window-left"><i></i></div><div class="house-window window-right"><i></i></div></div><div class="house-awning"></div><div class="house-bottom"><div class="house-door"><i></i></div><div class="house-window window-bottom"><i></i></div></div><div class="house-sign">ARAWEB</div></div>
+                            <div class="art-leaf leaf-left">✦</div><div class="art-leaf leaf-right">✦</div>
+                            <div class="hero-room-tag"><span class="room-tag-icon">⌂</span><span><strong><?= $roomCount ?> kamar tersedia</strong><small>Siap jadi ruang ceritamu</small></span><b>↗</b></div>
+                        </div>
+                        <section class="hero-map-panel" id="peta" aria-labelledby="hero-map-heading">
+                            <div class="hero-map-heading">
+                                <div><div class="hero-kicker"><span></span> TEMUKAN LOKASI</div><h2 id="hero-map-heading">Kos dekat dengan tujuanmu</h2></div>
+                                <p>Pilih penanda untuk melihat tipe kamar dan harga.</p>
+                            </div>
+                            <?php if ($mapBuildings): ?>
+                                <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di Araweb"></div>
+                                <script type="application/json" id="tiara-kos-map-data"><?= json_encode($mapBuildings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
+                            <?php else: ?><div class="map-empty-state"><span>⌖</span><strong>Lokasi belum tersedia di peta</strong><p>Pengelola perlu mengisi koordinat gedung dan menambahkan kamar kosong yang aktif.</p></div><?php endif; ?>
+                        </section>
                     </div>
                 </div>
                 <div class="hero-bottom-wave"></div>
             </section>
             <?php if ($savedSearches): ?><section class="search-history-strip"><strong>Pencarian terakhirmu</strong><div><?php foreach ($savedSearches as $savedSearch): ?><a href="index.php?page=home&amp;q=<?= rawurlencode($savedSearch['search_query']) ?>"><?= e($savedSearch['search_query']) ?></a><?php endforeach; ?></div></section><?php endif; ?>
-            <section class="public-map-section" id="peta">
-                <div class="rooms-section-heading"><div><div class="section-eyebrow"><span></span> TEMUKAN LOKASI</div><h2>Beberapa lokasi,<br><span>pilihan nyaman untukmu.</span></h2></div><p>Lihat kos dengan kamar tersedia di Araweb. Pilih penanda pada peta untuk melihat tipe serta harga per bulan.</p></div>
-                <?php if ($mapBuildings): ?>
-                    <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di Araweb"></div>
-                    <script type="application/json" id="tiara-kos-map-data"><?= json_encode($mapBuildings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
-                <?php else: ?><div class="map-empty-state"><span>⌖</span><strong>Lokasi belum tersedia di peta</strong><p>Pengelola perlu mengisi koordinat gedung dan menambahkan kamar kosong yang aktif.</p></div><?php endif; ?>
-            </section>
             <section class="public-rooms-section" id="kamar">
                 <div class="rooms-section-heading">
                     <div><div class="section-eyebrow"><span></span> <?= $searchTerm !== '' ? 'HASIL PENCARIAN' : 'PILIHAN HUNIAN' ?></div><h2><?= $searchTerm !== '' ? 'Kos yang cocok,' : 'Temukan kos favorit,' ?><br><span><?= $searchTerm !== '' ? 'untuk pencarianmu.' : 'untuk cerita barumu.' ?></span></h2></div>

@@ -691,3 +691,45 @@ td strong,.strong{color:#29344a;font-weight:700}
 .income-chart-month>small{color:#798895;font-size:10px}
 @media(max-width:900px){.income-chart-grid{grid-template-columns:1fr}}
 @media(max-width:700px){.profile-detail-grid{grid-template-columns:1fr;padding:6px 15px 15px}.tenant-profile-heading{padding:16px}.tenant-profile-panel>.form-actions{padding:0 15px 17px}.review-management-list{padding:0 12px 12px}.review-management-card{padding:12px}.room-management-table{min-width:690px}}
+
+.hero-inner{display:block;min-height:0;padding-top:42px;padding-bottom:46px}
+.hero-copy{max-width:920px;padding:0}
+.hero-copy h1{max-width:780px;margin-top:14px}
+.hero-description{max-width:680px}
+.hero-showcase{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);align-items:center;gap:30px;margin-top:8px}
+.hero-art{min-width:0;height:340px;transform:none}
+.hero-map-panel{min-width:0;padding:17px;border:1px solid #fff9df;border-radius:17px;background:#fffefaad;box-shadow:0 15px 38px #76683112;scroll-margin-top:100px}
+.hero-map-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:13px}
+.hero-map-heading h2{margin:8px 0 0;color:#3b3d2c;font:700 18px 'Manrope',sans-serif;letter-spacing:-.4px}
+.hero-map-heading>p{max-width:180px;margin:0;color:#88836f;font-size:10px;line-height:1.6}
+.hero-map-panel .tiara-kos-map{height:300px;border-radius:11px;box-shadow:none}
+.hero-map-panel .map-empty-state{min-height:300px;background:#fffdf5}
+@media(max-width:900px){
+    .hero-inner{padding:35px 22px 40px}
+    .hero-copy h1{font-size:46px}
+    .hero-showcase{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:14px}
+    .hero-art{transform:scale(.8);transform-origin:center center;margin:-25px -35px}
+    .hero-map-panel{padding:13px}
+    .hero-map-heading{display:block}
+    .hero-map-heading>p{margin-top:6px}
+    .hero-map-panel .tiara-kos-map,.hero-map-panel .map-empty-state{height:270px;min-height:270px}
+}
+@media(max-width:650px){
+    .hero-inner{padding:34px 19px 39px}
+    .hero-copy h1{font-size:clamp(36px,10vw,44px);letter-spacing:-2px;line-height:1.12}
+    .hero-description{font-size:12px}
+    .hero-showcase{grid-template-columns:minmax(0,1fr);gap:5px;margin-top:6px}
+    .hero-art{height:285px;transform:none;margin:0}
+    .sun-disc{width:220px;height:220px;right:calc(50% - 112px);top:7px}
+    .orbit-one{width:min(365px,105vw);height:235px;right:calc(50% - min(182px,52.5vw));top:16px}
+    .orbit-two{width:min(390px,110vw);height:260px;right:calc(50% - min(195px,55vw));top:4px}
+    .house-art{right:calc(50% - 148px);bottom:7px;transform:scale(.88);transform-origin:bottom center}
+    .hero-room-tag{left:calc(50% - 170px);bottom:8px}
+    .plant-one{right:calc(50% - 170px);bottom:17px}
+    .plant-two{left:calc(50% - 155px);top:28px}
+    .leaf-left{left:calc(50% - 155px);bottom:61px}
+    .leaf-right{right:calc(50% - 160px);top:23px}
+    .hero-map-panel{padding:13px;border-radius:13px}
+    .hero-map-heading h2{font-size:16px}
+    .hero-map-panel .tiara-kos-map,.hero-map-panel .map-empty-state{height:280px;min-height:280px}
+}
