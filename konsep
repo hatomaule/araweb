@@ -1,0 +1,59 @@
+Struktur modul aplikasi manajemen kos (8 modul):
+
+root:
+    index.php                         Entry point dan router inti
+    config.php                        Konfigurasi inti
+    functions.php                     Helper inti
+    core:
+        bootstrap.php
+        modules.php
+    accounts:
+        auth.php
+        auth_actions.php
+        act.php
+        form.php
+        profile_form.php
+    admin:
+        form.php
+        act.php
+        dashboard/form.php
+        userkost/form.php
+        datakost/form.php
+    portal:
+        public.php
+        form.php
+        act.php
+        search_history/form.php
+    properties:
+        form.php
+        act.php
+        dashboard.php
+        operator_dashboard.php
+        buildings.php
+        building_form.php
+        tenants.php
+        tenant_form.php
+        rooms.php
+        room_form.php
+        rentals.php
+        rental_form.php
+    bookings:
+        form.php
+        act.php
+        seeker_form.php
+        seeker_list.php
+        operator_list.php
+    payments:
+        form.php
+        act.php
+        proof.php
+        invoices.php
+        invoice_form.php
+        bank_settings.php
+        history.php
+    reports:
+        form.php
+        platform.php
+
+Peran operator ditangani di modul properti, booking, dan pembayaran sesuai fungsi;
+tidak ada modul operator terpisah. Tidak ada perubahan skema database.

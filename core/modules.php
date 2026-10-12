@@ -1,0 +1,57 @@
+<?php
+declare(strict_types=1);
+
+const PAGE_MODULES = [
+    'home' => 'portal',
+    'search' => 'portal',
+    'property' => 'portal',
+    'room' => 'portal',
+    'search_history' => 'portal',
+    'login' => 'accounts',
+    'register' => 'accounts',
+    'forgot_password' => 'accounts',
+    'reset_password' => 'accounts',
+    'setup' => 'accounts',
+    'facebook_login' => 'accounts',
+    'facebook_callback' => 'accounts',
+    'profile' => 'accounts',
+    'change_password' => 'accounts',
+    'platform_dashboard' => 'admin',
+    'platform_owners' => 'admin',
+    'platform_accounts' => 'admin',
+    'platform_operator_accounts' => 'admin',
+    'platform_seeker_accounts' => 'admin',
+    'platform_unhoused_users' => 'admin',
+    'platform_operator_profile' => 'admin',
+    'platform_user_profile' => 'admin',
+    'platform_listings' => 'admin',
+    'platform_reports' => 'reports',
+    'operator_reports' => 'reports',
+    'user_reports' => 'reports',
+    'dashboard' => 'properties',
+    'buildings' => 'properties',
+    'building_form' => 'properties',
+    'tenants' => 'properties',
+    'tenant_form' => 'properties',
+    'tenant_profile' => 'properties',
+    'rooms' => 'properties',
+    'room_form' => 'properties',
+    'rentals' => 'properties',
+    'rental_form' => 'properties',
+    'booking_form' => 'bookings',
+    'my_bookings' => 'bookings',
+    'operator_bookings' => 'bookings',
+    'invoices' => 'payments',
+    'invoice_form' => 'payments',
+    'operator_payment' => 'payments',
+    'payments' => 'payments',
+    'bank_settings' => 'payments',
+    'payment_proof' => 'payments',
+    'my_payments' => 'payments',
+    'tenant_payments' => 'payments',
+];
+
+function page_module(string $page): string
+{
+    return PAGE_MODULES[$page] ?? 'core';
+}

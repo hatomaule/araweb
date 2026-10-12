@@ -1,0 +1,4 @@
+<?php
+$history = rows($pdo, 'SELECT search_query,searched_at FROM search_history WHERE user_id=:id ORDER BY searched_at DESC,id DESC LIMIT 100', ['id' => $user['id']]);
+?>
+<div class="panel"><div class="panel-heading"><div><h2>Riwayat pencarian</h2><p>Pencarian tersimpan pada akun Anda.</p></div><a class="text-link" href="index.php">Cari kos →</a></div><div class="table-scroll"><table><thead><tr><th>Kata kunci</th><th>Waktu</th><th></th></tr></thead><tbody><?php foreach ($history as $item): ?><tr><td><?= e($item['search_query']) ?></td><td><?= e(date_id($item['searched_at'])) ?></td><td><a class="text-link" href="index.php?page=home&amp;q=<?= rawurlencode($item['search_query']) ?>">Cari lagi ↗</a></td></tr><?php endforeach; ?><?php if (!$history): ?><tr><td colspan="3" class="no-data">Riwayat akan muncul setelah Anda mencari nama kos atau alamat.</td></tr><?php endif; ?></tbody></table></div></div>

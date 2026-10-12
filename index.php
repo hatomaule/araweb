@@ -1,0 +1,452 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/core/bootstrap.php';
+require_once __DIR__ . '/core/modules.php';
+require_once __DIR__ . '/accounts/auth_actions.php';
+require_once __DIR__ . '/accounts/act.php';
+require_once __DIR__ . '/admin/act.php';
+require_once __DIR__ . '/portal/act.php';
+require_once __DIR__ . '/properties/act.php';
+require_once __DIR__ . '/bookings/act.php';
+require_once __DIR__ . '/payments/act.php';
+
+$allowedPages = [
+    'home', 'search', 'property', 'room', 'dashboard', 'buildings', 'building_form',
+    'tenants', 'tenant_form', 'rooms', 'room_form', 'rentals', 'rental_form',
+    'invoices', 'invoice_form', 'operator_payment', 'payments', 'bank_settings', 'my_bookings',
+    'my_payments', 'tenant_payments', 'booking_form', 'payment_proof', 'profile', 'search_history',
+    'platform_dashboard', 'platform_owners', 'platform_accounts',
+    'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users',
+    'platform_operator_profile', 'platform_user_profile',
+    'platform_listings',
+    'platform_reports', 'operator_reports', 'user_reports', 'change_password',
+    'operator_bookings', 'tenant_profile', 'facebook_login',
+    'facebook_callback', 'login', 'register', 'setup', 'forgot_password', 'reset_password',
+];
+$page = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] : 'home';
+if (!in_array($page, $allowedPages, true)) {
+    $page = 'dashboard';
+}
+$pageModule = page_module($page);
+
+try {
+    $pdo = db();
+    $userCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role='admin'")->fetchColumn();
+    $pdo->beginTransaction();
+    $expireInvoices = $pdo->prepare(
+        "UPDATE invoices i JOIN rentals r ON r.id=i.rental_id
+         SET i.status='void'
+         WHERE i.status='open' AND r.status='upcoming'
+           AND r.booking_expires_at IS NOT NULL AND r.booking_expires_at<=NOW()
+           AND NOT EXISTS (
+               SELECT 1 FROM payments p WHERE p.invoice_id=i.id AND p.status='pending'
+           )"
+    );
+    $expireInvoices->execute();
+    $expireBookings = $pdo->prepare(
+        "UPDATE rentals r SET r.status='cancelled'
+         WHERE r.status='upcoming' AND r.booking_expires_at IS NOT NULL
+           AND r.booking_expires_at<=NOW()
+           AND NOT EXISTS (
+               SELECT 1 FROM invoices i JOIN payments p ON p.invoice_id=i.id
+               WHERE i.rental_id=r.id AND p.status='pending'
+           )"
+    );
+    $expireBookings->execute();
+    $pdo->commit();
+} catch (PDOException $exception) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('Kos application database error: ' . $exception->getMessage());
+    http_response_code(500);
+    ?><!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Database belum siap</title><link rel="stylesheet" href="style.css"></head><body><main class="auth-wrap"><section class="auth-card"><div class="brand-mark">K</div><h1>Database belum dapat diakses</h1><p>Pastikan MySQL berjalan dan database <code>manajemen_kos</code> beserta tabelnya sudah dibuat. Periksa juga pengaturan koneksi di <code>config.php</code>.</p></section></main></body></html><?php
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!valid_csrf()) {
+        set_flash('error', 'Formulir kedaluwarsa. Silakan coba lagi.');
+        redirect($page);
+    }
+
+    $action = post_value('action');
+    try {
+        handle_auth_action($pdo, $userCount, $page, $action);
+        $user = current_user();
+        if (!$user) {
+            redirect($userCount === 0 ? 'setup' : 'login');
+        }
+
+        handle_admin_action($pdo, $user, $action);
+        handle_operator_action($pdo, $user, $action);
+
+        handle_account_action($pdo, $user, $action);
+        handle_portal_action($pdo, $user, $action);
+        handle_customer_booking_action($pdo, $user, $action);
+        handle_booking_payment_action($pdo, $user, $action);
+        handle_bank_settings_action($pdo, $user, $action);
+        handle_property_action($pdo, $user, $action);
+        handle_rental_action($pdo, $user, $action);
+        handle_invoice_action($pdo, $user, $action);
+        handle_manual_payment_action($pdo, $user, $action);
+        set_flash('error', 'Aksi tidak dikenal.');
+        redirect('dashboard');
+    } catch (RuntimeException $exception) {
+        error_log('Kos application operation failed: ' . $exception->getMessage());
+        set_flash('error', $exception->getMessage());
+        if ($action === 'save_room') {
+            $roomId = (int) post_value('id');
+            redirect('room_form' . ($roomId > 0 ? '&id=' . $roomId : ''));
+        }
+        if ($action === 'delete_room_photo') {
+            redirect('room_form&id=' . max(0, (int) post_value('room_id')));
+        }
+        if ($action === 'admin_update_operator_profile') {
+            redirect((post_value('account_role') === 'seeker' ? 'platform_user_profile' : 'platform_operator_profile')
+                . '&id=' . max(0, (int) post_value('user_id')));
+        }
+        if ($action === 'save_profile') {
+            redirect('profile');
+        }
+        redirect($page);
+    } catch (PDOException $exception) {
+        error_log('Kos application database operation failed: ' . $exception->getMessage());
+        $databaseErrorMessage = in_array($action, ['save_profile', 'admin_update_operator_profile'], true)
+            ? 'Email tersebut sudah digunakan akun lain atau perubahan profil tidak dapat disimpan.'
+            : ($action === 'save_operator_payment'
+                ? 'Pembayaran tidak dapat disimpan. Periksa email/telepon, kamar, dan periode pembayaran.'
+                : (in_array($action, ['operator_review_reply', 'operator_review_visibility'], true)
+                    ? 'Ulasan tidak dapat diperbarui. Pastikan migrasi balasan ulasan telah diterapkan.'
+                    : 'Data tidak dapat disimpan. Pastikan tidak ada nomor identitas atau kamar yang duplikat.'));
+        set_flash('error', $databaseErrorMessage);
+        if ($action === 'admin_update_operator_profile') {
+            redirect((post_value('account_role') === 'seeker' ? 'platform_user_profile' : 'platform_operator_profile')
+                . '&id=' . max(0, (int) post_value('user_id')));
+        }
+        if ($action === 'save_profile') {
+            redirect('profile');
+        }
+        redirect($page);
+    }
+}
+
+$user = current_user();
+if ($user) {
+    $pdo->prepare('UPDATE users SET last_seen_at=NOW() WHERE id=:id')
+        ->execute(['id' => $user['id']]);
+    $activityLoggedAt = (int) ($_SESSION['activity_logged_at'][$user['id']] ?? 0);
+    if ($activityLoggedAt <= time() - 300) {
+        try {
+            $pdo->prepare(
+                "INSERT INTO user_activity_events (user_id,account_role,occurred_at)
+                 VALUES (:user_id,:account_role,NOW())"
+            )->execute(['user_id' => $user['id'], 'account_role' => $user['role']]);
+            $_SESSION['activity_logged_at'][$user['id']] = time();
+            unset($_SESSION['activity_log_migration_notice']);
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) !== 1146
+                || !str_contains($exception->getMessage(), 'user_activity_events')) {
+                throw $exception;
+            }
+            if (empty($_SESSION['activity_log_migration_notice'])) {
+                set_flash(
+                    'error',
+                    'Log aktivitas belum aktif. Buat backup database, lalu jalankan migration_account_activity_and_deletion.sql.'
+                );
+                $_SESSION['activity_log_migration_notice'] = true;
+            }
+        }
+    }
+}
+if (isset($_GET['account_lookup'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    if (!$user || $user['role'] !== 'operator') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Akses pencarian akun ditolak.']);
+        exit;
+    }
+    $term = substr(trim((string) ($_GET['term'] ?? '')), 0, 100);
+    if (strlen($term) < 2) {
+        echo json_encode(['accounts' => []]);
+        exit;
+    }
+    $lookup = $pdo->prepare(
+        "SELECT u.id,u.name,u.email,u.phone,u.gender
+         FROM users u
+         WHERE u.role='seeker' AND u.status='active'
+           AND (u.name LIKE :name_term ESCAPE '!'
+                OR u.email LIKE :email_term ESCAPE '!'
+                OR u.phone LIKE :phone_term ESCAPE '!')
+         ORDER BY u.name,u.id LIMIT 10"
+    );
+    $searchTerm = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term) . '%';
+    $lookup->execute([
+        'name_term' => $searchTerm, 'email_term' => $searchTerm, 'phone_term' => $searchTerm,
+    ]);
+    echo json_encode(['accounts' => $lookup->fetchAll()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if (in_array($page, ['home', 'search', 'property', 'room'], true)) {
+    $pdo->prepare(
+        "INSERT INTO property_activity_events (user_id,visitor_key,event_type)
+         VALUES (:user_id,:visitor_key,'visit')"
+    )->execute([
+        'user_id' => $user['id'] ?? null,
+        'visitor_key' => analytics_visitor_key(),
+    ]);
+}
+if ($userCount === 0 && (!$user || $user['role'] !== 'admin')
+    && !in_array($page, ['home', 'search', 'property', 'room', 'setup', 'login', 'register',
+        'forgot_password', 'reset_password',
+        'facebook_login', 'facebook_callback'], true)) {
+    redirect('setup');
+}
+if ($userCount > 0 && !$user
+    && !in_array($page, ['home', 'search', 'property', 'room', 'login', 'register',
+        'forgot_password', 'reset_password',
+        'facebook_login', 'facebook_callback'], true)) {
+    redirect('login');
+}
+if ($user && in_array($page, ['login', 'register', 'setup', 'forgot_password', 'reset_password'], true)) {
+    redirect($user['role'] === 'admin' ? 'platform_dashboard'
+        : ($user['role'] === 'operator' ? 'dashboard' : 'home'));
+}
+if ($user && $user['role'] === 'admin' && $page === 'platform_accounts') {
+    redirect('platform_operator_accounts');
+}
+if ($user && $user['role'] === 'admin' && $page === 'platform_owners') {
+    redirect('platform_operator_accounts');
+}
+if ($user && $user['role'] === 'admin' && $page === 'platform_reports') {
+    redirect('platform_dashboard');
+}
+if ($user && $user['role'] === 'admin'
+    && in_array($page, [
+        'search_history', 'my_bookings', 'booking_form', 'my_payments',
+        'operator_reports', 'user_reports',
+    ], true)) {
+    redirect('platform_dashboard');
+}
+if ($user && $user['role'] === 'seeker'
+    && !in_array($page, ['home', 'search', 'property', 'room', 'my_bookings', 'my_payments', 'booking_form',
+        'payment_proof', 'profile', 'search_history', 'user_reports', 'change_password'], true)) {
+    redirect('home');
+}
+if ($user && $user['role'] === 'operator'
+    && !in_array($page, ['home', 'search', 'dashboard', 'buildings', 'building_form', 'rooms',
+        'room_form', 'tenants', 'tenant_form', 'tenant_payments', 'invoices',
+        'invoice_form', 'operator_payment', 'payments', 'tenant_profile',
+        'operator_bookings', 'bank_settings', 'profile', 'payment_proof', 'operator_reports',
+        'property', 'room', 'change_password'], true)) {
+    redirect('dashboard');
+}
+if ($user && $user['role'] === 'admin'
+    && in_array($page, ['operator_bookings'], true)) {
+    redirect('platform_dashboard');
+}
+require __DIR__ . '/payments/proof.php';
+$flash = take_flash();
+require __DIR__ . '/accounts/auth.php';
+
+function rows(PDO $pdo, string $sql, array $params = []): array
+{
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+    return $statement->fetchAll();
+}
+
+function one(PDO $pdo, string $sql, array $params = []): ?array
+{
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+    $record = $statement->fetch();
+    return $record ?: null;
+}
+
+function page_title(string $page): string
+{
+    $titles = [
+        'dashboard' => 'Laporan', 'tenants' => 'Penghuni', 'tenant_form' => 'Tambah penghuni',
+        'buildings' => 'Gedung kos', 'building_form' => 'Form gedung',
+        'rooms' => 'Kamar', 'room_form' => 'Form kamar', 'rentals' => 'Masa sewa',
+        'rental_form' => 'Sewa baru', 'invoices' => 'Tagihan', 'invoice_form' => 'Buat tagihan',
+        'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran', 'bank_settings' => 'Rekening',
+        'my_bookings' => 'Pesanan saya', 'booking_form' => 'Pesan kamar',
+        'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil operator',
+        'platform_user_profile' => 'Profil User',
+        'operator_bookings' => 'Booking', 'tenant_profile' => 'Profil penghuni',
+        'my_payments' => 'Riwayat pembayaran', 'tenant_payments' => 'Histori penghuni',
+        'platform_dashboard' => 'Dashboard', 'platform_owners' => 'Akun operator',
+        'platform_accounts' => 'Manajemen akun',
+        'platform_operator_accounts' => 'Akun operator',
+        'platform_seeker_accounts' => 'Akun User',
+        'platform_unhoused_users' => 'User pengguna',
+        'platform_listings' => 'Daftar kos', 'platform_reports' => 'Dashboard',
+        'operator_reports' => 'Analitik kos', 'user_reports' => 'Laporan pembayaran',
+        'change_password' => 'Ganti password',
+    ];
+    return $titles[$page] ?? 'Ringkasan';
+}
+
+function collect_photo_uploads(string $field): array
+{
+    if (!isset($_FILES[$field]) || !is_array($_FILES[$field]['name'] ?? null)) {
+        return [];
+    }
+
+    $files = $_FILES[$field];
+    $selected = [];
+    foreach ($files['name'] as $index => $name) {
+        $error = $files['error'][$index] ?? UPLOAD_ERR_NO_FILE;
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Unggah foto gagal. Periksa ukuran berkas dan pengaturan upload PHP.');
+        }
+        $selected[] = [
+            'name' => (string) $name,
+            'tmp_name' => (string) ($files['tmp_name'][$index] ?? ''),
+            'size' => (int) ($files['size'][$index] ?? 0),
+        ];
+    }
+
+    if (count($selected) > 4) {
+        throw new RuntimeException('Maksimal 4 foto untuk setiap kategori dalam satu kali unggah.');
+    }
+
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    $fileInfo = new finfo(FILEINFO_MIME_TYPE);
+    foreach ($selected as &$file) {
+        if ($file['size'] < 1 || $file['size'] > 4 * 1024 * 1024
+            || !is_uploaded_file($file['tmp_name'])) {
+            throw new RuntimeException('Setiap foto harus berukuran maksimal 4 MB.');
+        }
+
+        $mimeType = $fileInfo->file($file['tmp_name']);
+        $dimensions = @getimagesize($file['tmp_name']);
+        if (!isset($allowedTypes[$mimeType]) || !$dimensions
+            || $dimensions[0] > 8000 || $dimensions[1] > 8000) {
+            throw new RuntimeException('Gunakan foto JPG, PNG, atau WebP dengan ukuran gambar maksimal 8000 × 8000 piksel.');
+        }
+        $file['extension'] = $allowedTypes[$mimeType];
+    }
+    unset($file);
+
+    return $selected;
+}
+
+require __DIR__ . '/portal/public.php';
+?><!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261012-account-activity"></head>
+<body><div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="index.php"><span class="brand-mark">A</span><span>Araweb<small>Manajemen kos</small></span></a>
+        <div class="nav-caption">MENU UTAMA</div>
+        <nav class="main-nav">
+            <?php
+            $nav = [
+                        'dashboard' => ['▤', 'Laporan'],
+                        'operator_payment' => ['＋', 'Input Pembayaran'],
+                        'payments' => ['▤', 'Histori pembayaran'],
+                        'operator_bookings' => ['▣', 'Booking'],
+                        'operator_reports' => ['▤', 'Analitik kos'],
+            ];
+            if ($user['role'] === 'seeker') {
+                $nav = [
+                    'home' => ['⌕', 'Cari kos'], 'my_bookings' => ['⌂', 'Booking saya'],
+                    'my_payments' => ['▤', 'Riwayat pembayaran'],
+                    'user_reports' => ['▤', 'Laporan pembayaran'],
+                    'search_history' => ['◷', 'Riwayat pencarian'], 'profile' => ['♙', 'Profil'],
+                ];
+            } elseif ($user['role'] === 'admin') {
+                $nav = [
+                    'platform_dashboard' => ['⌂', 'Dashboard'],
+                    'platform_listings' => ['⌖', 'Daftar kos'],
+                ];
+            }
+            foreach ($nav as $target => [$icon, $label]):
+            ?>
+                <a class="<?= $page === $target || str_starts_with($page, rtrim($target, 's') . '_') ? 'active' : '' ?>" href="index.php?page=<?= e($target) ?>"><span class="nav-icon"><?= e($icon) ?></span><?= e($label) ?></a>
+                <?php if ($user['role'] === 'operator' && $target === 'dashboard'): ?>
+                    <?php $propertyMenuPages = ['buildings', 'building_form', 'rooms', 'room_form']; ?>
+                    <details class="nav-group" <?= in_array($page, $propertyMenuPages, true) ? 'open' : '' ?>>
+                        <summary class="<?= in_array($page, $propertyMenuPages, true) ? 'active' : '' ?>"><span class="nav-icon">⌂</span>Properti<span class="nav-chevron">⌄</span></summary>
+                        <div class="nav-submenu">
+                            <a class="<?= in_array($page, ['buildings', 'building_form'], true) ? 'active' : '' ?>" href="index.php?page=buildings">Gedung</a>
+                            <a class="<?= in_array($page, ['rooms', 'room_form'], true) ? 'active' : '' ?>" href="index.php?page=rooms">Kamar</a>
+                        </div>
+                    </details>
+                    <a class="<?= in_array($page, ['tenants', 'tenant_form', 'tenant_profile', 'tenant_payments'], true) ? 'active' : '' ?>" href="index.php?page=tenants"><span class="nav-icon">♙</span>Penghuni</a>
+                <?php endif; ?>
+                <?php if ($user['role'] === 'admin' && $target === 'platform_dashboard'): ?>
+                    <details class="nav-group" <?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile'], true) ? 'open' : '' ?>>
+                        <summary class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile'], true) ? 'active' : '' ?>"><span class="nav-icon">⚙</span>Manajemen akun<span class="nav-chevron">⌄</span></summary>
+                        <div class="nav-submenu">
+                            <a class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_operator_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_operator_accounts">Akun operator</a>
+                            <a class="<?= in_array($page, ['platform_seeker_accounts', 'platform_user_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_seeker_accounts">Akun User</a>
+                            <a class="<?= $page === 'platform_unhoused_users' ? 'active' : '' ?>" href="index.php?page=platform_unhoused_users">User pengguna</a>
+                        </div>
+                    </details>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </nav>
+    </aside>
+    <main class="main-area">
+        <header class="topbar"><div><div class="eyebrow">MANAJEMEN KOS</div><h1><?= e(page_title($page)) ?></h1></div><div class="topbar-right"><span class="today"><?= e(date('d M Y')) ?></span><details class="account-menu"><summary><?= avatar_markup($user, 'profile-avatar small') ?><span><?= e($user['name']) ?><small><?= e(['admin'=>'Admin','operator'=>'Operator','seeker'=>'User'][$user['role']] ?? $user['role']) ?></small></span><span class="account-menu-chevron">⌄</span></summary>        <div class="account-menu-dropdown"><a href="index.php?page=profile">Profil</a><?php if ($user['role'] === 'operator'): ?><a href="index.php?page=bank_settings">Rekening</a><?php endif; ?><a href="index.php?page=change_password">Ganti password</a><button type="button" data-dialog-open="logout-dialog">Keluar</button></div></details></div></header>
+        <section class="content">
+            <?php if ($flash): ?><div class="alert <?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endif; ?>
+            <?php if ($page === 'change_password'):
+                require __DIR__ . '/accounts/change_password.php';
+            elseif ($user['role'] === 'admin' && in_array($pageModule, ['admin', 'reports'], true)):
+                require __DIR__ . '/admin/form.php';
+            elseif ($user['role'] === 'operator' && $page === 'dashboard'):
+                require __DIR__ . '/properties/operator_dashboard.php';
+            elseif ($user['role'] === 'operator' && $page === 'operator_reports'):
+                require __DIR__ . '/reports/operator.php';
+            elseif ($user['role'] === 'seeker' && $page === 'user_reports'):
+                require __DIR__ . '/reports/user.php';
+            elseif ($user['role'] === 'admin' && in_array($page, ['platform_operator_profile', 'platform_user_profile'], true)):
+                require __DIR__ . '/admin/operator_profile.php';
+            elseif ($page === 'profile' && $user['role'] !== 'seeker'):
+                require __DIR__ . '/accounts/form.php';
+            ?>
+            <?php elseif ($user['role'] === 'seeker' && $page === 'profile'):
+                require __DIR__ . '/accounts/form.php';
+            ?>
+            <?php elseif ($user['role'] === 'seeker' && $page === 'search_history'):
+                require __DIR__ . '/portal/form.php';
+            ?>
+            <?php elseif ($user['role'] === 'operator' && $page === 'operator_bookings'):
+                require __DIR__ . '/bookings/form.php';
+            ?>
+            <?php elseif ($user['role'] === 'seeker' && $page === 'my_bookings'):
+                require __DIR__ . '/bookings/form.php';
+            ?>
+            <?php elseif ($user['role'] === 'seeker' && $page === 'booking_form'):
+                require __DIR__ . '/bookings/form.php';
+            ?>
+            <?php elseif ($pageModule === 'properties'):
+                require __DIR__ . '/properties/form.php';
+            elseif ($pageModule === 'payments'):
+                require __DIR__ . '/payments/form.php';
+            endif; ?>
+        </section>
+    </main>
+</div>
+<dialog class="action-dialog logout-dialog" id="logout-dialog">
+    <form method="post" class="action-dialog-form"><?= csrf_field() ?><input type="hidden" name="action" value="logout">
+        <button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button>
+        <span class="dialog-eyebrow">KEAMANAN AKUN</span><h2>Konfirmasi keluar</h2><p>Apakah kamu yakin ingin keluar dari akun?</p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
+    </form>
+</dialog>
+<script src="app.js?v=20261009-rooms"></script></body></html>
