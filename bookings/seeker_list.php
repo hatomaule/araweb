@@ -31,14 +31,16 @@ $bookings = $tenant ? rows(
         $expired = $booking['rental_status'] === 'upcoming'
             && $booking['booking_expires_at']
             && strtotime($booking['booking_expires_at']) <= time();
+        $status = $booking['latest_payment_status']
+            ?: ($booking['invoice_status'] === 'paid'
+                ? $booking['rental_status']
+                : ($booking['invoice_status'] ?: $booking['rental_status']));
         $bookingLabel = $booking['booking_status'] === 'pending'
             ? 'Menunggu persetujuan kos'
             : ($booking['booking_status'] === 'rejected'
                 ? 'Booking ditolak'
                 : ($expired ? 'Booking kedaluwarsa'
-                    : status_label($booking['latest_payment_status']
-                        ?: ($booking['invoice_status'] === 'paid'
-                            ? $booking['rental_status'] : $booking['invoice_status']))));
+                    : status_label($status)));
         $remainingAmount = max(0, (float) $booking['amount_due'] - (float) $booking['amount_paid']);
         $canPay = in_array($booking['rental_status'], ['upcoming', 'active'], true)
             && $booking['booking_status'] === 'approved'
@@ -52,7 +54,7 @@ $bookings = $tenant ? rows(
             <?php if ($booking['booking_status'] === 'pending'): ?><div class="alert info">Permintaan Anda sedang ditinjau pemilik kos. Pembayaran baru tersedia setelah booking disetujui.</div>
             <?php elseif ($booking['booking_status'] === 'rejected'): ?><div class="alert error">Pemilik kos menolak permintaan booking ini. <?= e($booking['booking_decision_note'] ?? '') ?></div><?php endif; ?>
             <?php if ($booking['invoice_id']): ?><div class="booking-invoice"><span>Tagihan <?= e($booking['invoice_number']) ?></span><strong><?= e(money($remainingAmount)) ?></strong><small>Sisa pembayaran · jatuh tempo <?= e(date_id($booking['due_date'])) ?> · <?= e(status_label($booking['invoice_status'])) ?></small></div><?php endif; ?>
-            <?php if ($booking['latest_payment_status'] === 'pending'): ?><div class="alert info">Bukti pembayaran sudah diterima dan sedang menunggu verifikasi admin.</div>
+            <?php if ($booking['latest_payment_status'] === 'pending'): ?><div class="alert info">Bukti pembayaran sudah diterima dan sedang menunggu verifikasi pengelola kos.</div>
             <?php elseif ($booking['latest_payment_status'] === 'rejected' && !$expired): ?><div class="alert error">Bukti sebelumnya ditolak. Periksa kembali transfer Anda, lalu unggah bukti yang benar.</div><?php endif; ?>
             <?php if ($canPay && $booking['invoice_id']): ?>
                 <?php if ($booking['bank_name']): ?><div class="customer-bank-card"><div><span>TRANSFER KE REKENING <?= e(strtoupper($booking['building_name'])) ?></span><strong><?= e($booking['bank_name']) ?> · <?= e($booking['account_number']) ?></strong><small>a.n. <?= e($booking['account_name']) ?></small></div><?php if ($booking['instructions']): ?><p><?= nl2br(e($booking['instructions'])) ?></p><?php endif; ?></div>

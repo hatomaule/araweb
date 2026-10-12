@@ -16,10 +16,10 @@ $bookingRequests = rows(
 );
 ?>
 <div class="panel">
-    <div class="panel-heading"><div><h2>Booking pengguna</h2><p>Tinjau dan konfirmasi permintaan booking kamar pada properti Anda.</p></div></div>
+    <div class="panel-heading"><div><h2>Booking pengguna</h2><p>Setujui booking untuk menahan kamar. Setelah uang diterima, catat pembayarannya melalui menu Keuangan agar penghuni tercatat.</p></div></div>
     <div class="table-scroll">
         <table>
-            <thead><tr><th>User</th><th>Properti / kamar</th><th>Periode</th><th>Status</th><th>Konfirmasi</th></tr></thead>
+            <thead><tr><th>User</th><th>Properti / kamar</th><th>Periode</th><th>Status booking</th><th>Keputusan</th></tr></thead>
             <tbody>
                 <?php foreach ($bookingRequests as $booking): ?>
                     <tr>
@@ -33,7 +33,7 @@ $bookingRequests = rows(
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="decide_booking">
                                     <input type="hidden" name="rental_id" value="<?= (int) $booking['id'] ?>">
-                                    <button class="button primary" name="decision" value="approved" type="submit">Konfirmasi</button>
+                                    <button class="button primary" name="decision" value="approved" type="submit">Setujui booking</button>
                                     <input name="decision_note" maxlength="1000" placeholder="Alasan jika ditolak">
                                     <button class="button secondary" name="decision" value="rejected" type="submit">Tolak</button>
                                 </form>

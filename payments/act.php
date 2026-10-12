@@ -531,7 +531,8 @@ if ($action === 'create_payment') {
             $pdo->beginTransaction();
             try {
                 $invoiceQuery = $pdo->prepare(
-                    "SELECT i.amount_due,r.id AS rental_id,b.owner_user_id
+                    "SELECT i.amount_due,r.id AS rental_id,r.status AS rental_status,
+                            r.booking_status,r.booking_expires_at,b.owner_user_id
                      FROM invoices i JOIN rentals r ON r.id=i.rental_id
                      JOIN rooms rm ON rm.id=r.room_id JOIN kos_buildings b ON b.id=rm.building_id
                      WHERE i.id=:id AND i.status<>'void' FOR UPDATE"
@@ -550,6 +551,11 @@ if ($action === 'create_payment') {
                 $paid = (float) $sum->fetchColumn();
                 if (!$invoice || ($user['role'] === 'operator'
                         && (int) $invoice['owner_user_id'] !== (int) $user['id'])
+                    || ($invoice['rental_status'] === 'upcoming'
+                        && (!in_array($invoice['booking_status'], ['approved', 'not_applicable'], true)
+                            || ($invoice['booking_status'] === 'approved'
+                                && $invoice['booking_expires_at']
+                                && strtotime($invoice['booking_expires_at']) <= time())))
                     || $hasPendingProof
                     || (float) $amount > (float) $invoice['amount_due'] - $paid) {
                     $pdo->rollBack();
@@ -573,7 +579,8 @@ if ($action === 'create_payment') {
                     $activateRental = $pdo->prepare(
                         "UPDATE rentals r JOIN invoices i ON i.rental_id=r.id
                          SET r.status='active', r.booking_expires_at=NULL
-                         WHERE i.id=:invoice_id AND r.status='upcoming'"
+                         WHERE i.id=:invoice_id AND r.status='upcoming'
+                           AND r.booking_status IN ('approved','not_applicable')"
                     );
                     $activateRental->execute(['invoice_id' => $invoiceId]);
                 }
