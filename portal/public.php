@@ -684,7 +684,6 @@ if (in_array($page, ['home', 'search'], true)) {
                     </div>
                 </div>
             </section>
-            <section class="public-contact" id="langkah-berikutnya"><div class="contact-sun">✳</div><div><span class="section-eyebrow">LANGKAH BERIKUTNYA</span><h2>Sudah menemukan kamar<br>yang terasa seperti rumah?</h2><p>Buka detail kos untuk melihat fasilitas, lokasi, harga, dan informasi pengelolanya.</p></div><a href="#kamar" class="contact-button">Lihat pilihan kamar <span>↑</span></a></section>
         </main>
         <footer class="public-footer" id="kontak">
             <div class="public-footer-inner">
