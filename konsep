@@ -57,3 +57,6 @@ root:
 
 Peran operator ditangani di modul properti, booking, dan pembayaran sesuai fungsi;
 tidak ada modul operator terpisah. Tidak ada perubahan skema database.
+
+Catatan pembahasan: nama platform diusulkan menjadi "Kosan.id". Perubahan nama
+belum dieksekusi dan menunggu keputusan final.
