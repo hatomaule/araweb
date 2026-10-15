@@ -543,6 +543,15 @@ td strong,.strong{color:#29344a;font-weight:700}
 .property-photo-manager-grid article{display:grid;gap:7px;padding:7px;border:1px solid var(--line);border-radius:8px}
 .property-photo-manager-grid img{width:100%;height:88px;object-fit:cover;border-radius:5px}
 .property-photo-manager-grid .text-button{justify-self:start}
+.profile-image-editor{display:grid;gap:12px;margin:18px 0;padding:16px;border:1px dashed #dfe4eb;border-radius:9px;background:#fbfcff}
+.profile-image-editor>div:first-child{display:grid;gap:4px}
+.profile-image-editor>div:first-child strong{color:#3e4b61;font-size:12px}
+.profile-image-editor>div:first-child small{color:#8792a4;font-size:10px;line-height:1.5}
+.profile-image-editor-preview{display:block;width:min(100%,360px);height:190px;object-fit:cover;border-radius:8px;background:#f1f2f5}
+.profile-image-editor-empty{min-height:100px;display:grid!important;place-items:center;padding:14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#8792a4;font-size:11px}
+.profile-image-editor-form{display:grid;gap:10px}
+.profile-image-editor-actions{display:flex;flex-wrap:wrap;gap:8px}
+.profile-image-editor-actions .button{min-height:36px}
 .profile-photo-preview{width:100px;height:100px;object-fit:cover;border-radius:50%;border:3px solid #f0edff}
 .account-person{display:flex;align-items:center;gap:10px}
 .account-person>div{min-width:0}

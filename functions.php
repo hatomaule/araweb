@@ -319,6 +319,19 @@ function validate_image_upload(string $field, string $purpose): ?array
     return ['tmp_name' => $file['tmp_name'], 'extension' => $types[$mime]];
 }
 
+function delete_uploaded_image(string $relativePath, string $uploadDirectory, string $purpose): void
+{
+    $photoDirectory = realpath($uploadDirectory);
+    $photoFile = realpath(__DIR__ . DIRECTORY_SEPARATOR
+        . str_replace('/', DIRECTORY_SEPARATOR, $relativePath));
+    if ($photoDirectory === false || $photoFile === false || dirname($photoFile) !== $photoDirectory) {
+        throw new RuntimeException('Lokasi berkas ' . $purpose . ' tidak valid; berkas tidak dihapus.');
+    }
+    if (!unlink($photoFile)) {
+        throw new RuntimeException($purpose . ' tidak dapat dihapus. Periksa izin folder upload.');
+    }
+}
+
 function validate_payment_proof(string $field): ?array
 {
     return validate_image_upload($field, 'Bukti transfer');

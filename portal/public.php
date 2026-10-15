@@ -46,6 +46,9 @@ if ($page === 'room') {
             break;
         }
     }
+    if (!empty($room['profile_photo_path'])) {
+        $primaryPhoto = null;
+    }
     $roomAvailable = (bool) $room['is_available'];
     $genderLabel = ['mixed' => 'Campur', 'male' => 'Putra', 'female' => 'Putri'][$room['gender_policy']];
     ?>
@@ -58,7 +61,7 @@ if ($page === 'room') {
     </nav></header>
     <main class="property-detail-main room-detail-main">
         <a class="text-link" href="index.php?page=home#kamar">← Kembali ke pilihan kamar</a>
-        <section class="property-gallery room-detail-gallery"><div class="property-gallery-main"><?php if ($primaryPhoto): ?><img src="<?= e($primaryPhoto['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php else: ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong>Kamar <?= e($room['room_number']) ?></strong><small>Foto kamar dapat ditambahkan pengelola</small></div><?php endif; ?></div><div class="property-gallery-side"><?php foreach (array_slice(array_values(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room' && $photo['id'] !== ($primaryPhoto['id'] ?? 0))), 0, 2) as $photo): ?><img src="<?= e($photo['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php endforeach; ?><?php if (count(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room')) < 2): ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">✳</span><strong><?= e($genderLabel) ?></strong><small><?= e($room['building_name']) ?></small></div><?php endif; ?></div></section>
+        <section class="property-gallery room-detail-gallery"><div class="property-gallery-main"><?php if (!empty($room['profile_photo_path'])): ?><img src="<?= e($room['profile_photo_path']) ?>" alt="Foto profil kamar <?= e($room['room_number']) ?>"><?php elseif ($primaryPhoto): ?><img src="<?= e($primaryPhoto['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php else: ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong>Kamar <?= e($room['room_number']) ?></strong><small>Foto kamar dapat ditambahkan pengelola</small></div><?php endif; ?></div><div class="property-gallery-side"><?php foreach (array_slice(array_values(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room' && $photo['id'] !== ($primaryPhoto['id'] ?? 0))), 0, 2) as $photo): ?><img src="<?= e($photo['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php endforeach; ?><?php if (count(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room')) < 2): ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">✳</span><strong><?= e($genderLabel) ?></strong><small><?= e($room['building_name']) ?></small></div><?php endif; ?></div></section>
         <div class="property-detail-layout"><div class="property-detail-content">
             <section class="property-intro"><span class="badge <?= $roomAvailable ? 'active' : 'inactive' ?>"><?= $roomAvailable ? 'Tersedia sekarang' : 'Tidak tersedia' ?></span><span class="badge active"><?= e($genderLabel) ?></span><h1><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?></h1><p><?= e($room['building_name']) ?> · <?= e($room['building_address']) ?></p><p><?= e($room['floor'] ? 'Lantai ' . $room['floor'] . ' · ' : '') ?>Kamar <?= e($room['room_number']) ?></p><?php if ($room['building_description']): ?><p><?= nl2br(e($room['building_description'])) ?></p><?php endif; ?></section>
             <section class="property-section" id="fasilitas-kamar"><h2>Fasilitas kamar</h2><div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $room['facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$room['facilities']): ?><span>Informasi fasilitas belum ditambahkan.</span><?php endif; ?></div><?php if ($roomPhotos): ?><div class="room-detail-photo-grid"><?php foreach ($roomPhotos as $photo): ?><a href="<?= e($photo['photo_path']) ?>" target="_blank" rel="noopener noreferrer"><img src="<?= e($photo['photo_path']) ?>" alt="<?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?> <?= e($room['room_number']) ?>"><small><?= $photo['category'] === 'room' ? 'Kamar' : 'Fasilitas' ?></small></a><?php endforeach; ?></div><?php endif; ?></section>
@@ -66,7 +69,7 @@ if ($page === 'room') {
             <section class="property-section"><h2>Informasi kos</h2><p><?= e($room['building_name']) ?></p><p><?= e($room['building_address']) ?></p><a class="text-link" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat profil kos dan kamar lainnya ↗</a></section>
             <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small><?php if ($room['owner_phone']): ?><a href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>">Hubungi pengelola ↗</a><?php endif; ?></div></div></section><?php endif; ?>
         </div><aside class="property-booking-card room-booking-card"><span><?= $roomAvailable ? 'Kamar tersedia' : 'Kamar sedang tidak tersedia' ?></span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong><p>Tarif bulanan kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</p><?php if ($roomAvailable): ?><a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&id=' . $roomId : 'index.php?page=register&role=seeker&next=booking&id=' . $roomId ?>">Ajukan booking kamar</a><?php else: ?><span class="room-unavailable-note">Booking belum dapat dilakukan untuk kamar ini.</span><?php endif; ?></aside></div>
-    </main><footer class="public-footer"><a class="tiara-brand araweb-brand" href="index.php"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer><script src="app.js?v=20261009-rooms"></script></body></html>
+    </main><footer class="public-footer"><a class="tiara-brand araweb-brand" href="index.php"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer><script src="app.js?v=20261015-password-visibility"></script></body></html>
     <?php
     exit;
 }
@@ -152,12 +155,14 @@ if ($page === 'property') {
         <a class="text-link" href="index.php?page=home">← Kembali ke pencarian</a>
         <section id="foto" class="property-gallery property-banner">
             <div class="property-gallery-main property-profile-photo">
-                <?php if ($propertyPhotos): ?>
+                <?php if (!empty($property['profile_photo_path'])): ?>
+                    <img src="<?= e($property['profile_photo_path']) ?>" alt="Foto profil kos <?= e($property['name']) ?>">
+                <?php elseif ($propertyPhotos): ?>
                     <img src="<?= e($propertyPhotos[0]['photo_path']) ?>" alt="Foto profil kos <?= e($property['name']) ?>">
                 <?php else: ?>
                     <div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong><?= e($property['name']) ?></strong><small>Foto profil kos belum ditambahkan</small></div>
                 <?php endif; ?>
-                <?php if ($canManageProperty): ?><a class="property-banner-edit button primary" href="index.php?page=building_form&amp;id=<?= $buildingId ?>">＋ <?= $propertyPhotos ? 'Ganti foto kos' : 'Tambah foto kos' ?></a><?php endif; ?>
+                <?php if ($canManageProperty): ?><a class="property-banner-edit button primary" href="index.php?page=building_form&amp;id=<?= $buildingId ?>"><?= !empty($property['profile_photo_path']) ? 'Ganti foto kos' : 'Tambah foto kos' ?></a><?php endif; ?>
             </div>
             <div class="property-gallery-side property-location-preview" id="lokasi">
                 <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?>
@@ -186,7 +191,7 @@ if ($page === 'property') {
     </main>
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>const propertyMap=L.map('property-map',{scrollWheelZoom:false,zoomControl:false}).setView([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(propertyMap);L.marker([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>]).addTo(propertyMap).bindPopup(<?= json_encode($property['name'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);setTimeout(()=>propertyMap.invalidateSize(),100);document.getElementById('property-map').addEventListener('click',()=>propertyMap.scrollWheelZoom.enable());</script><?php endif; ?>
     <?php if (!$user): ?><dialog class="action-dialog login-dialog" id="login-dialog"><div class="action-dialog-form"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">AKUN ARAWEB</span><h2>Masuk ke Araweb</h2><p>Lanjutkan ke halaman masuk untuk mengakses profil, booking, dan layanan akun kamu.</p><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><a class="button primary" href="index.php?page=login">Lanjut masuk</a></div></div></dialog><?php endif; ?>
-    <script src="app.js?v=20261012-popular-rooms"></script>
+    <script src="app.js?v=20261015-password-visibility"></script>
     </body></html><?php
     exit;
 }
@@ -201,6 +206,7 @@ if (in_array($page, ['home', 'search'], true)) {
         "SELECT rm.*, b.name AS building_name, b.address AS building_address,
                 b.description AS building_description, b.gender_policy,
                 b.latitude AS building_latitude, b.longitude AS building_longitude,
+                b.profile_photo_path AS building_profile_photo_path,
                 CASE WHEN rm.status='available' AND NOT EXISTS (
                     SELECT 1 FROM rentals r
                     WHERE r.room_id=rm.id AND (
@@ -287,9 +293,9 @@ if (in_array($page, ['home', 'search'], true)) {
     if (!$searchTerm) {
         foreach ($publicRooms as $room) {
             $roomId = (int) $room['id'];
-            $room['cover_photo'] = null;
+            $room['cover_photo'] = $room['profile_photo_path'] ?: null;
             foreach ($roomPhotos[$roomId] ?? [] as $photo) {
-                if ($photo['category'] === 'room') {
+                if ($room['cover_photo'] === null && $photo['category'] === 'room') {
                     $room['cover_photo'] = $photo['photo_path'];
                     break;
                 }
@@ -310,7 +316,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 'rooms' => [],
                 'available_count' => 0,
                 'minimum_rate' => (float) $room['monthly_rate'],
-                'cover_photo' => null,
+                'cover_photo' => $room['building_profile_photo_path'] ?: null,
             ];
         }
         $searchListings[$buildingId]['rooms'][] = $room;
@@ -766,7 +772,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 map.fitBounds(mapBounds, {padding: [36, 36], maxZoom: 14});
             }
         </script><?php endif; ?>
-        <script src="app.js?v=20261009-rooms"></script>
+        <script src="app.js?v=20261015-password-visibility"></script>
     </body>
     </html>
     <?php
