@@ -184,7 +184,6 @@ const initializeApp = () => {
         pageSizeSelect.add(new Option('10', '10'));
         pageSizeSelect.add(new Option('Semua', 'all'));
         pageSizeLabel.append(pageSizeCaption, pageSizeSelect);
-        tools.append(pageSizeLabel);
 
         const navigation = document.createElement('div');
         navigation.className = 'data-table-navigation';
@@ -200,7 +199,10 @@ const initializeApp = () => {
         next.className = 'button secondary compact-button';
         next.textContent = 'Berikutnya';
         navigation.append(summary, previous, next);
-        tools.append(navigation);
+        const tableControls = document.createElement('div');
+        tableControls.className = 'data-table-controls';
+        tableControls.append(navigation, pageSizeLabel);
+        tools.append(tableControls);
         const tableContainer = table.closest('.table-scroll') || table;
         tableContainer.before(tools);
 

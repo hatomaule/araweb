@@ -65,16 +65,18 @@ h1,h2,p{margin-top:0}
 .data-table-tools input:focus,.data-table-tools select:focus{border-color:#9185e9;box-shadow:0 0 0 3px #6958dc16}
 .data-table-search{flex:1 1 220px;max-width:340px}
 .data-table-search input{width:100%}
-.data-table-navigation{display:flex;align-items:center;gap:7px;margin-left:auto}
+.data-table-controls{order:1;display:flex;align-items:flex-end;gap:12px;margin-left:auto}
+.data-table-page-size{order:1}
+.data-table-navigation{display:flex;align-items:center;gap:7px}
 .data-table-summary{color:#7e889d;font-size:10px;white-space:nowrap}
 .data-table-navigation .button{min-height:34px}
 .data-table-navigation button:disabled{cursor:not-allowed;opacity:.48}
-.data-table-region-filters{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;flex:1 1 100%;align-items:end}
+.data-table-region-filters{order:2;display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;flex:1 1 100%;align-items:end}
 .data-table-region-filters select:disabled{background:#f5f6f9;color:#a0a8b7}
 .indonesia-address-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:100%}
 .region-load-error{grid-column:1/-1;margin:0;color:#b23c47;font-size:11px;font-weight:600}
 .account-group-heading-row td{padding:0;background:#fafbfe}
-@media(max-width:700px){.data-table-tools{gap:10px;padding:12px}.data-table-search{flex-basis:100%;max-width:none}.data-table-select{flex:1 1 130px}.data-table-select select{width:100%}.data-table-region-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.indonesia-address-fields{grid-template-columns:1fr;gap:13px}.building-location-map{height:270px}.data-table-navigation{width:100%;margin-left:0;justify-content:space-between;flex-wrap:wrap}}
+@media(max-width:700px){.data-table-tools{gap:10px;padding:12px}.data-table-search{flex-basis:calc(100% - 150px);max-width:none}.data-table-controls{margin-left:auto}.data-table-select{flex:1 1 130px}.data-table-select select{width:100%}.data-table-region-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.indonesia-address-fields{grid-template-columns:1fr;gap:13px}.building-location-map{height:270px}.data-table-navigation{width:100%;margin-left:0;justify-content:space-between;flex-wrap:wrap}}
 table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}
 thead{background:#fafbfe}
 th{padding:12px 18px;color:#939cad;font-size:9px;font-weight:700;letter-spacing:.55px;text-transform:uppercase;border-top:1px solid #f0f2f6;border-bottom:1px solid #f0f2f6}
