@@ -6,6 +6,14 @@ function e($value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function theme_switcher(): string
+{
+    return '<label class="theme-switcher-wrap"><span class="visually-hidden">Tema tampilan</span>'
+        . '<select class="theme-switcher" data-theme-switcher aria-label="Pilih tema tampilan">'
+        . '<option value="light">Light</option><option value="dark">Dark</option>'
+        . '</select></label>';
+}
+
 function avatar_markup(array $user, string $class = 'profile-avatar'): string
 {
     $photo = $user['profile_photo_path'] ?? null;

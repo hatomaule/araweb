@@ -358,6 +358,64 @@ td strong,.strong{color:#29344a;font-weight:700}
 .public-footer-bottom{grid-column:1/-1;margin-top:5px;padding-top:16px;border-top:1px solid #cfc99e;display:flex;align-items:center;justify-content:space-between;color:#85836d;font-size:9px}
 .public-footer-bottom>a{display:grid;place-items:center;width:33px;height:33px;border-radius:50%;background:#e5bd2c;color:#fff;font-size:19px}
 .public-footer-bottom>a:hover{background:#f2ca3e}
+.theme-switcher-wrap{display:inline-flex;align-items:center;flex:none}
+.theme-switcher{min-height:36px;padding:0 28px 0 11px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
+.public-nav .theme-switcher{border-color:#e9e4cf;border-radius:20px;color:#55543d}
+.auth-brand-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:34px}
+.auth-brand-row .auth-brand{margin:0}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+html[data-theme="dark"]{color-scheme:dark;--ink:#e3e9f1;--muted:#a1acbb;--line:#354151;--paper:#1d2836;--canvas:#111a25;--purple-light:#302a4c;--shadow:0 8px 26px rgba(0,0,0,.2)}
+html[data-theme="dark"] body{background:var(--canvas);color:var(--ink)}
+html[data-theme="dark"] .sidebar,html[data-theme="dark"] .topbar,html[data-theme="dark"] .panel,html[data-theme="dark"] .stat-card,html[data-theme="dark"] .auth-card,html[data-theme="dark"] .account-menu-dropdown,html[data-theme="dark"] .modal-card,html[data-theme="dark"] .dropdown-menu,html[data-theme="dark"] .table-wrap,html[data-theme="dark"] .form-panel{background:var(--paper);border-color:var(--line);color:var(--ink)}
+html[data-theme="dark"] .main-nav a{color:#a7b1c1}
+html[data-theme="dark"] .main-nav a:hover,html[data-theme="dark"] .main-nav a.active{background:#302a4c;color:#c4baff}
+html[data-theme="dark"] .main-nav a.active{background:var(--purple-light)}
+html[data-theme="dark"] .brand small,html[data-theme="dark"] .eyebrow,html[data-theme="dark"] .today,html[data-theme="dark"] .field-help,html[data-theme="dark"] .muted{color:var(--muted)}
+html[data-theme="dark"] .field input,html[data-theme="dark"] .field select,html[data-theme="dark"] .field textarea,html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:#17212e;border-color:var(--line);color:var(--ink)}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#8996a8}
+html[data-theme="dark"] .button.secondary,html[data-theme="dark"] .table-toolbar select,html[data-theme="dark"] .table-toolbar input{background:#17212e;border-color:var(--line);color:var(--ink)}
+html[data-theme="dark"] table th{background:#202c3a;color:#b8c2d0;border-color:var(--line)}
+html[data-theme="dark"] table td,html[data-theme="dark"] tr{border-color:var(--line)}
+html[data-theme="dark"] .account-menu-dropdown a,html[data-theme="dark"] .account-menu-dropdown button{color:var(--ink)}
+html[data-theme="dark"] .account-menu-dropdown a:hover,html[data-theme="dark"] .account-menu-dropdown button:hover{background:#273446}
+html[data-theme="dark"] .photo-upload-panel,html[data-theme="dark"] .photo-file-input{background:#17212e!important;border-color:var(--line)}
+html[data-theme="dark"] .photo-upload-heading strong,html[data-theme="dark"] .room-photo-manager-heading strong{color:var(--ink)}
+html[data-theme="dark"] .auth-page{background:radial-gradient(ellipse at 15% 20%,#2b2945 0,transparent 38%),radial-gradient(ellipse at 90% 85%,#1d3b35 0,transparent 32%),#111a25}
+html[data-theme="dark"] .auth-card code{background:#302a4c;color:#d9d2ff}
+html[data-theme="dark"] .public-page{--tiara-ink:#e6e5d9;--tiara-muted:#b3b19d;background:#151d21;color:#e6e5d9}
+html[data-theme="dark"] .public-header{background:#192226;border-color:#303a39}
+html[data-theme="dark"] .public-nav-links a,html[data-theme="dark"] .public-nav-cta{color:#dedccd}
+html[data-theme="dark"] .public-nav-cta{border-color:#495044}
+html[data-theme="dark"] .public-menu-toggle{background:#303a2d;color:#e2d38c}
+html[data-theme="dark"] .tiara-hero{background:linear-gradient(112deg,#29291f 0%,#2d2b20 46%,#292c21 75%,#202c26 100%)}
+html[data-theme="dark"] .hero-copy h1,html[data-theme="dark"] .rooms-section-heading h2,html[data-theme="dark"] .public-footer h2{color:#e9e7d9}
+html[data-theme="dark"] .hero-description,html[data-theme="dark"] .hero-note,html[data-theme="dark"] .rooms-section-heading>p{color:#c0bea9}
+html[data-theme="dark"] .public-features,html[data-theme="dark"] .public-rooms-section,html[data-theme="dark"] .property-detail-main,html[data-theme="dark"] .room-detail-main{background:#151d21;color:#e6e5d9}
+html[data-theme="dark"] .feature-item strong,html[data-theme="dark"] .room-card-body h3,html[data-theme="dark"] .property-section h2,html[data-theme="dark"] .property-section h3{color:#e6e5d9}
+html[data-theme="dark"] .feature-item small,html[data-theme="dark"] .room-card-body p,html[data-theme="dark"] .property-section p{color:#b3b9b2}
+html[data-theme="dark"] .public-room-card,html[data-theme="dark"] .property-section,html[data-theme="dark"] .property-booking-card,html[data-theme="dark"] .property-owner-card,html[data-theme="dark"] .public-contact{background:#1d292b;border-color:#364443;color:#e6e5d9}
+html[data-theme="dark"] .public-contact h2,html[data-theme="dark"] .public-contact p{color:#e6e5d9}
+html[data-theme="dark"] .public-footer{background:#1b2525;color:#d7d7c9}
+html[data-theme="dark"] .public-footer-links a,html[data-theme="dark"] .public-footer-contact a,html[data-theme="dark"] .public-footer-bottom{color:#babcae}
+html[data-theme="dark"] .public-footer-bottom{border-color:#3e4941}
+html[data-theme="dark"] .property-tabs{background:#192226;border-color:#303a39}
+html[data-theme="dark"] .property-tabs a,html[data-theme="dark"] .text-link{color:#d5d2bd}
+html[data-theme="dark"] .theme-switcher{background-color:var(--paper);border-color:var(--line);color:var(--ink)}
+html[data-theme="dark"] .public-nav .theme-switcher{border-color:#495044;color:#dedccd}
+html[data-theme="dark"] .public-search{background:#172123;border-color:#3b4742}
+html[data-theme="dark"] .public-search input{background:transparent;color:#e6e5d9}
+html[data-theme="dark"] .public-nav-links{background:#192226;border-color:#303a39}
+html[data-theme="dark"] .public-room-card,html[data-theme="dark"] .home-review-card,html[data-theme="dark"] .user-account-monitor{background:#1d292b;border-color:#364443;color:#e6e5d9}
+html[data-theme="dark"] .public-room-card a,html[data-theme="dark"] .public-room-card button,html[data-theme="dark"] .room-card-title h3{color:#e6e5d9}
+html[data-theme="dark"] .room-card-details,html[data-theme="dark"] .room-card-footer>div>strong>small{color:#b3b9b2}
+html[data-theme="dark"] .data-table-tools{background:#1d2836;border-color:#354151}
+html[data-theme="dark"] .data-table-tools input,html[data-theme="dark"] .data-table-tools select{background:#17212e;border-color:#354151;color:#e3e9f1}
+html[data-theme="dark"] .account-search-result{background:#1d2836;border-color:#354151;color:#e3e9f1}
+html[data-theme="dark"] .action-dialog{background:#1d2836;color:#e3e9f1}
+html[data-theme="dark"] .booking-rejection-field textarea,html[data-theme="dark"] .booking-decision-note{background:#222b36;border-color:#463f45;color:#e3e9f1}
+html[data-theme="dark"] .stat-icon.purple,html[data-theme="dark"] .photo-upload-icon{background:#302a4c;color:#c4baff}
+html[data-theme="dark"] .property-booking-card>span,html[data-theme="dark"] .property-booking-card>p{color:#c0c5ba}
+@media(max-width:650px){.koskosan-brand{gap:5px;font-size:11px;letter-spacing:-.4px}.koskosan-brand .tiara-brand-icon{width:29px;height:29px}.public-nav .theme-switcher{min-height:31px;padding-left:7px;padding-right:21px;font-size:9px}.public-nav{gap:6px}.public-search{display:none}.public-nav-cta{flex:none;white-space:nowrap;padding:8px 7px;font-size:9px}.public-menu-toggle{flex:none}}
 @media(max-width:1100px){.public-room-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){.hero-inner{gap:10px;padding-top:42px;padding-bottom:48px}.hero-copy h1{font-size:48px}.hero-art{transform:scale(.9);transform-origin:center right}.sun-disc{right:24px}.house-art{right:48px}.hero-room-tag{left:-4px}.public-room-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.public-contact{margin-left:22px;margin-right:22px}}
 @media(max-width:900px){.public-footer-inner{gap:30px}}
@@ -532,7 +590,8 @@ td strong,.strong{color:#29344a;font-weight:700}
 .building-coordinate-fields{gap:12px}
 .building-google-search{justify-self:start}
 .property-photo-placeholder{height:100%;display:grid;place-items:center;padding:20px;background:linear-gradient(145deg,#f9f4df,#e9eddc);color:#858568;font-size:12px;text-align:center}
-.araweb-brand .tiara-brand-icon{background:#6958dc}
+.koskosan-brand{font-size:15px;letter-spacing:-.65px;color:var(--tiara-ink)}
+.koskosan-brand .tiara-brand-icon{background:#6958dc}
 .araweb-house-placeholder{align-content:center;gap:8px;background:radial-gradient(circle at 50% 30%,#fff6d7 0,#f4efdc 46%,#e9eddc 100%);color:#746e50}
 .araweb-house-placeholder>span{width:92px;height:92px;border-radius:28px;display:grid;place-items:center;background:#fff9e6;color:#b99a4c;font-size:67px;box-shadow:0 14px 34px #665d2b1a}
 .araweb-house-placeholder strong{font:700 20px 'Manrope',sans-serif;color:#34402f}
@@ -948,4 +1007,13 @@ td strong,.strong{color:#29344a;font-weight:700}
     .user-account-monitor-heading .location-directions-link{font-size:9px}
     .home-reviews-section{padding:0 19px 45px}
     .home-reviews-grid{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+    .koskosan-brand{gap:5px;font-size:11px;letter-spacing:-.4px}
+    .koskosan-brand .tiara-brand-icon{width:29px;height:29px}
+    .public-nav{gap:6px}
+    .public-search{display:none}
+    .public-nav .theme-switcher{min-height:31px;padding-left:7px;padding-right:21px;font-size:9px}
+    .public-nav-cta{flex:none;margin-left:0;padding:8px 7px;font-size:9px;white-space:nowrap}
+    .public-menu-toggle{flex:none}
 }

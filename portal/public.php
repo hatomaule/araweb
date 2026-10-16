@@ -83,11 +83,12 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | Araweb</title><link rel="stylesheet" href="style.css?v=20261016-address-table-layout">
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | koskosan.my.id</title><link rel="stylesheet" href="style.css?v=20261016-dark-light-3">
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page property-page"><header class="public-header" id="top"><nav class="public-nav">
-        <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a>
+        <a class="tiara-brand koskosan-brand" href="index.php" aria-label="koskosan.my.id, beranda"><span class="tiara-brand-icon">K</span><span>koskosan.my.id<small>HUNIAN NYAMAN</small></span></a>
+        <?= theme_switcher() ?>
         <a class="public-nav-cta" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat informasi kos ↗</a>
     </nav></header>
     <main class="property-detail-main room-detail-main">
@@ -149,17 +150,17 @@ if ($page === 'room') {
     </main><footer class="public-footer room-detail-footer">
         <div class="public-footer-inner room-detail-footer-inner">
             <div class="public-footer-brand">
-                <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a>
+                <a class="tiara-brand koskosan-brand" href="index.php" aria-label="koskosan.my.id, beranda"><span class="tiara-brand-icon">K</span><span>koskosan.my.id<small>HUNIAN NYAMAN</small></span></a>
                 <p>Temukan hunian nyaman dan ruang untuk memulai cerita barumu.</p>
             </div>
-            <nav class="public-footer-links" aria-label="Jelajahi Araweb">
-                <h2>Jelajahi Araweb</h2>
+            <nav class="public-footer-links" aria-label="Jelajahi koskosan.my.id">
+                <h2>Jelajahi koskosan.my.id</h2>
                 <a href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">› <span><?= e($room['building_name']) ?></span></a>
                 <a href="index.php?page=home#kamar">› <span>Lihat kamar lainnya</span></a>
                 <a href="#top">↑ <span>Kembali ke atas</span></a>
             </nav>
             <div class="public-footer-bottom">
-                <span>© <?= date('Y') ?> Araweb. Hak cipta dilindungi.</span>
+                <span>© <?= date('Y') ?> koskosan.my.id. Hak cipta dilindungi.</span>
                 <a href="#top" aria-label="Kembali ke atas">↑</a>
             </div>
         </div>
@@ -172,7 +173,7 @@ if ($page === 'room') {
         setTimeout(() => roomMap.invalidateSize(), 100);
         document.getElementById('room-detail-map').addEventListener('click', () => roomMap.scrollWheelZoom.enable());
     </script><?php endif; ?>
-    <script src="app.js?v=20261016-address-table-layout"></script></body></html>
+    <script src="app.js?v=20261016-dark-light"></script></body></html>
     <?php
     exit;
 }
@@ -269,10 +270,10 @@ if ($page === 'property') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($property['name']) ?> — foto, kamar, fasilitas, lokasi, ulasan dan informasi pemilik kos.">
-    <title><?= e($property['name']) ?> — Araweb</title><link rel="stylesheet" href="style.css?v=20261016-address-table-layout">
+    <title><?= e($property['name']) ?> — koskosan.my.id</title><link rel="stylesheet" href="style.css?v=20261016-dark-light-3">
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head><body class="public-page property-page">
-    <header class="public-header"><nav class="public-nav"><a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar</a><?php endif; ?></nav>
+    <header class="public-header"><nav class="public-nav"><a class="tiara-brand koskosan-brand" href="index.php" aria-label="koskosan.my.id, beranda"><span class="tiara-brand-icon">K</span><span>koskosan.my.id<small>HUNIAN NYAMAN</small></span></a><?= theme_switcher() ?><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar</a><?php endif; ?></nav>
     <nav class="property-tabs"><a href="#foto">Foto properti</a><a href="#fasilitas-kamar">Fasilitas kamar</a><a href="#fasilitas-umum">Fasilitas umum</a><a href="#lokasi">Lokasi</a><a href="#review">Review</a><a href="#pemilik">Pemilik kos</a></nav></header>
     <main class="property-detail-main">
         <a class="text-link" href="index.php?page=home">← Kembali ke pencarian</a>
@@ -322,7 +323,7 @@ if ($page === 'property') {
     </main>
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>const propertyMap=L.map('property-map',{scrollWheelZoom:false,zoomControl:false}).setView([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(propertyMap);L.marker([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>]).addTo(propertyMap).bindPopup(<?= json_encode($property['name'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);setTimeout(()=>propertyMap.invalidateSize(),100);document.getElementById('property-map').addEventListener('click',()=>propertyMap.scrollWheelZoom.enable());</script><?php endif; ?>
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
-    <script src="app.js?v=20261016-address-table-layout"></script>
+    <script src="app.js?v=20261016-dark-light"></script>
     </body></html><?php
     exit;
 }
@@ -606,17 +607,17 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#fff9df">
-        <meta name="description" content="Temukan kos dan kamar nyaman di Araweb. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
-        <title>Araweb — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=20261016-address-table-layout">
+        <meta name="description" content="Temukan kos dan kamar nyaman di koskosan.my.id. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
+        <title>koskosan.my.id — Hunian nyaman, hati tenang</title>
+        <link rel="stylesheet" href="style.css?v=20261016-dark-light-3">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
         <header class="public-header">
             <nav class="public-nav" aria-label="Navigasi utama">
-                <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda">
-                    <span class="tiara-brand-icon">A</span>
-                    <span>ara<span>web</span><small>HUNIAN NYAMAN</small></span>
+                <a class="tiara-brand koskosan-brand" href="index.php" aria-label="koskosan.my.id, beranda">
+                    <span class="tiara-brand-icon">K</span>
+                    <span>koskosan.my.id<small>HUNIAN NYAMAN</small></span>
                 </a>
                 <form class="public-search" action="index.php" method="get">
                     <input type="hidden" name="page" value="home">
@@ -630,6 +631,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a href="#kontak">Kontak</a>
                     <?php if (!$user): ?><a href="index.php?page=register&amp;role=operator">Daftarkan kos</a><?php endif; ?>
                 </div>
+                <?= theme_switcher() ?>
                 <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel pemilik kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar<span aria-hidden="true">↗</span></a><?php endif; ?>
                 <button class="public-menu-toggle" type="button" aria-label="Buka navigasi" aria-expanded="false">☰</button>
             </nav>
@@ -648,10 +650,10 @@ if (in_array($page, ['home', 'search'], true)) {
                         <div class="hero-proof"><div class="proof-stars">★★★★★</div><span>Ruang nyaman untuk cerita barumu</span></div>
                     </div>
                     <div class="hero-showcase">
-                        <div class="hero-art" aria-label="Ilustrasi rumah Araweb">
+                        <div class="hero-art" aria-label="Ilustrasi rumah koskosan.my.id">
                             <div class="sun-disc"></div><div class="hero-plant plant-one">✳</div><div class="hero-plant plant-two">✳</div>
                             <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-                            <div class="house-art"><div class="house-roof"></div><div class="house-top"><div class="house-window window-left"><i></i></div><div class="house-window window-right"><i></i></div></div><div class="house-awning"></div><div class="house-bottom"><div class="house-door"><i></i></div><div class="house-window window-bottom"><i></i></div></div><div class="house-sign">ARAWEB</div></div>
+                            <div class="house-art"><div class="house-roof"></div><div class="house-top"><div class="house-window window-left"><i></i></div><div class="house-window window-right"><i></i></div></div><div class="house-awning"></div><div class="house-bottom"><div class="house-door"><i></i></div><div class="house-window window-bottom"><i></i></div></div><div class="house-sign">KOSKOSAN.MY.ID</div></div>
                             <div class="art-leaf leaf-left">✦</div><div class="art-leaf leaf-right">✦</div>
                             <div class="hero-room-tag"><span class="room-tag-icon">⌂</span><span><strong><?= $roomCount ?> kamar tersedia</strong><small>Siap jadi ruang ceritamu</small></span><b>↗</b></div>
                         </div>
@@ -674,7 +676,7 @@ if (in_array($page, ['home', 'search'], true)) {
             <section class="public-rooms-section" id="kamar">
                 <div class="rooms-section-heading">
                     <div><div class="section-eyebrow"><span></span> <?= $searchTerm !== '' ? 'HASIL PENCARIAN' : 'PILIHAN HUNIAN' ?></div><h2><?= $searchTerm !== '' ? 'Kos yang cocok,' : 'Temukan kos favorit,' ?><br><span><?= $searchTerm !== '' ? 'untuk pencarianmu.' : 'untuk cerita barumu.' ?></span></h2></div>
-                    <p><?= $searchTerm !== '' ? 'Ditemukan ' . count($searchListings) . ' lokasi kos dengan ' . $roomCount . ' kamar tersedia untuk “' . e($searchTerm) . '”.' : 'Jelajahi kos favorit, rekomendasi dengan ulasan terbaik, dan seluruh daftar kos yang tersedia di Araweb.' ?></p>
+                    <p><?= $searchTerm !== '' ? 'Ditemukan ' . count($searchListings) . ' lokasi kos dengan ' . $roomCount . ' kamar tersedia untuk “' . e($searchTerm) . '”.' : 'Jelajahi kos favorit, rekomendasi dengan ulasan terbaik, dan seluruh daftar kos yang tersedia di koskosan.my.id.' ?></p>
                 </div>
                 <?php if ($searchTerm !== ''): ?>
                     <?php if ($searchListings): ?>
@@ -713,7 +715,7 @@ if (in_array($page, ['home', 'search'], true)) {
                         $propertyRows = [
                             ['id' => 'favorite-kost', 'eyebrow' => 'KOS FAVORIT', 'title' => 'Paling banyak dilihat', 'listings' => $favoriteListings],
                             ['id' => 'top-rated-kost', 'eyebrow' => 'PILIHAN PENGHUNI', 'title' => '2 kos dengan ulasan terbaik', 'listings' => $reviewedListings],
-                            ['id' => 'all-kost', 'eyebrow' => 'JELAJAHI ARAWEB', 'title' => 'Daftar kos', 'listings' => $allListings],
+                            ['id' => 'all-kost', 'eyebrow' => 'JELAJAHI KOSKOSAN.MY.ID', 'title' => 'Daftar kos', 'listings' => $allListings],
                         ];
                         foreach ($propertyRows as $propertyRow):
                         ?>
@@ -815,7 +817,7 @@ if (in_array($page, ['home', 'search'], true)) {
                             <small><?= $roomCount ?> kamar tersedia</small>
                         </div>
                         <?php if ($mapBuildings): ?>
-                            <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di Araweb"></div>
+                            <div id="tiara-kos-map" class="tiara-kos-map" role="application" aria-label="Peta lokasi kos di koskosan.my.id"></div>
                             <script type="application/json" id="tiara-kos-map-data"><?= json_encode($mapBuildings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
                         <?php else: ?><div class="map-empty-state"><span>⌖</span><strong>Lokasi belum tersedia di peta</strong><p>Pengelola perlu mengisi koordinat gedung dan menambahkan kamar kosong yang aktif.</p></div><?php endif; ?>
                     </div>
@@ -825,9 +827,9 @@ if (in_array($page, ['home', 'search'], true)) {
         <footer class="public-footer" id="kontak">
             <div class="public-footer-inner">
                 <div class="public-footer-brand">
-                    <a class="tiara-brand araweb-brand" href="#beranda" aria-label="Araweb, kembali ke atas">
-                        <span class="tiara-brand-icon">A</span>
-                        <span>ara<span>web</span><small>HUNIAN NYAMAN</small></span>
+                    <a class="tiara-brand koskosan-brand" href="#beranda" aria-label="koskosan.my.id, kembali ke atas">
+                        <span class="tiara-brand-icon">K</span>
+                        <span>koskosan.my.id<small>HUNIAN NYAMAN</small></span>
                     </a>
                     <p>Temukan ruang nyaman untuk cerita barumu.</p>
                 </div>
@@ -847,7 +849,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a href="mailto:alstrazhila@gmail.com"><span aria-hidden="true">✉</span><span>alstrazhila@gmail.com</span></a>
                 </section>
                 <div class="public-footer-bottom">
-                    <span>© <?= date('Y') ?> Araweb. Hak cipta dilindungi.</span>
+                    <span>© <?= date('Y') ?> koskosan.my.id. Hak cipta dilindungi.</span>
                     <a href="#beranda" aria-label="Kembali ke atas">↑</a>
                 </div>
             </div>
@@ -902,7 +904,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 map.fitBounds(mapBounds, {padding: [36, 36], maxZoom: 14});
             }
         </script><?php endif; ?>
-        <script src="app.js?v=20261016-address-table-layout"></script>
+        <script src="app.js?v=20261016-dark-light"></script>
     </body>
     </html>
     <?php

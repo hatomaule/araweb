@@ -60,7 +60,7 @@ $platformCards = [
     ['Pengunjung unik', $platformMetrics['visitors'], '◉', 'orange', '?page=home'],
 ];
 ?>
-<section class="page-heading"><div><span class="eyebrow">DASHBOARD PLATFORM</span><h2>Ringkasan aktivitas Araweb</h2><p>Akumulasi booking, pencarian, pengguna, properti, penghuni, dan pengunjung.</p></div></section>
+<section class="page-heading"><div><span class="eyebrow">DASHBOARD PLATFORM</span><h2>Ringkasan aktivitas koskosan.my.id</h2><p>Akumulasi booking, pencarian, pengguna, properti, penghuni, dan pengunjung.</p></div></section>
 <div class="stats-grid">
 <?php foreach ($platformCards as [$label, $value, $icon, $color, $target]): ?>
     <article class="stat-card"><a class="stat-icon <?= e($color) ?> stat-icon-link" href="index.php<?= e($target) ?>" aria-label="Buka <?= e($label) ?>"><?= e($icon) ?></a><div><span><?= e($label) ?></span><strong><?= number_format($value, 0, ',', '.') ?></strong></div></article>

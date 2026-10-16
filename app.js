@@ -1,4 +1,30 @@
 const initializeApp = () => {
+    const themeStorageKey = 'koskosan-theme';
+    const themeSwitchers = document.querySelectorAll('[data-theme-switcher]');
+    let savedTheme = 'light';
+    try {
+        savedTheme = localStorage.getItem(themeStorageKey) === 'dark' ? 'dark' : 'light';
+    } catch (error) {
+        console.error('Saved display theme could not be read:', error);
+    }
+    document.documentElement.dataset.theme = savedTheme;
+    themeSwitchers.forEach((switcher) => {
+        if (!(switcher instanceof HTMLSelectElement)) return;
+        switcher.value = savedTheme;
+        switcher.addEventListener('change', () => {
+            const selectedTheme = switcher.value === 'dark' ? 'dark' : 'light';
+            document.documentElement.dataset.theme = selectedTheme;
+            themeSwitchers.forEach((otherSwitcher) => {
+                if (otherSwitcher instanceof HTMLSelectElement) otherSwitcher.value = selectedTheme;
+            });
+            try {
+                localStorage.setItem(themeStorageKey, selectedTheme);
+            } catch (error) {
+                console.error('Display theme preference could not be saved:', error);
+            }
+        });
+    });
+
     let generatedPasswordId = 0;
     const regionLevels = ['province', 'regency', 'district', 'village'];
     const regionLabels = {

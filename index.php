@@ -279,7 +279,7 @@ if (isset($_GET['reverse_geocode'])) {
             'http' => [
                 'method' => 'GET',
                 'header' => "Accept: application/json\r\n"
-                    . "User-Agent: Araweb/1.0 (+https://github.com/hatomaule/araweb)\r\n",
+                    . "User-Agent: koskosan.my.id/1.0 (+https://github.com/hatomaule/araweb)\r\n",
                 'timeout' => 8,
                 'ignore_errors' => true,
             ],
@@ -553,10 +553,10 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261016-address-table-layout"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - koskosan.my.id</title><link rel="stylesheet" href="style.css?v=20261016-dark-light-3"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
-        <a class="brand" href="index.php"><span class="brand-mark">A</span><span>Araweb<small>Manajemen kos</small></span></a>
+        <a class="brand" href="index.php"><span class="brand-mark">K</span><span>koskosan.my.id<small>Manajemen kos</small></span></a>
         <div class="nav-caption">MENU UTAMA</div>
         <nav class="main-nav">
             <?php
@@ -616,7 +616,7 @@ require __DIR__ . '/portal/public.php';
         </nav>
     </aside>
     <main class="main-area">
-        <header class="topbar"><div><div class="eyebrow">MANAJEMEN KOS</div><h1><?= e(page_title($page)) ?></h1></div><div class="topbar-right"><span class="today"><?= e(date('d M Y')) ?></span><details class="account-menu"><summary><?= avatar_markup($user, 'profile-avatar small') ?><span><?= e($user['name']) ?><small><?= e(['admin'=>'Admin','operator'=>'Operator','seeker'=>'User'][$user['role']] ?? $user['role']) ?></small></span><span class="account-menu-chevron">⌄</span></summary>        <div class="account-menu-dropdown"><a href="index.php?page=profile">Profil</a><?php if ($user['role'] === 'operator'): ?><a href="index.php?page=bank_settings">Rekening</a><?php endif; ?><a href="index.php?page=change_password">Ganti password</a><button type="button" data-dialog-open="logout-dialog">Keluar</button></div></details></div></header>
+        <header class="topbar"><div><div class="eyebrow">MANAJEMEN KOS</div><h1><?= e(page_title($page)) ?></h1></div><div class="topbar-right"><span class="today"><?= e(date('d M Y')) ?></span><?= theme_switcher() ?><details class="account-menu"><summary><?= avatar_markup($user, 'profile-avatar small') ?><span><?= e($user['name']) ?><small><?= e(['admin'=>'Admin','operator'=>'Operator','seeker'=>'User'][$user['role']] ?? $user['role']) ?></small></span><span class="account-menu-chevron">⌄</span></summary>        <div class="account-menu-dropdown"><a href="index.php?page=profile">Profil</a><?php if ($user['role'] === 'operator'): ?><a href="index.php?page=bank_settings">Rekening</a><?php endif; ?><a href="index.php?page=change_password">Ganti password</a><button type="button" data-dialog-open="logout-dialog">Keluar</button></div></details></div></header>
         <section class="content">
             <?php if ($flash): ?><div class="alert <?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endif; ?>
             <?php if ($page === 'change_password'):
@@ -662,4 +662,4 @@ require __DIR__ . '/portal/public.php';
         <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
     </form>
 </dialog>
-<script src="app.js?v=20261016-address-table-layout"></script></body></html>
+<script src="app.js?v=20261016-dark-light"></script></body></html>
