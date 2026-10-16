@@ -28,9 +28,14 @@ Jika memakai akun MariaDB lain, contoh mengatur koneksi untuk sesi terminal
 saat ini:
 
 ```bash
-export DB_HOST=127.0.0.1 DB_NAME=manajemen_kos DB_USER='nama-pengguna-mariadb'
+export DB_HOST=localhost DB_NAME=manajemen_kos DB_USER='NAMA_AKUN_MARIADB'
 read -rsp 'Kata sandi MariaDB: ' DB_PASS; export DB_PASS; printf '\n'
 ```
+
+Ganti `NAMA_AKUN_MARIADB` dengan nama akun yang benar-benar sudah dibuat.
+Jangan jalankan contoh dengan teks placeholder tersebut. Untuk kembali ke
+koneksi bawaan WSL dan menghapus override sesi terminal, jalankan
+`unset DB_HOST DB_NAME DB_USER DB_PASS`.
 
 Uji kredensial sebelum menyalakan server:
 
@@ -71,7 +76,7 @@ migrasi yang sudah diterapkan.
 12. Setelah backup, jalankan `migration_account_gender.sql` satu kali untuk menambahkan jenis kelamin akun. Akun lama yang belum memiliki data gender dapat melengkapinya dari halaman profil; avatar gendered digunakan setelah data tersebut dipilih.
 13. Setelah backup, jalankan `migration_business_flow.sql` satu kali untuk kolom aktivitas pengguna dan tabel alur booking, rekening per kos, pembayaran booking, serta aktivitas properti. Migrasi ini khusus untuk skema platform yang telah memiliki tabel `users`, `rentals`, `rooms`, `kos_buildings`, `bank_transfer_settings`, `invoices`, dan `payments`; jangan jalankan ulang.
 14. Setelah backup, jalankan `migration_operator_review_replies.sql` satu kali untuk mengaktifkan balasan pengelola pada ulasan kos. Migrasi ini membutuhkan tabel `property_reviews` dari migrasi platform; tanpa migrasi ini, halaman kos tetap dapat dibuka, tetapi balasan pengelola tidak ditampilkan.
-15. Koneksi database diatur melalui variabel lingkungan `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`; nilai fallback di `config.php` adalah `127.0.0.1`, `manajemen_kos`, `root`, dan kata sandi kosong. Pada WSL, atur kredensial yang benar untuk MariaDB lokal sebelum menjalankan PHP.
+15. Koneksi database diatur melalui variabel lingkungan `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`; nilai fallback di `config.php` adalah `localhost`, `manajemen_kos`, `araweb_app`, dan kata sandi kosong. Di WSL, akun aplikasi lokal menggunakan autentikasi socket MariaDB. Jika override DB pernah diatur pada terminal, pastikan nilainya valid atau hapus dengan `unset DB_HOST DB_NAME DB_USER DB_PASS` sebelum menjalankan PHP.
 16. Buka `http://localhost:8000/` untuk melihat kos aktif dan kamar-kamarnya. Kamar terisi tetap ditampilkan dengan status tidak tersedia.
 17. Buat/masuk menggunakan akun Admin. Operator mendaftar dari halaman publik dan kos aktifnya langsung dapat ditemukan tanpa persetujuan admin; User dapat mendaftar untuk booking. Pendaftaran meminta minimal salah satu email atau nomor HP, dan menerima foto profil opsional.
 18. Untuk mengirim kode lupa password, set `KOSKOSAN_MAIL_FROM` ke alamat pengirim yang valid dan konfigurasikan transport email PHP pada mesin server. Variabel lama `ARAWEB_MAIL_FROM` tetap didukung untuk konfigurasi yang sudah ada. Untuk PHP CLI di WSL, periksa berkas konfigurasi dengan `php --ini`; jika mengubah konfigurasi, mulai ulang proses PHP development server. Kode hanya berlaku 15 menit, satu kali pakai, maksimal 5 percobaan; permintaan ulang dibatasi 60 detik. Jika email tidak dapat dimasukkan ke antrean, aplikasi mencatat kegagalan ke log server.
