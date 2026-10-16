@@ -3,6 +3,128 @@ declare(strict_types=1);
 
 function handle_property_action(PDO $pdo, array $user, string $action): void
 {
+if ($action === 'update_building_profile_photo') {
+            $buildingId = (int) post_value('building_id');
+            if (!can_manage_building($pdo, $user, $buildingId)) {
+                set_flash('error', 'Anda tidak dapat mengelola foto kos tersebut.');
+                redirect('buildings');
+            }
+            $building = one($pdo, 'SELECT profile_photo_path FROM kos_buildings WHERE id=:id', ['id' => $buildingId]);
+            if (!$building) {
+                set_flash('error', 'Data gedung tidak ditemukan.');
+                redirect('buildings');
+            }
+            $upload = validate_image_upload('profile_photo', 'Foto profil kos');
+            $removeRequested = post_value('remove_profile_photo') === 'yes';
+            if (!$upload && !$removeRequested) {
+                set_flash('error', 'Pilih foto profil kos untuk diunggah.');
+                redirect('building_form&id=' . $buildingId);
+            }
+
+            $newPath = null;
+            if ($upload) {
+                $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads'
+                    . DIRECTORY_SEPARATOR . 'properties';
+                if (!is_dir($uploadDirectory)
+                    && !mkdir($uploadDirectory, 0755, true)
+                    && !is_dir($uploadDirectory)) {
+                    throw new RuntimeException('Folder foto kos tidak dapat dibuat. Periksa izin folder uploads/properties.');
+                }
+                $filename = bin2hex(random_bytes(16)) . '.' . $upload['extension'];
+                $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+                if (!move_uploaded_file($upload['tmp_name'], $filePath)) {
+                    throw new RuntimeException('Foto profil kos gagal disimpan. Periksa izin folder uploads/properties.');
+                }
+                $newPath = 'uploads/properties/' . $filename;
+            }
+
+            try {
+                $pdo->prepare('UPDATE kos_buildings SET profile_photo_path=:path WHERE id=:id')
+                    ->execute(['path' => $newPath, 'id' => $buildingId]);
+            } catch (Throwable $exception) {
+                if ($newPath && is_file($filePath) && !unlink($filePath)) {
+                    error_log('Unable to remove uncommitted property profile photo: ' . $filePath);
+                }
+                throw $exception;
+            }
+            if ($building['profile_photo_path'] && $building['profile_photo_path'] !== $newPath) {
+                try {
+                    delete_uploaded_image(
+                        $building['profile_photo_path'],
+                        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'properties',
+                        'foto profil kos'
+                    );
+                } catch (RuntimeException $exception) {
+                    error_log('Unable to remove replaced property profile photo: ' . $exception->getMessage());
+                    set_flash('error', 'Foto profil baru tersimpan, tetapi foto lama tidak dapat dibersihkan. Periksa log server.');
+                    redirect('building_form&id=' . $buildingId);
+                }
+            }
+            set_flash('success', $newPath ? 'Foto profil kos berhasil diperbarui.' : 'Foto profil kos berhasil dihapus.');
+            redirect('building_form&id=' . $buildingId);
+        }
+
+        if ($action === 'update_room_profile_photo') {
+            $roomId = (int) post_value('room_id');
+            if (!can_manage_room($pdo, $user, $roomId)) {
+                set_flash('error', 'Anda tidak dapat mengelola foto kamar tersebut.');
+                redirect('rooms');
+            }
+            $room = one($pdo, 'SELECT profile_photo_path FROM rooms WHERE id=:id', ['id' => $roomId]);
+            if (!$room) {
+                set_flash('error', 'Kamar tidak ditemukan.');
+                redirect('rooms');
+            }
+            $upload = validate_image_upload('profile_photo', 'Foto profil kamar');
+            $removeRequested = post_value('remove_profile_photo') === 'yes';
+            if (!$upload && !$removeRequested) {
+                set_flash('error', 'Pilih foto profil kamar untuk diunggah.');
+                redirect('room_form&id=' . $roomId);
+            }
+
+            $newPath = null;
+            if ($upload) {
+                $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads'
+                    . DIRECTORY_SEPARATOR . 'rooms';
+                if (!is_dir($uploadDirectory)
+                    && !mkdir($uploadDirectory, 0755, true)
+                    && !is_dir($uploadDirectory)) {
+                    throw new RuntimeException('Folder foto kamar tidak dapat dibuat. Periksa izin folder uploads/rooms.');
+                }
+                $filename = bin2hex(random_bytes(16)) . '.' . $upload['extension'];
+                $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+                if (!move_uploaded_file($upload['tmp_name'], $filePath)) {
+                    throw new RuntimeException('Foto profil kamar gagal disimpan. Periksa izin folder uploads/rooms.');
+                }
+                $newPath = 'uploads/rooms/' . $filename;
+            }
+
+            try {
+                $pdo->prepare('UPDATE rooms SET profile_photo_path=:path WHERE id=:id')
+                    ->execute(['path' => $newPath, 'id' => $roomId]);
+            } catch (Throwable $exception) {
+                if ($newPath && is_file($filePath) && !unlink($filePath)) {
+                    error_log('Unable to remove uncommitted room profile photo: ' . $filePath);
+                }
+                throw $exception;
+            }
+            if ($room['profile_photo_path'] && $room['profile_photo_path'] !== $newPath) {
+                try {
+                    delete_uploaded_image(
+                        $room['profile_photo_path'],
+                        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'rooms',
+                        'foto profil kamar'
+                    );
+                } catch (RuntimeException $exception) {
+                    error_log('Unable to remove replaced room profile photo: ' . $exception->getMessage());
+                    set_flash('error', 'Foto profil baru tersimpan, tetapi foto lama tidak dapat dibersihkan. Periksa log server.');
+                    redirect('room_form&id=' . $roomId);
+                }
+            }
+            set_flash('success', $newPath ? 'Foto profil kamar berhasil diperbarui.' : 'Foto profil kamar berhasil dihapus.');
+            redirect('room_form&id=' . $roomId);
+        }
+
 if ($action === 'save_building') {
             if (!in_array($user['role'], ['admin', 'operator'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengelola data gedung.');
@@ -136,6 +258,10 @@ if ($action === 'save_building') {
             if ($photoFile === false || dirname($photoFile) !== $photoDirectory) {
                 throw new RuntimeException('Lokasi berkas foto tidak valid; foto tidak dihapus.');
             }
+            $pdo->prepare(
+                'UPDATE kos_buildings SET profile_photo_path=NULL
+                 WHERE id=:building_id AND profile_photo_path=:photo_path'
+            )->execute(['building_id' => $buildingId, 'photo_path' => $photo['photo_path']]);
             if (!unlink($photoFile)) {
                 throw new RuntimeException('Foto tidak dapat dihapus. Periksa izin folder uploads/properties.');
             }
@@ -385,6 +511,10 @@ if ($action === 'save_building') {
             if ($photoFile === false || dirname($photoFile) !== $photoDirectory) {
                 throw new RuntimeException('Lokasi berkas foto tidak valid; foto tidak dihapus.');
             }
+            $pdo->prepare(
+                'UPDATE rooms SET profile_photo_path=NULL
+                 WHERE id=:room_id AND profile_photo_path=:photo_path'
+            )->execute(['room_id' => $roomId, 'photo_path' => $photo['photo_path']]);
             if (!unlink($photoFile)) {
                 throw new RuntimeException('Foto tidak dapat dihapus. Periksa izin folder uploads/rooms.');
             }

@@ -416,16 +416,15 @@ td strong,.strong{color:#29344a;font-weight:700}
 .property-tabs a:hover{color:#758b40}
 .property-detail-main{max-width:1180px;margin:0 auto;padding:25px 26px 70px}
 .property-detail-main>.text-link{display:inline-block;margin:0 0 17px;color:#71883d}
-.property-gallery{height:360px;display:grid;grid-template-columns:1.65fr 1fr;gap:10px;overflow:hidden;border-radius:14px;background:#f4f1e5}
+.property-gallery{height:360px;display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.42fr);gap:10px;overflow:hidden;border-radius:14px;background:transparent}
 .property-gallery-main,.property-gallery-side{min-width:0;min-height:0;overflow:hidden}
-.property-gallery-main img,.property-gallery-side img{display:block;width:100%;height:100%;object-fit:cover}
+.property-gallery-main img,.property-gallery-side img{display:block;width:100%;height:100%;object-fit:contain}
 .property-gallery-side{display:grid;grid-template-rows:1fr 1fr;gap:10px}
 .property-gallery-side>:only-child{grid-row:1/-1}
-.property-banner{grid-template-columns:1.65fr 1fr;gap:10px;background:transparent}
-.property-profile-photo{position:relative;border-radius:14px;background:#f4f1e5}
-.property-profile-photo>img{object-fit:cover}
+.property-banner{grid-template-columns:minmax(0,.78fr) minmax(0,1.42fr);gap:10px;background:transparent}
+.property-profile-photo{position:relative;border-radius:14px;background:#e9e8e1}
 .property-banner-edit{position:absolute;right:14px;bottom:14px;z-index:2;box-shadow:0 5px 18px #17203b30}
-.property-location-preview{position:relative;grid-template-rows:minmax(0,1fr) auto;gap:0;border:1px solid #e8e4d5;border-radius:14px;background:#f4f1e5}
+.property-location-preview{position:relative;display:block;gap:0;border:1px solid #e8e4d5;border-radius:14px;background:#f4f1e5}
 .property-banner-map{width:100%;height:100%;min-height:0;z-index:0}
 .property-location-empty{height:100%;min-height:180px;display:grid;align-content:center;justify-items:center;gap:8px;padding:20px;text-align:center;background:radial-gradient(circle at 50% 30%,#fff6d7 0,#f4efdc 46%,#e9eddc 100%);color:#746e50}
 .property-location-empty>span{display:grid;place-items:center;width:54px;height:54px;border-radius:50%;background:#fff9e6;color:#87964e;font-size:28px}
@@ -543,6 +542,15 @@ td strong,.strong{color:#29344a;font-weight:700}
 .property-photo-manager-grid article{display:grid;gap:7px;padding:7px;border:1px solid var(--line);border-radius:8px}
 .property-photo-manager-grid img{width:100%;height:88px;object-fit:cover;border-radius:5px}
 .property-photo-manager-grid .text-button{justify-self:start}
+.profile-image-editor{display:grid;gap:12px;margin:18px 0;padding:16px;border:1px dashed #dfe4eb;border-radius:9px;background:#fbfcff}
+.profile-image-editor>div:first-child{display:grid;gap:4px}
+.profile-image-editor>div:first-child strong{color:#3e4b61;font-size:12px}
+.profile-image-editor>div:first-child small{color:#8792a4;font-size:10px;line-height:1.5}
+.profile-image-editor-preview{display:block;width:min(100%,360px);height:190px;object-fit:cover;border-radius:8px;background:#f1f2f5}
+.profile-image-editor-empty{min-height:100px;display:grid!important;place-items:center;padding:14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#8792a4;font-size:11px}
+.profile-image-editor-form{display:grid;gap:10px}
+.profile-image-editor-actions{display:flex;flex-wrap:wrap;gap:8px}
+.profile-image-editor-actions .button{min-height:36px}
 .profile-photo-preview{width:100px;height:100px;object-fit:cover;border-radius:50%;border:3px solid #f0edff}
 .account-person{display:flex;align-items:center;gap:10px}
 .account-person>div{min-width:0}
@@ -556,13 +564,29 @@ td strong,.strong{color:#29344a;font-weight:700}
 .property-owner-card .profile-avatar{width:47px;height:47px;border-radius:50%;flex:none}
 .room-detail-main{padding-top:24px}
 .room-detail-gallery{margin-top:18px}
-.room-detail-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin-top:17px}
-.room-detail-photo-grid a{display:grid;gap:5px;color:#778c47}
-.room-detail-photo-grid img{width:100%;height:100px;object-fit:cover;border-radius:8px}
-.room-detail-photo-grid small{font-size:9px}
+.room-detail-photo-carousel{position:relative;background:#e9e8e1}
+.room-detail-photo-track{display:flex;width:100%;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none}
+.room-detail-photo-track::-webkit-scrollbar{display:none}
+.room-detail-photo-slide{position:relative;display:block;flex:0 0 100%;min-width:0;height:100%;padding:0;overflow:hidden;border:0;background:#e9e8e1;scroll-snap-align:start;cursor:zoom-in}
+.room-detail-photo-slide img{display:block;width:100%;height:100%;object-fit:contain}
+.room-photo-arrow{position:absolute;top:50%;z-index:2;width:32px;height:32px;transform:translateY(-50%);border:1px solid #ffffffbb;background:#ffffffdf;color:#56533e;box-shadow:0 3px 12px #17203b30}
+.room-photo-arrow:not(:disabled):hover{transform:translateY(calc(-50% - 2px));background:#fff}
+.room-photo-arrow-left{left:12px}
+.room-photo-arrow-right{right:12px}
+.room-photo-arrow:disabled{opacity:.45;cursor:default}
+.room-detail-photo-label{position:absolute;right:12px;bottom:12px;padding:6px 9px;border-radius:999px;background:#192338a8;color:#fff;font-size:10px}
+.room-detail-map-preview{position:relative;min-width:0;min-height:0;overflow:hidden;border:1px solid #e8e4d5;border-radius:14px;background:#f4f1e5}
+.room-detail-map-preview .property-banner-map{position:absolute;inset:0}
+.room-detail-map-preview .property-location-actions{right:10px;bottom:10px;left:auto}
+.room-detail-map-preview .property-location-empty{height:100%;min-height:0}
+.photo-lightbox{position:fixed;width:min(94vw,1200px);max-width:none;height:min(92vh,900px);max-height:none;margin:auto;padding:50px 18px 18px;border:0;border-radius:12px;background:#111c;overflow:hidden}
+.photo-lightbox::backdrop{background:#10131bcc}
+.photo-lightbox>img{display:block;width:100%;height:100%;object-fit:contain}
+.photo-lightbox-close{position:absolute;top:10px;right:12px;z-index:1;width:36px;height:36px;border:1px solid #ffffff66;border-radius:50%;background:#222b;color:#fff;font-size:27px;line-height:1;cursor:pointer}
+.photo-lightbox-close:hover{background:#ffffff33}
 .room-booking-card .button{width:100%;justify-content:center}
 .room-unavailable-note{color:#9b7068;font-size:10px;line-height:1.5}
-@media(max-width:650px){.room-detail-main{padding-top:16px}.room-detail-gallery{height:225px;grid-template-columns:1.4fr 1fr;gap:6px}.room-detail-gallery .property-gallery-side{gap:6px}.room-detail-gallery .property-gallery-side>*{min-height:0}.room-detail-main .property-detail-layout{grid-template-columns:1fr}.room-booking-card{position:static;grid-row:1}}
+@media(max-width:650px){.room-detail-main{padding-top:16px}.room-detail-gallery,.property-banner{height:250px;grid-template-columns:minmax(0,.78fr) minmax(0,1.42fr);gap:6px}.room-detail-map-preview,.property-profile-photo,.property-location-preview{border-radius:9px}.room-detail-map-preview .property-location-actions{right:5px;bottom:5px}.room-detail-map-preview .property-location-actions .button{min-height:25px;padding:0 6px;font-size:7px}.room-photo-arrow{width:28px;height:28px}.room-photo-arrow-left{left:6px}.room-photo-arrow-right{right:6px}.property-detail-main .property-location-actions{right:5px;bottom:5px;left:auto}.property-detail-main .property-location-actions .button{min-height:25px;padding:0 6px;font-size:7px}.property-detail-main .property-banner-edit{right:5px;bottom:5px;min-height:26px;padding:0 6px;font-size:7px}.room-detail-main .property-detail-layout{grid-template-columns:1fr}.room-booking-card{position:static;grid-row:1}}
 .profile-avatar.has-photo{object-fit:cover;overflow:hidden}
 .profile-avatar.small.has-photo{display:block}
 .public-nav-cta:is(button){background:transparent;cursor:pointer}
@@ -631,7 +655,7 @@ td strong,.strong{color:#29344a;font-weight:700}
     .account-row-actions .button{min-height:32px;padding:0 8px;font-size:9px}
 }
 @media(max-width:800px){.public-nav{gap:12px}.public-search{width:min(40vw,300px)}.property-detail-layout{grid-template-columns:minmax(0,1fr) 225px;gap:20px}.property-gallery{height:300px}}
-@media(max-width:650px){.public-nav{justify-content:space-between}.public-nav-links{order:4}.public-search{width:auto;flex:1;max-width:240px}.public-search input{font-size:10px}.public-search .button{min-height:30px;padding:0 8px}.property-tabs{padding:0 17px 10px;gap:17px}.property-tabs a{font-size:9px}.property-detail-main{padding:18px 17px 45px}.property-gallery{height:260px;grid-template-columns:1.2fr 1fr;gap:6px;border-radius:10px}.property-banner{grid-template-columns:1.2fr 1fr}.property-profile-photo,.property-location-preview{border-radius:9px}.property-gallery-side{gap:6px}.property-location-actions{right:6px;bottom:6px;left:6px;flex-direction:column;align-items:stretch}.property-location-actions .button{min-height:29px;font-size:8px}.property-location-empty{padding:10px}.property-location-empty>span{width:38px;height:38px;font-size:20px}.property-location-empty strong{font-size:11px}.property-location-empty small{font-size:8px}.property-banner-edit{right:7px;bottom:7px;min-height:30px;padding:0 8px;font-size:8px}.property-detail-layout{grid-template-columns:1fr;gap:15px}.property-intro h1{font-size:25px}.property-booking-card{position:static;grid-row:1}.property-room-list article{align-items:flex-start}.property-room-list article small{max-width:220px}.property-map{height:260px}.property-section{scroll-margin-top:115px}}
+@media(max-width:650px){.public-nav{justify-content:space-between}.public-nav-links{order:4}.public-search{width:auto;flex:1;max-width:240px}.public-search input{font-size:10px}.public-search .button{min-height:30px;padding:0 8px}.property-tabs{padding:0 17px 10px;gap:17px}.property-tabs a{font-size:9px}.property-detail-main{padding:18px 17px 45px}.property-gallery{height:260px;grid-template-columns:minmax(0,.78fr) minmax(0,1.42fr);gap:6px;border-radius:10px}.property-banner{grid-template-columns:minmax(0,.78fr) minmax(0,1.42fr)}.property-profile-photo,.property-location-preview{border-radius:9px}.property-gallery-side{gap:6px}.property-location-actions{right:6px;bottom:6px;left:6px;flex-direction:column;align-items:stretch}.property-location-actions .button{min-height:29px;font-size:8px}.property-location-empty{padding:10px}.property-location-empty>span{width:38px;height:38px;font-size:20px}.property-location-empty strong{font-size:11px}.property-location-empty small{font-size:8px}.property-banner-edit{right:7px;bottom:7px;min-height:30px;padding:0 8px;font-size:8px}.property-detail-layout{grid-template-columns:1fr;gap:15px}.property-intro h1{font-size:25px}.property-booking-card{position:static;grid-row:1}.property-room-list article{align-items:flex-start}.property-room-list article small{max-width:220px}.property-map{height:260px}.property-section{scroll-margin-top:115px}}
 .hidden{display:none!important}
 .account-search-results{display:grid;gap:6px;max-height:220px;overflow:auto;margin-top:8px}
 .account-search-result{border:1px solid #dfe7ee;background:#fff;border-radius:9px;padding:10px 12px;text-align:left;color:#23364a;cursor:pointer}

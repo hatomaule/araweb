@@ -38,9 +38,26 @@
                 $roomPhotoList = $record
                     ? rows($pdo, 'SELECT id, category, photo_path FROM room_photos WHERE room_id=:id ORDER BY (category = \'room\') DESC, id', ['id' => $id])
                     : [];
+                $firstRoomPhoto = null;
+                foreach ($roomPhotoList as $roomPhoto) {
+                    if ($roomPhoto['category'] === 'room') {
+                        $firstRoomPhoto = $roomPhoto;
+                        break;
+                    }
+                }
             ?>
                 <div class="form-panel"><div class="panel-heading"><div><h2><?= $record ? 'Edit kamar' : 'Tambah unit kamar' ?></h2><p><?= $record ? 'Perbarui data unit kamar dan foto fasilitasnya.' : 'Buat beberapa unit bertipe sama sekaligus. Sistem melewati nomor kamar yang sudah dipakai.' ?></p></div><a class="text-link" href="index.php?page=rooms">← Kembali</a></div>
                 <?php if (!$buildings): ?><div class="alert error">Tambahkan gedung kos yang aktif sebelum membuat data kamar. <a class="text-link" href="index.php?page=building_form">Tambah gedung</a></div><?php endif; ?>
+                <?php if ($record): ?>
+                    <section class="profile-image-editor">
+                        <div><strong>Foto profil kamar</strong><small>Foto ini menjadi sampul kamar di halaman depan dan foto utama pada detail kamar.</small></div>
+                        <?php if (!empty($record['profile_photo_path'])): ?><img class="profile-image-editor-preview" src="<?= e($record['profile_photo_path']) ?>" alt="Foto profil kamar <?= e($record['room_number']) ?>"><?php elseif ($firstRoomPhoto): ?><img class="profile-image-editor-preview" src="<?= e($firstRoomPhoto['photo_path']) ?>" alt="Foto galeri sampul kamar <?= e($record['room_number']) ?>"><small class="field-help">Foto kamar pertama di galeri saat ini digunakan sebagai sampul. Unggah foto untuk menetapkan foto profil khusus.</small><?php else: ?><div class="profile-image-editor-empty">Belum ada foto profil kamar</div><?php endif; ?>
+                        <form method="post" enctype="multipart/form-data" class="profile-image-editor-form"><?= csrf_field() ?><input type="hidden" name="action" value="update_room_profile_photo"><input type="hidden" name="room_id" value="<?= $id ?>">
+                            <label class="field"><span>Unggah atau ganti foto profil</span><input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp"><small class="field-help">JPG, PNG, atau WebP; maksimal 4 MB.</small></label>
+                            <div class="profile-image-editor-actions"><button class="button primary" type="submit">Simpan foto profil</button><?php if (!empty($record['profile_photo_path'])): ?><button class="button secondary" type="submit" name="remove_profile_photo" value="yes" formnovalidate onclick="this.form.querySelector('[name=profile_photo]').value='';">Hapus foto profil</button><?php endif; ?></div>
+                        </form>
+                    </section>
+                <?php endif; ?>
                 <?php if ($roomPhotoList): ?><div class="room-photo-manager"><div class="room-photo-manager-heading"><strong>Foto yang sudah diunggah</strong><span>Foto kamar pertama menjadi sampul di halaman publik.</span></div><div class="room-photo-manager-grid">
                     <?php foreach ($roomPhotoList as $photo): ?><article class="room-photo-manager-card"><img src="<?= e($photo['photo_path']) ?>" alt="<?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?>"><div class="room-photo-manager-info"><span><?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?></span><form method="post" onsubmit="return confirm('Hapus foto ini?')"><?= csrf_field() ?><input type="hidden" name="action" value="delete_room_photo"><input type="hidden" name="room_id" value="<?= $id ?>"><input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>"><button class="text-button" type="submit">Hapus</button></form></div></article><?php endforeach; ?>
                 </div></div><?php endif; ?>

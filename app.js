@@ -1,4 +1,41 @@
 const initializeApp = () => {
+    let generatedPasswordId = 0;
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+        let wrapper = input.closest('.password-input-wrap');
+        if (wrapper && wrapper.querySelector('[data-password-toggle]')) return;
+
+        if (!wrapper) {
+            wrapper = document.createElement('span');
+            wrapper.className = 'password-input-wrap';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.append(input);
+        }
+
+        if (!input.id) {
+            do {
+                generatedPasswordId += 1;
+                input.id = `password-input-${generatedPasswordId}`;
+            } while (document.getElementById(input.id) !== input);
+        }
+
+        const toggle = document.createElement('button');
+        toggle.className = 'password-visibility-toggle';
+        toggle.type = 'button';
+        toggle.dataset.passwordToggle = input.id;
+        toggle.setAttribute('aria-label', 'Tampilkan kata sandi');
+        toggle.setAttribute('aria-pressed', 'false');
+        toggle.innerHTML = `
+            <svg class="password-eye-icon password-eye-visible" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg class="password-eye-icon password-eye-hidden" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                <path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7s-3.6 7-10 7c-1.1 0-2.2-.2-3.1-.6M6.2 6.2C3.5 8.1 2 12 2 12s3.6 7 10 7"></path>
+            </svg>`;
+        wrapper.append(toggle);
+    });
+
     document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
         toggle.addEventListener('click', () => {
             const input = document.getElementById(toggle.dataset.passwordToggle);
@@ -101,6 +138,28 @@ const initializeApp = () => {
             if (event.target === dialog) dialog.close();
         });
     });
+
+    const photoLightbox = document.getElementById('photo-lightbox');
+    const photoPreview = photoLightbox?.querySelector('img');
+    if (photoLightbox instanceof HTMLDialogElement && photoPreview instanceof HTMLImageElement) {
+        document.querySelectorAll('[data-photo-preview]').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                photoPreview.src = trigger.dataset.photoPreview;
+                photoPreview.alt = trigger.dataset.photoAlt || '';
+                photoLightbox.showModal();
+            });
+        });
+        photoLightbox.querySelectorAll('[data-photo-preview-close]').forEach((trigger) => {
+            trigger.addEventListener('click', () => photoLightbox.close());
+        });
+        photoLightbox.addEventListener('click', (event) => {
+            if (event.target === photoLightbox) photoLightbox.close();
+        });
+        photoLightbox.addEventListener('close', () => {
+            photoPreview.removeAttribute('src');
+            photoPreview.alt = '';
+        });
+    }
 
     const accountMenu = document.querySelector('.account-menu');
     if (accountMenu) {

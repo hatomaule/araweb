@@ -33,8 +33,13 @@ migrasi hanya untuk melihat hasilnya.
 
 - Aplikasi web manajemen kos Araweb menggunakan PHP native, PDO, dan
   MySQL/MariaDB.
-- Di lingkungan lokal, aplikasi berada di `C:\xampp\htdocs\ekosan` dan
-  biasanya dibuka melalui `http://localhost/ekosan/`.
+- Di lingkungan WSL saat ini, proyek berada di
+  `/home/alan_hatomaule/projects/ekosan`. Lingkungan yang diperiksa memakai
+  PHP CLI dan MariaDB; Apache tidak terpasang. Untuk pengembangan lokal,
+  jalankan `php -S 127.0.0.1:8000 -t .` dari direktori proyek dan buka
+  `http://localhost:8000/` melalui browser Windows/WSL.
+- PHP development server hanya untuk pengembangan lokal dan tidak menerapkan
+  aturan `.htaccess`; jangan menganggapnya sebagai konfigurasi deployment.
 - Tidak ada framework aplikasi atau sistem build frontend yang menjadi bagian
   dari pola utama proyek. Antarmuka menggunakan PHP, `style.css`, dan
   `app.js`.
@@ -42,7 +47,10 @@ migrasi hanya untuk melihat hasilnya.
   dikenali adalah `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`. Jangan
   menaruh rahasia di source.
 - README menyebut database `manajemen_kos` dan menjelaskan migrasi yang pernah
-  diperlukan. Instalasi lokal/target dapat berbeda; jangan anggap seluruh
+  diperlukan. Di WSL, pastikan MariaDB berjalan dan kredensial
+  `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASS` cocok dengan database lokal; nilai
+  fallback `root` tanpa kata sandi berasal dari konfigurasi lama dan belum
+  tentu bekerja. Instalasi lokal/target dapat berbeda; jangan anggap seluruh
   migrasi sudah pernah dijalankan.
 
 ## Arsitektur dan titik masuk

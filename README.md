@@ -2,11 +2,59 @@
 
 Aplikasi manajemen kamar kos berbasis PHP native dan MySQL/MariaDB.
 
-## Menjalankan di XAMPP
+## Menjalankan secara lokal di WSL
 
-1. Pastikan Apache dan MySQL berjalan.
-2. Database `manajemen_kos` dan tabel-tabelnya harus sudah dibuat menggunakan `kos_schema.sql` dari project sebelumnya. Skema tersebut menggunakan tabel `users`, `tenants`, `rooms`, `rentals`, `invoices`, dan `payments`.
-3. Jalankan `migration_room_photos.sql` melalui phpMyAdmin atau MySQL CLI untuk menambahkan tabel penyimpanan foto kamar dan fasilitas.
+Jalankan perintah berikut dari terminal WSL di direktori proyek:
+
+```bash
+cd ~/projects/ekosan
+sudo service mariadb start
+php -m | grep -i pdo_mysql
+```
+
+Atur `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS` pada terminal yang sama
+sebelum menjalankan server PHP agar aplikasi tersambung ke MariaDB WSL.
+Gunakan akun database lokal yang sesuai; jangan menganggap akun `root` tanpa
+kata sandi bawaan XAMPP berlaku di WSL. `config.php` tetap menyediakan nilai
+fallback lama bila variabel tersebut tidak diatur. Pastikan pula direktori
+`uploads/` dapat ditulisi oleh pengguna yang menjalankan PHP.
+
+Contoh mengatur koneksi untuk sesi terminal saat ini (ganti nama pengguna
+dengan akun MariaDB yang sudah disiapkan; masukkan kata sandinya saat diminta):
+
+```bash
+export DB_HOST=127.0.0.1 DB_NAME=manajemen_kos DB_USER='nama-pengguna-mariadb'
+read -rsp 'Kata sandi MariaDB: ' DB_PASS; export DB_PASS; printf '\n'
+```
+
+Uji kredensial sebelum menyalakan server:
+
+```bash
+php -r 'require "config.php"; db(); echo "Koneksi database berhasil\n";'
+```
+
+Jika tes berhasil, mulai server dari direktori proyek pada terminal yang sama:
+
+```bash
+php -S 127.0.0.1:8000 -t .
+```
+
+Biarkan server PHP tetap berjalan, lalu buka `http://localhost:8000/` dari
+browser Windows atau WSL. PHP development server hanya untuk pengembangan
+lokal; server ini terikat ke loopback dan tidak membaca aturan `.htaccess`.
+Untuk menguji perlindungan berkas upload atau menjalankan aplikasi untuk
+pengguna lain, gunakan web server yang dikonfigurasi dengan benar.
+
+Jika memindahkan database yang sudah berisi data dari XAMPP, ekspor database
+di XAMPP, impor dump ke MariaDB WSL, lalu verifikasi skema dan data sebelum
+membuka aplikasi. Buat backup yang dapat dipulihkan; jangan jalankan ulang
+migrasi yang sudah diterapkan.
+
+## Persiapan database dan migrasi
+
+1. Pastikan layanan MariaDB WSL berjalan dan siapkan akses database untuk PHP menggunakan variabel lingkungan di atas.
+2. Untuk database baru, buat database `manajemen_kos` dan tabel awal menggunakan `kos_schema.sql` dari project sebelumnya; file skema itu tidak disertakan di repository ini. Untuk database yang dipindahkan dari XAMPP, impor dump database ke MariaDB WSL dan pertahankan data yang ada. Skema dasarnya menggunakan tabel `users`, `tenants`, `rooms`, `rentals`, `invoices`, dan `payments`.
+3. Jalankan `migration_room_photos.sql` melalui klien MariaDB/MySQL di WSL untuk menambahkan tabel penyimpanan foto kamar dan fasilitas.
 4. Untuk database lama yang masih memakai status `inactive`, jalankan `migration_room_types_and_statuses.sql` satu kali **sebelum** migrasi label tipe kamar pada langkah 9. Migrasi lama ini memetakan tipe yang belum dikenal menjadi Silver; jangan jalankan setelah langkah 9 karena nilai tipe baru akan tertimpa.
 5. Jalankan `migration_customer_bookings.sql` satu kali untuk menambahkan akun pelanggan, pemesanan online, rekening tujuan, dan penyimpanan bukti transfer.
 6. Jika database sudah ada sebelum dukungan gedung, jalankan `migration_buildings_and_room_locations.sql` **satu kali**. Migrasi ini membuat gedung penampung tanpa koordinat untuk kamar lama. Setelah migrasi, buka menu **Gedung kos → Edit**, lalu ganti nama/alamat dan isi koordinat sebenarnya; pindahkan kamar ke gedung yang sesuai bila ada beberapa lokasi. Jangan jalankan migrasi pada database yang sudah memiliki tabel `kos_buildings` dan kolom `rooms.building_id`.
@@ -18,12 +66,13 @@ Aplikasi manajemen kamar kos berbasis PHP native dan MySQL/MariaDB.
 12. Setelah backup, jalankan `migration_account_gender.sql` satu kali untuk menambahkan jenis kelamin akun. Akun lama yang belum memiliki data gender dapat melengkapinya dari halaman profil; avatar gendered digunakan setelah data tersebut dipilih.
 13. Setelah backup, jalankan `migration_business_flow.sql` satu kali untuk kolom aktivitas pengguna dan tabel alur booking, rekening per kos, pembayaran booking, serta aktivitas properti. Migrasi ini khusus untuk skema platform yang telah memiliki tabel `users`, `rentals`, `rooms`, `kos_buildings`, `bank_transfer_settings`, `invoices`, dan `payments`; jangan jalankan ulang.
 14. Setelah backup, jalankan `migration_operator_review_replies.sql` satu kali untuk mengaktifkan balasan pengelola pada ulasan kos. Migrasi ini membutuhkan tabel `property_reviews` dari migrasi platform; tanpa migrasi ini, halaman kos tetap dapat dibuka, tetapi balasan pengelola tidak ditampilkan.
-15. Pengaturan bawaan koneksi: host `127.0.0.1`, database `manajemen_kos`, user `root`, kata sandi kosong. Ubah pengaturan di `config.php`, atau gunakan variabel lingkungan `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`.
-16. Buka `http://localhost/ekosan/` untuk melihat kos aktif dan kamar-kamarnya. Kamar terisi tetap ditampilkan dengan status tidak tersedia.
+15. Koneksi database diatur melalui variabel lingkungan `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`; nilai fallback di `config.php` adalah `127.0.0.1`, `manajemen_kos`, `root`, dan kata sandi kosong. Pada WSL, atur kredensial yang benar untuk MariaDB lokal sebelum menjalankan PHP.
+16. Buka `http://localhost:8000/` untuk melihat kos aktif dan kamar-kamarnya. Kamar terisi tetap ditampilkan dengan status tidak tersedia.
 17. Buat/masuk menggunakan akun Admin. Operator mendaftar dari halaman publik dan kos aktifnya langsung dapat ditemukan tanpa persetujuan admin; User dapat mendaftar untuk booking. Pendaftaran meminta minimal salah satu email atau nomor HP, dan menerima foto profil opsional.
-18. Untuk mengirim kode lupa password, set `ARAWEB_MAIL_FROM` ke alamat pengirim yang valid dan konfigurasikan transport email PHP (`SMTP`/`sendmail_path` di `php.ini`) pada mesin server. Restart Apache setelah mengubah `php.ini`. Kode hanya berlaku 15 menit, satu kali pakai, maksimal 5 percobaan; permintaan ulang dibatasi 60 detik. Jika email tidak dapat dimasukkan ke antrean, aplikasi mencatat kegagalan ke log server.
+18. Untuk mengirim kode lupa password, set `ARAWEB_MAIL_FROM` ke alamat pengirim yang valid dan konfigurasikan transport email PHP pada mesin server. Untuk PHP CLI di WSL, periksa berkas konfigurasi dengan `php --ini`; jika mengubah konfigurasi, mulai ulang proses PHP development server. Kode hanya berlaku 15 menit, satu kali pakai, maksimal 5 percobaan; permintaan ulang dibatasi 60 detik. Jika email tidak dapat dimasukkan ke antrean, aplikasi mencatat kegagalan ke log server.
 19. Untuk menambahkan data uji lokal, set `ARA_DEMO_PASSWORD` ke kata sandi acak minimal 12 karakter di lingkungan terminal, lalu jalankan `php seed_demo_data.php`. Seeder membuat 3 akun operator, 3 listing berisi masing-masing 5 kamar, 9 akun User, sewa aktif, dan enam periode tagihan/pembayaran per sewa. Data rekening demo ditandai agar tidak digunakan untuk transfer nyata; semua akun demo menggunakan kata sandi yang sama dari variabel lingkungan tersebut. Seeder berhenti jika data demo sudah ada.
 20. Setelah backup, jalankan `migration_account_activity_and_deletion.sql` satu kali setelah migrasi multi-owner dan business flow. Migrasi ini menambahkan log aktivitas akun dan mempertahankan histori booking/pencarian saat akun User dihapus. Jangan jalankan ulang.
+21. Setelah backup, jalankan `migration_property_and_room_profile_photos.sql` satu kali setelah migrasi `migration_multi_owner_platform.sql` dan `migration_room_photos.sql`. Migrasi ini menambahkan kolom foto profil terpisah untuk kos dan kamar. Foto galeri lama tetap digunakan sebagai sampul jika foto profil belum diunggah. Jangan jalankan ulang.
 
 ## Struktur modul
 
@@ -57,6 +106,7 @@ Modul memakai koneksi, sesi, dan helper yang disediakan inti aplikasi. Pemetaan 
 - Tambah dan edit kamar serta status ketersediaan/perawatan.
 - Kelola beberapa gedung kos beserta alamat dan koordinat latitude/longitude; nomor kamar boleh berulang di gedung yang berbeda.
 - Setiap kamar terhubung ke satu gedung. Nama gedung ditampilkan pada daftar kamar, booking, masa sewa, tagihan, dan pembayaran.
+- Operator dapat mengunggah foto profil kos dan kamar secara terpisah dari galeri. Foto profil kos tampil di banner detail kos dan kartu kos di halaman depan; foto profil kamar tampil pada kartu kamar dan detail kamar. JPG/PNG/WebP maksimal 4 MB.
 - Peta publik memakai Leaflet dan OpenStreetMap tanpa API key, menampilkan lokasi gedung aktif yang memiliki kamar tersedia beserta tipe kamar dan harga bulanan. Isi alamat serta koordinat gedung dari menu **Gedung kos**. Pustaka peta dan petanya memerlukan koneksi internet.
 - Pilih tipe kamar dari Tipe Standart, Tipe Premium, dan Tipe Eksklusif.
 - Status kamar Kosong/Perawatan diatur pengelola; Terisi/Pending mengikuti masa sewa dan booking. Booking yang disetujui tampil di data kamar beserta nama User dan status pembayarannya, tetapi baru menjadi penghuni aktif dan berstatus Terisi setelah tagihan lunas.
@@ -71,6 +121,6 @@ Modul memakai koneksi, sesi, dan helper yang disediakan inti aplikasi. Pemetaan 
 - Halaman publik Araweb menampilkan kos yang tersedia, tipe kamar, fasilitas, lokasi, serta harga bulanan tanpa memerlukan login.
 - Dari menu **Kamar → Edit**, pengelola dapat mengunggah hingga 4 foto kamar dan 4 foto fasilitas sekaligus. Format JPG, PNG, dan WebP didukung dengan batas 4 MB per foto. Foto kamar pertama menjadi sampul; foto fasilitas ditampilkan sebagai galeri di halaman publik.
 
-Folder `uploads/rooms`, `uploads/properties`, `uploads/profiles`, dan `uploads/payments` harus dapat ditulisi oleh Apache/PHP. Koordinat peta serta foto kos/kamar bersifat opsional; jika foto belum tersedia, halaman publik menggunakan ilustrasi bawaan Araweb. Pembayaran online bukan payment gateway: transfer tetap dilakukan manual dan bukti harus diverifikasi operator. Penghentian atau pembatalan sewa dan penonaktifan pelanggan menggunakan status, bukan penghapusan data, agar riwayat tagihan/pembayaran tetap terjaga.
+Folder `uploads/rooms`, `uploads/properties`, `uploads/profiles`, dan `uploads/payments` harus dapat ditulisi oleh pengguna yang menjalankan PHP. Koordinat peta serta foto kos/kamar bersifat opsional; jika foto belum tersedia, halaman publik menggunakan ilustrasi bawaan Araweb. Pembayaran online bukan payment gateway: transfer tetap dilakukan manual dan bukti harus diverifikasi operator. Penghentian atau pembatalan sewa dan penonaktifan pelanggan menggunakan status, bukan penghapusan data, agar riwayat tagihan/pembayaran tetap terjaga.
 
 Login Facebook untuk User menggunakan OAuth. Agar tombolnya aktif, set variabel lingkungan server `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, dan `FACEBOOK_REDIRECT_URI` (URL callback persis `https://domain-anda/ekosan/index.php?page=facebook_callback`) lalu daftarkan URL callback yang sama pada aplikasi Meta. Jangan menyimpan App Secret di source code. Login email tetap tersedia.

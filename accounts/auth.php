@@ -63,6 +63,6 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
         <?php if (!$isSetup && !$isForgot && !$isReset): ?><p class="auth-switch"><?= $isRegister ? 'Sudah punya akun?' : 'Belum punya akun User?' ?> <a href="index.php?page=<?= $isRegister ? 'login' : 'register' ?>"><?= $isRegister ? 'Masuk' : 'Daftar sekarang' ?></a></p><?php endif; ?>
         <?php if ($page === 'login'): ?><p class="auth-switch"><a href="index.php?page=forgot_password">Lupa password?</a></p><?php elseif ($isForgot): ?><p class="auth-switch">Sudah menerima kode? <a href="index.php?page=reset_password">Masukkan kode reset</a></p><?php elseif ($isReset): ?><p class="auth-switch">Belum menerima kode? <a href="index.php?page=forgot_password">Kirim ulang kode</a></p><?php endif; ?>
         <a class="auth-home-link" href="index.php">← Kembali ke Araweb</a>
-    </section></main><script src="app.js?v=20261010-password-eye-icon"></script></body></html><?php
+    </section></main><script src="app.js?v=20261016-interactive-controls"></script></body></html><?php
     exit;
 }

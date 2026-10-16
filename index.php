@@ -100,6 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roomId = (int) post_value('id');
             redirect('room_form' . ($roomId > 0 ? '&id=' . $roomId : ''));
         }
+        if ($action === 'update_building_profile_photo') {
+            redirect('building_form&id=' . max(0, (int) post_value('building_id')));
+        }
+        if ($action === 'update_room_profile_photo') {
+            redirect('room_form&id=' . max(0, (int) post_value('room_id')));
+        }
         if ($action === 'delete_room_photo') {
             redirect('room_form&id=' . max(0, (int) post_value('room_id')));
         }
@@ -127,6 +133,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'save_profile') {
             redirect('profile');
+        }
+        if ($action === 'update_building_profile_photo') {
+            redirect('building_form&id=' . max(0, (int) post_value('building_id')));
+        }
+        if ($action === 'update_room_profile_photo') {
+            redirect('room_form&id=' . max(0, (int) post_value('room_id')));
         }
         redirect($page);
     }
@@ -457,4 +469,4 @@ require __DIR__ . '/portal/public.php';
         <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
     </form>
 </dialog>
-<script src="app.js?v=20261009-rooms"></script></body></html>
+<script src="app.js?v=20261016-interactive-controls"></script></body></html>

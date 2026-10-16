@@ -39,11 +39,16 @@ if ($page === 'room') {
     $roomPhotos = rows($pdo,
         "SELECT id,category,photo_path FROM room_photos WHERE room_id=:id
          ORDER BY (category='room') DESC,id", ['id' => $roomId]);
-    $primaryPhoto = null;
+    $roomGalleryPhotos = [];
+    if (!empty($room['profile_photo_path'])) {
+        $roomGalleryPhotos[] = [
+            'photo_path' => $room['profile_photo_path'],
+            'category' => 'room',
+        ];
+    }
     foreach ($roomPhotos as $photo) {
-        if ($photo['category'] === 'room') {
-            $primaryPhoto = $photo;
-            break;
+        if ($photo['photo_path'] !== ($room['profile_photo_path'] ?? null)) {
+            $roomGalleryPhotos[] = $photo;
         }
     }
     $roomAvailable = (bool) $room['is_available'];
@@ -51,22 +56,61 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | Araweb</title><link rel="stylesheet" href="style.css"></head>
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | Araweb</title><link rel="stylesheet" href="style.css?v=20261015-photo-carousel-lightbox">
+    <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
+    </head>
     <body class="public-page property-page"><header class="public-header"><nav class="public-nav">
         <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a>
         <a class="public-nav-cta" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat informasi kos ↗</a>
     </nav></header>
     <main class="property-detail-main room-detail-main">
         <a class="text-link" href="index.php?page=home#kamar">← Kembali ke pilihan kamar</a>
-        <section class="property-gallery room-detail-gallery"><div class="property-gallery-main"><?php if ($primaryPhoto): ?><img src="<?= e($primaryPhoto['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php else: ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong>Kamar <?= e($room['room_number']) ?></strong><small>Foto kamar dapat ditambahkan pengelola</small></div><?php endif; ?></div><div class="property-gallery-side"><?php foreach (array_slice(array_values(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room' && $photo['id'] !== ($primaryPhoto['id'] ?? 0))), 0, 2) as $photo): ?><img src="<?= e($photo['photo_path']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>"><?php endforeach; ?><?php if (count(array_filter($roomPhotos, static fn(array $photo): bool => $photo['category'] === 'room')) < 2): ?><div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">✳</span><strong><?= e($genderLabel) ?></strong><small><?= e($room['building_name']) ?></small></div><?php endif; ?></div></section>
+        <section class="property-gallery room-detail-gallery">
+            <div class="property-gallery-main room-detail-photo-carousel">
+                <?php if ($roomGalleryPhotos): ?>
+                    <?php if (count($roomGalleryPhotos) > 1): ?>
+                        <button type="button" class="property-carousel-arrow room-photo-arrow room-photo-arrow-left" data-carousel-target="room-detail-photos" data-carousel-direction="left" aria-label="Foto sebelumnya" disabled>‹</button>
+                        <button type="button" class="property-carousel-arrow room-photo-arrow room-photo-arrow-right" data-carousel-target="room-detail-photos" data-carousel-direction="right" aria-label="Foto berikutnya">›</button>
+                    <?php endif; ?>
+                    <div class="room-detail-photo-track" id="room-detail-photos" tabindex="0" aria-label="Galeri foto kamar">
+                        <?php foreach ($roomGalleryPhotos as $photo): ?>
+                            <button class="room-detail-photo-slide" type="button" data-photo-preview="<?= e($photo['photo_path']) ?>" data-photo-alt="<?= e(($photo['category'] === 'facility' ? 'Foto fasilitas kamar ' : 'Foto kamar ') . $room['room_number']) ?>" aria-label="Lihat <?= $photo['category'] === 'facility' ? 'foto fasilitas' : 'foto kamar' ?> ukuran penuh">
+                                <img src="<?= e($photo['photo_path']) ?>" alt="<?= $photo['category'] === 'facility' ? 'Foto fasilitas kamar' : 'Foto kamar' ?> <?= e($room['room_number']) ?>">
+                                <?php if ($photo['category'] === 'facility'): ?><span class="room-detail-photo-label">Foto fasilitas</span><?php endif; ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong>Kamar <?= e($room['room_number']) ?></strong><small>Foto kamar dapat ditambahkan pengelola</small></div>
+                <?php endif; ?>
+            </div>
+            <div class="room-detail-map-preview">
+                <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?>
+                    <div id="room-detail-map" class="property-banner-map" aria-label="Peta lokasi <?= e($room['building_name']) ?>"></div>
+                    <div class="property-location-actions"><a class="button secondary compact-button" href="https://www.google.com/maps/search/?api=1&amp;query=<?= e($room['latitude']) ?>%2C<?= e($room['longitude']) ?>" target="_blank" rel="noopener noreferrer">Buka Google Maps ↗</a></div>
+                <?php else: ?>
+                    <div class="property-location-empty"><span aria-hidden="true">⌖</span><strong>Lokasi kos belum diatur</strong><small><?= e($room['building_name']) ?></small></div>
+                    <div class="property-location-actions"><a class="button secondary compact-button" href="https://www.google.com/maps/search/?api=1&amp;query=<?= rawurlencode($room['building_address']) ?>" target="_blank" rel="noopener noreferrer">Cari alamat di Google Maps ↗</a></div>
+                <?php endif; ?>
+            </div>
+        </section>
         <div class="property-detail-layout"><div class="property-detail-content">
             <section class="property-intro"><span class="badge <?= $roomAvailable ? 'active' : 'inactive' ?>"><?= $roomAvailable ? 'Tersedia sekarang' : 'Tidak tersedia' ?></span><span class="badge active"><?= e($genderLabel) ?></span><h1><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?></h1><p><?= e($room['building_name']) ?> · <?= e($room['building_address']) ?></p><p><?= e($room['floor'] ? 'Lantai ' . $room['floor'] . ' · ' : '') ?>Kamar <?= e($room['room_number']) ?></p><?php if ($room['building_description']): ?><p><?= nl2br(e($room['building_description'])) ?></p><?php endif; ?></section>
-            <section class="property-section" id="fasilitas-kamar"><h2>Fasilitas kamar</h2><div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $room['facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$room['facilities']): ?><span>Informasi fasilitas belum ditambahkan.</span><?php endif; ?></div><?php if ($roomPhotos): ?><div class="room-detail-photo-grid"><?php foreach ($roomPhotos as $photo): ?><a href="<?= e($photo['photo_path']) ?>" target="_blank" rel="noopener noreferrer"><img src="<?= e($photo['photo_path']) ?>" alt="<?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?> <?= e($room['room_number']) ?>"><small><?= $photo['category'] === 'room' ? 'Kamar' : 'Fasilitas' ?></small></a><?php endforeach; ?></div><?php endif; ?></section>
+            <section class="property-section" id="fasilitas-kamar"><h2>Fasilitas kamar</h2><div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $room['facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$room['facilities']): ?><span>Informasi fasilitas belum ditambahkan.</span><?php endif; ?></div></section>
             <section class="property-section" id="fasilitas-umum"><h2>Fasilitas umum &amp; peraturan</h2><div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $room['general_facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$room['general_facilities']): ?><span>Informasi fasilitas umum belum ditambahkan.</span><?php endif; ?></div><?php if ($room['house_rules']): ?><h3>Peraturan kos</h3><p><?= nl2br(e($room['house_rules'])) ?></p><?php endif; ?></section>
             <section class="property-section"><h2>Informasi kos</h2><p><?= e($room['building_name']) ?></p><p><?= e($room['building_address']) ?></p><a class="text-link" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat profil kos dan kamar lainnya ↗</a></section>
             <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small><?php if ($room['owner_phone']): ?><a href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>">Hubungi pengelola ↗</a><?php endif; ?></div></div></section><?php endif; ?>
         </div><aside class="property-booking-card room-booking-card"><span><?= $roomAvailable ? 'Kamar tersedia' : 'Kamar sedang tidak tersedia' ?></span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong><p>Tarif bulanan kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</p><?php if ($roomAvailable): ?><a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&id=' . $roomId : 'index.php?page=register&role=seeker&next=booking&id=' . $roomId ?>">Ajukan booking kamar</a><?php else: ?><span class="room-unavailable-note">Booking belum dapat dilakukan untuk kamar ini.</span><?php endif; ?></aside></div>
-    </main><footer class="public-footer"><a class="tiara-brand araweb-brand" href="index.php"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer><script src="app.js?v=20261009-rooms"></script></body></html>
+    </main><footer class="public-footer"><a class="tiara-brand araweb-brand" href="index.php"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer>
+    <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
+    <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>
+        const roomMap = L.map('room-detail-map', {scrollWheelZoom: false, zoomControl: false}).setView([<?= json_encode((float) $room['latitude']) ?>, <?= json_encode((float) $room['longitude']) ?>], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(roomMap);
+        L.marker([<?= json_encode((float) $room['latitude']) ?>, <?= json_encode((float) $room['longitude']) ?>]).addTo(roomMap).bindPopup(<?= json_encode($room['building_name'] . ' - Kamar ' . $room['room_number'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);
+        setTimeout(() => roomMap.invalidateSize(), 100);
+        document.getElementById('room-detail-map').addEventListener('click', () => roomMap.scrollWheelZoom.enable());
+    </script><?php endif; ?>
+    <script src="app.js?v=20261016-interactive-controls"></script></body></html>
     <?php
     exit;
 }
@@ -98,6 +142,15 @@ if ($page === 'property') {
         'SELECT id,photo_path FROM property_photos WHERE building_id=:id ORDER BY display_order,id',
         ['id' => $buildingId]
     );
+    $propertyGalleryPhotos = [];
+    if (!empty($property['profile_photo_path'])) {
+        $propertyGalleryPhotos[] = $property['profile_photo_path'];
+    }
+    foreach ($propertyPhotos as $photo) {
+        if (!in_array($photo['photo_path'], $propertyGalleryPhotos, true)) {
+            $propertyGalleryPhotos[] = $photo['photo_path'];
+        }
+    }
     $propertyRooms = rows(
         $pdo,
         "SELECT rm.* FROM rooms rm WHERE rm.building_id=:id AND rm.status='available'
@@ -143,21 +196,31 @@ if ($page === 'property') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($property['name']) ?> — foto, kamar, fasilitas, lokasi, ulasan dan informasi pemilik kos.">
-    <title><?= e($property['name']) ?> — Araweb</title><link rel="stylesheet" href="style.css">
+    <title><?= e($property['name']) ?> — Araweb</title><link rel="stylesheet" href="style.css?v=20261015-photo-carousel-lightbox">
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head><body class="public-page property-page">
-    <header class="public-header"><nav class="public-nav"><a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="login-dialog">Masuk / Daftar</button><?php endif; ?></nav>
+    <header class="public-header"><nav class="public-nav"><a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar</a><?php endif; ?></nav>
     <nav class="property-tabs"><a href="#foto">Foto properti</a><a href="#fasilitas-kamar">Fasilitas kamar</a><a href="#fasilitas-umum">Fasilitas umum</a><a href="#lokasi">Lokasi</a><a href="#review">Review</a><a href="#pemilik">Pemilik kos</a></nav></header>
     <main class="property-detail-main">
         <a class="text-link" href="index.php?page=home">← Kembali ke pencarian</a>
         <section id="foto" class="property-gallery property-banner">
             <div class="property-gallery-main property-profile-photo">
-                <?php if ($propertyPhotos): ?>
-                    <img src="<?= e($propertyPhotos[0]['photo_path']) ?>" alt="Foto profil kos <?= e($property['name']) ?>">
+                <?php if ($propertyGalleryPhotos): ?>
+                    <?php if (count($propertyGalleryPhotos) > 1): ?>
+                        <button type="button" class="property-carousel-arrow room-photo-arrow room-photo-arrow-left" data-carousel-target="property-detail-photos" data-carousel-direction="left" aria-label="Foto sebelumnya" disabled>‹</button>
+                        <button type="button" class="property-carousel-arrow room-photo-arrow room-photo-arrow-right" data-carousel-target="property-detail-photos" data-carousel-direction="right" aria-label="Foto berikutnya">›</button>
+                    <?php endif; ?>
+                    <div class="room-detail-photo-track" id="property-detail-photos" tabindex="0" aria-label="Galeri foto kos">
+                        <?php foreach ($propertyGalleryPhotos as $index => $photoPath): ?>
+                            <button class="room-detail-photo-slide" type="button" data-photo-preview="<?= e($photoPath) ?>" data-photo-alt="<?= e('Foto kos ' . $property['name']) ?>" aria-label="Lihat foto kos ukuran penuh">
+                                <img src="<?= e($photoPath) ?>" alt="<?= e(($index === 0 ? 'Foto profil kos ' : 'Foto galeri kos ') . $property['name']) ?>">
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
                 <?php else: ?>
                     <div class="property-photo-placeholder araweb-house-placeholder"><span aria-hidden="true">⌂</span><strong><?= e($property['name']) ?></strong><small>Foto profil kos belum ditambahkan</small></div>
                 <?php endif; ?>
-                <?php if ($canManageProperty): ?><a class="property-banner-edit button primary" href="index.php?page=building_form&amp;id=<?= $buildingId ?>">＋ <?= $propertyPhotos ? 'Ganti foto kos' : 'Tambah foto kos' ?></a><?php endif; ?>
+                <?php if ($canManageProperty): ?><a class="property-banner-edit button primary" href="index.php?page=building_form&amp;id=<?= $buildingId ?>"><?= !empty($property['profile_photo_path']) ? 'Ganti foto kos' : 'Tambah foto kos' ?></a><?php endif; ?>
             </div>
             <div class="property-gallery-side property-location-preview" id="lokasi">
                 <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?>
@@ -185,8 +248,8 @@ if ($page === 'property') {
         </div><aside class="property-booking-card"><span>Mulai dari</span><strong><?= e($propertyRooms ? money(min(array_column($propertyRooms, 'monthly_rate'))) : '—') ?><small>/ bulan</small></strong><a class="button primary full" href="#fasilitas-kamar">Pilih kamar tersedia</a><p>Login diperlukan untuk mengirim permintaan booking. Pemilik kos akan meninjau permintaan Anda.</p></aside></div>
     </main>
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>const propertyMap=L.map('property-map',{scrollWheelZoom:false,zoomControl:false}).setView([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(propertyMap);L.marker([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>]).addTo(propertyMap).bindPopup(<?= json_encode($property['name'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);setTimeout(()=>propertyMap.invalidateSize(),100);document.getElementById('property-map').addEventListener('click',()=>propertyMap.scrollWheelZoom.enable());</script><?php endif; ?>
-    <?php if (!$user): ?><dialog class="action-dialog login-dialog" id="login-dialog"><div class="action-dialog-form"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">AKUN ARAWEB</span><h2>Masuk ke Araweb</h2><p>Lanjutkan ke halaman masuk untuk mengakses profil, booking, dan layanan akun kamu.</p><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><a class="button primary" href="index.php?page=login">Lanjut masuk</a></div></div></dialog><?php endif; ?>
-    <script src="app.js?v=20261012-popular-rooms"></script>
+    <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
+    <script src="app.js?v=20261016-interactive-controls"></script>
     </body></html><?php
     exit;
 }
@@ -201,6 +264,7 @@ if (in_array($page, ['home', 'search'], true)) {
         "SELECT rm.*, b.name AS building_name, b.address AS building_address,
                 b.description AS building_description, b.gender_policy,
                 b.latitude AS building_latitude, b.longitude AS building_longitude,
+                b.profile_photo_path AS building_profile_photo_path,
                 CASE WHEN rm.status='available' AND NOT EXISTS (
                     SELECT 1 FROM rentals r
                     WHERE r.room_id=rm.id AND (
@@ -287,9 +351,9 @@ if (in_array($page, ['home', 'search'], true)) {
     if (!$searchTerm) {
         foreach ($publicRooms as $room) {
             $roomId = (int) $room['id'];
-            $room['cover_photo'] = null;
+            $room['cover_photo'] = $room['profile_photo_path'] ?: null;
             foreach ($roomPhotos[$roomId] ?? [] as $photo) {
-                if ($photo['category'] === 'room') {
+                if ($room['cover_photo'] === null && $photo['category'] === 'room') {
                     $room['cover_photo'] = $photo['photo_path'];
                     break;
                 }
@@ -310,7 +374,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 'rooms' => [],
                 'available_count' => 0,
                 'minimum_rate' => (float) $room['monthly_rate'],
-                'cover_photo' => null,
+                'cover_photo' => $room['building_profile_photo_path'] ?: null,
             ];
         }
         $searchListings[$buildingId]['rooms'][] = $room;
@@ -493,7 +557,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a href="#kontak">Kontak</a>
                     <?php if (!$user): ?><a href="index.php?page=register&amp;role=operator">Daftarkan kos</a><?php endif; ?>
                 </div>
-                <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel pemilik kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="login-dialog">Masuk / Daftar<span aria-hidden="true">↗</span></button><?php endif; ?>
+                <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel pemilik kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar<span aria-hidden="true">↗</span></a><?php endif; ?>
                 <button class="public-menu-toggle" type="button" aria-label="Buka navigasi" aria-expanded="false">☰</button>
             </nav>
         </header>
@@ -715,7 +779,6 @@ if (in_array($page, ['home', 'search'], true)) {
                 </div>
             </div>
         </footer>
-        <?php if (!$user): ?><dialog class="action-dialog login-dialog" id="login-dialog"><div class="action-dialog-form"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">AKUN ARAWEB</span><h2>Masuk ke Araweb</h2><p>Lanjutkan ke halaman masuk untuk mengakses profil, booking, dan layanan akun kamu.</p><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><a class="button primary" href="index.php?page=login">Lanjut masuk</a></div></div></dialog><?php endif; ?>
         <?php if ($mapBuildings): ?>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
         <script>
@@ -766,7 +829,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 map.fitBounds(mapBounds, {padding: [36, 36], maxZoom: 14});
             }
         </script><?php endif; ?>
-        <script src="app.js?v=20261009-rooms"></script>
+        <script src="app.js?v=20261016-interactive-controls"></script>
     </body>
     </html>
     <?php
