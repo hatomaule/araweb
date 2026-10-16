@@ -399,7 +399,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     'building_id' => $buildingId,
                     'user_id' => $user['id'] ?? null,
                     'visitor_key' => analytics_visitor_key(),
-                    'search_query' => mb_substr($searchTerm, 0, 255),
+                    'search_query' => $searchTerm,
                 ]);
             }
         }
