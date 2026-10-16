@@ -56,10 +56,10 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | Araweb</title><link rel="stylesheet" href="style.css?v=20261015-photo-carousel-lightbox">
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | Araweb</title><link rel="stylesheet" href="style.css?v=20261016-room-detail-footer">
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
-    <body class="public-page property-page"><header class="public-header"><nav class="public-nav">
+    <body class="public-page property-page"><header class="public-header" id="top"><nav class="public-nav">
         <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a>
         <a class="public-nav-cta" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat informasi kos ↗</a>
     </nav></header>
@@ -101,7 +101,24 @@ if ($page === 'room') {
             <section class="property-section"><h2>Informasi kos</h2><p><?= e($room['building_name']) ?></p><p><?= e($room['building_address']) ?></p><a class="text-link" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat profil kos dan kamar lainnya ↗</a></section>
             <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small><?php if ($room['owner_phone']): ?><a href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>">Hubungi pengelola ↗</a><?php endif; ?></div></div></section><?php endif; ?>
         </div><aside class="property-booking-card room-booking-card"><span><?= $roomAvailable ? 'Kamar tersedia' : 'Kamar sedang tidak tersedia' ?></span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong><p>Tarif bulanan kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</p><?php if ($roomAvailable): ?><a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&id=' . $roomId : 'index.php?page=register&role=seeker&next=booking&id=' . $roomId ?>">Ajukan booking kamar</a><?php else: ?><span class="room-unavailable-note">Booking belum dapat dilakukan untuk kamar ini.</span><?php endif; ?></aside></div>
-    </main><footer class="public-footer"><a class="tiara-brand araweb-brand" href="index.php"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a><p>Ruang nyaman untuk cerita barumu.</p><span>© <?= date('Y') ?> Araweb</span></footer>
+    </main><footer class="public-footer room-detail-footer">
+        <div class="public-footer-inner room-detail-footer-inner">
+            <div class="public-footer-brand">
+                <a class="tiara-brand araweb-brand" href="index.php" aria-label="Araweb, beranda"><span class="tiara-brand-icon">A</span><span>ara<span>web</span><small>HUNIAN NYAMAN</small></span></a>
+                <p>Temukan hunian nyaman dan ruang untuk memulai cerita barumu.</p>
+            </div>
+            <nav class="public-footer-links" aria-label="Jelajahi Araweb">
+                <h2>Jelajahi Araweb</h2>
+                <a href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">› <span><?= e($room['building_name']) ?></span></a>
+                <a href="index.php?page=home#kamar">› <span>Lihat kamar lainnya</span></a>
+                <a href="#top">↑ <span>Kembali ke atas</span></a>
+            </nav>
+            <div class="public-footer-bottom">
+                <span>© <?= date('Y') ?> Araweb. Hak cipta dilindungi.</span>
+                <a href="#top" aria-label="Kembali ke atas">↑</a>
+            </div>
+        </div>
+    </footer>
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>
         const roomMap = L.map('room-detail-map', {scrollWheelZoom: false, zoomControl: false}).setView([<?= json_encode((float) $room['latitude']) ?>, <?= json_encode((float) $room['longitude']) ?>], 15);
