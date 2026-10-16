@@ -214,6 +214,128 @@ if (isset($_GET['region_options'])) {
     }
     exit;
 }
+if (isset($_GET['reverse_geocode'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    if (!$user || !in_array($user['role'], ['admin', 'operator'], true)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Akses pencarian alamat ditolak.']);
+        exit;
+    }
+
+    $latitude = isset($_GET['lat']) && is_string($_GET['lat']) ? $_GET['lat'] : '';
+    $longitude = isset($_GET['lon']) && is_string($_GET['lon']) ? $_GET['lon'] : '';
+    if (!is_numeric($latitude) || !is_numeric($longitude)
+        || !is_finite((float) $latitude) || !is_finite((float) $longitude)
+        || (float) $latitude < -90 || (float) $latitude > 90
+        || (float) $longitude < -180 || (float) $longitude > 180) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Koordinat lokasi tidak valid.']);
+        exit;
+    }
+
+    $latitude = number_format((float) $latitude, 7, '.', '');
+    $longitude = number_format((float) $longitude, 7, '.', '');
+    $lockName = 'araweb_nominatim_reverse_geocode';
+    $lockAcquired = false;
+    try {
+        $lock = $pdo->prepare('SELECT GET_LOCK(:lock_name, 10)');
+        $lock->execute(['lock_name' => $lockName]);
+        $lockAcquired = (int) $lock->fetchColumn() === 1;
+        if (!$lockAcquired) {
+            http_response_code(429);
+            echo json_encode(['error' => 'Pencarian alamat sedang sibuk. Coba lagi sebentar.']);
+            exit;
+        }
+
+        $cachedAddress = $pdo->prepare(
+            'SELECT address,street_name FROM kos_buildings
+             WHERE latitude=:latitude AND longitude=:longitude AND address IS NOT NULL
+             ORDER BY id DESC LIMIT 1'
+        );
+        $cachedAddress->execute(['latitude' => $latitude, 'longitude' => $longitude]);
+        $cached = $cachedAddress->fetch();
+        if ($cached) {
+            echo json_encode([
+                'display_name' => $cached['address'],
+                'street' => $cached['street_name'] ?? '',
+            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            exit;
+        }
+
+        sleep(1);
+        $endpoint = getenv('ARAWEB_REVERSE_GEOCODER_URL')
+            ?: 'https://nominatim.openstreetmap.org/reverse';
+        $query = http_build_query([
+            'format' => 'jsonv2',
+            'lat' => $latitude,
+            'lon' => $longitude,
+            'zoom' => 18,
+            'addressdetails' => 1,
+            'accept-language' => 'id',
+        ]);
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "Accept: application/json\r\n"
+                    . "User-Agent: Araweb/1.0 (+https://github.com/hatomaule/araweb)\r\n",
+                'timeout' => 8,
+                'ignore_errors' => true,
+            ],
+        ]);
+        set_error_handler(static function (int $severity, string $message): bool {
+            throw new ErrorException($message, 0, $severity);
+        });
+        try {
+            $responseBody = file_get_contents($endpoint . '?' . $query, false, $context);
+            $responseHeaders = $http_response_header ?? [];
+        } finally {
+            restore_error_handler();
+        }
+        if ($responseBody === false
+            || !isset($responseHeaders[0])
+            || !preg_match('/\s200\s/', $responseHeaders[0])) {
+            throw new RuntimeException('Reverse geocoder returned an unsuccessful response.');
+        }
+
+        $result = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($result) || empty($result['display_name'])) {
+            throw new RuntimeException('Reverse geocoder response did not include an address.');
+        }
+        $addressDetails = is_array($result['address'] ?? null) ? $result['address'] : [];
+        $street = $addressDetails['road']
+            ?? $addressDetails['pedestrian']
+            ?? $addressDetails['footway']
+            ?? $addressDetails['path']
+            ?? '';
+        if (!empty($addressDetails['house_number'])) {
+            $street = trim($street . ' ' . $addressDetails['house_number']);
+        }
+        echo json_encode([
+            'display_name' => $result['display_name'],
+            'street' => $street,
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    } catch (PDOException $exception) {
+        error_log('Reverse geocoding database request failed: ' . $exception->getMessage());
+        http_response_code(503);
+        echo json_encode(['error' => 'Pencarian alamat tidak tersedia saat ini.']);
+    } catch (ErrorException|JsonException|RuntimeException $exception) {
+        error_log('Reverse geocoding failed: ' . $exception->getMessage());
+        http_response_code(502);
+        echo json_encode(['error' => 'Alamat otomatis gagal dimuat. Lokasi tetap dapat disimpan.']);
+    } finally {
+        if ($lockAcquired) {
+            try {
+                $releaseLock = $pdo->prepare('SELECT RELEASE_LOCK(:lock_name)');
+                $releaseLock->execute(['lock_name' => $lockName]);
+            } catch (PDOException $exception) {
+                error_log('Reverse geocoding rate-limit lock release failed: ' . $exception->getMessage());
+            }
+        }
+    }
+    exit;
+}
 if ($user) {
     $pdo->prepare('UPDATE users SET last_seen_at=NOW() WHERE id=:id')
         ->execute(['id' => $user['id']]);

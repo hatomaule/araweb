@@ -354,14 +354,17 @@ if ($action === 'save_building') {
             $street = post_value('street_name');
             $rt = post_value('address_rt');
             $rw = post_value('address_rw');
-            $block = post_value('address_block');
+            $detailAddress = post_value('address_block');
+            $mapAddress = trim(post_value('map_address'));
             if (strlen($street) > 1000 || strlen($rt) > 3 || strlen($rw) > 3
                 || ($rt !== '' && !ctype_digit($rt)) || ($rw !== '' && !ctype_digit($rw))
-                || strlen($block) > 50) {
-                set_flash('error', 'Periksa kembali alamat jalan, RT/RW, dan blok.');
+                || strlen($detailAddress) > 50 || strlen($mapAddress) > 1000) {
+                set_flash('error', 'Periksa kembali alamat jalan, RT/RW, dan detail alamat.');
                 redirect('building_form' . ($id ? '&id=' . $id : ''));
             }
-            $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
+            $address = $mapAddress !== ''
+                ? $mapAddress
+                : format_indonesia_address($regions, $street, $rt, $rw, $detailAddress);
             $latitude = post_value('latitude');
             $longitude = post_value('longitude');
             $coordinatesProvided = $latitude !== '' || $longitude !== '';
@@ -391,7 +394,7 @@ if ($action === 'save_building') {
                 'street_name' => $street !== '' ? $street : null,
                 'address_rt' => $rt !== '' ? $rt : null,
                 'address_rw' => $rw !== '' ? $rw : null,
-                'address_block' => $block !== '' ? $block : null,
+                'address_block' => $detailAddress !== '' ? $detailAddress : null,
                 'latitude' => $coordinatesProvided ? number_format((float) $latitude, 7, '.', '') : null,
                 'longitude' => $coordinatesProvided ? number_format((float) $longitude, 7, '.', '') : null,
                 'description' => post_value('description') ?: null,

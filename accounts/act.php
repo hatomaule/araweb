@@ -301,13 +301,13 @@ if ($action === 'save_profile') {
     $street = post_value('street_name');
     $rt = post_value('address_rt');
     $rw = post_value('address_rw');
-    $block = post_value('address_block');
-    $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
+    $detailAddress = post_value('address_block');
+    $address = format_indonesia_address($regions, $street, $rt, $rw, $detailAddress);
     $email = strtolower(post_value('email'));
     $gender = post_value('gender');
     if ($name === '' || strlen($name) > 100 || strlen($phone) > 30 || strlen($street) > 1000
         || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
-        || ($rw !== '' && !ctype_digit($rw)) || strlen($block) > 50
+        || ($rw !== '' && !ctype_digit($rw)) || strlen($detailAddress) > 50
         || strlen($address ?? '') > 1000
         || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255
         || ($gender !== '' && !in_array($gender, ['male', 'female'], true))
@@ -337,7 +337,7 @@ if ($action === 'save_profile') {
         'street_name' => $street !== '' ? $street : null,
         'address_rt' => $rt !== '' ? $rt : null,
         'address_rw' => $rw !== '' ? $rw : null,
-        'address_block' => $block !== '' ? $block : null,
+        'address_block' => $detailAddress !== '' ? $detailAddress : null,
         ...$regionValues,
         'gender' => $gender !== '' ? $gender : null, 'photo' => $profilePath, 'id' => $user['id'],
     ]);

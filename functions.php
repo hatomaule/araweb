@@ -152,7 +152,7 @@ function resolve_indonesia_regions(PDO $pdo, bool $required = false): ?array
     return $regions;
 }
 
-function format_indonesia_address(?array $regions, string $street, string $rt, string $rw, string $block): ?string
+function format_indonesia_address(?array $regions, string $street, string $rt, string $rw, string $detailAddress): ?string
 {
     $parts = [];
     if ($street !== '') {
@@ -161,8 +161,8 @@ function format_indonesia_address(?array $regions, string $street, string $rt, s
     if ($rt !== '' || $rw !== '') {
         $parts[] = 'RT ' . ($rt !== '' ? $rt : '-') . '/RW ' . ($rw !== '' ? $rw : '-');
     }
-    if ($block !== '') {
-        $parts[] = 'Blok ' . $block;
+    if ($detailAddress !== '') {
+        $parts[] = $detailAddress;
     }
     if ($regions === null) {
         return $parts ? implode(', ', $parts) : null;

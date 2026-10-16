@@ -35,7 +35,7 @@ $buildings = $profileRole === 'operator' ? rows(
         <?php field('Nama jalan / alamat detail', 'street_name', $operator['street_name'] ?? $operator['address'] ?? '', 'text', ['maxlength' => '1000']); ?>
         <?php field('RT (opsional)', 'address_rt', $operator['address_rt'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
         <?php field('RW (opsional)', 'address_rw', $operator['address_rw'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
-        <?php field('Blok (opsional)', 'address_block', $operator['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
+        <?php field('Detail Alamat (opsional)', 'address_block', $operator['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
         <p class="field-help full-span">Jika memilih wilayah, lengkapi seluruh pilihan dari Provinsi hingga Kelurahan/Desa.</p>
         <div class="form-actions full-span"><button class="button primary" type="submit">Simpan profil <?= e($profileRoleLabel) ?></button></div>
     </form>

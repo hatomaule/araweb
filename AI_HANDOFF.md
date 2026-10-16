@@ -148,6 +148,19 @@ akun dan kepemilikan diperiksa.
 - Laporan dapat memiliki tampilan berbeda bagi platform, operator, dan User.
   Gunakan query yang sudah membatasi kepemilikan/akun dan jangan memperluas
   cakupan data saat merapikan UI.
+- Form edit gedung memperbarui data melalui `save_building`; pemilihan lokasi
+  peta bersifat opsional. Peta memakai Leaflet/OSM, dan reverse geocoding
+  diproksikan melalui `index.php?reverse_geocode=1`; endpoint membatasi akses
+  ke admin/operator, memakai lock database untuk membatasi permintaan
+  Nominatim maksimal satu per detik, dan memakai alamat gedung tersimpan sebagai
+  cache untuk koordinat yang sama. Jika geocoding gagal, simpan tetap
+  menggunakan alamat terstruktur. Ganti endpoint melalui variabel lingkungan
+  `ARAWEB_REVERSE_GEOCODER_URL` dengan layanan `/reverse` yang kompatibel;
+  jangan menghapus batas permintaan atau atribusi OSM tanpa mengganti layanan
+  dan kebijakannya.
+- Filter Provinsi/Kabupaten-Kota/Kecamatan/Kelurahan-Desa pada daftar kos admin
+  menggunakan `data-region-filter` dan kode wilayah pada baris tabel, bersama
+  helper tabel di `app.js`.
 
 ## Database dan migrasi
 
@@ -167,6 +180,8 @@ akun dan kepemilikan diperiksa.
   Operator, lokasi gedung aktif untuk User yang sedang menghuni, dan alamat
   profil untuk User tanpa hunian. Pilihan dropdown wilayah dimuat melalui
   endpoint berjenjang; jangan kirim seluruh desa ke browser.
+- Kolom fisik `address_block` tetap digunakan demi kompatibilitas, tetapi label
+  antarmuka untuk nilai itu adalah “Detail Alamat”, bukan “Blok”.
 - Daftar ini bukan dump skema lengkap dan tidak menjamin tabel/kolom tersebut
   tersedia di setiap database.
 - Baca bagian instalasi di `README.md` dan migrasi terkait sebelum menyentuh

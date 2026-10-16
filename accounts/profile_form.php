@@ -15,7 +15,7 @@ $profile = one($pdo, 'SELECT * FROM users WHERE id=:id', ['id' => $user['id']]);
     <?php field('Nama jalan / alamat detail', 'street_name', $profile['street_name'] ?? $profile['address'] ?? '', 'text', ['maxlength' => '1000']); ?>
     <?php field('RT (opsional)', 'address_rt', $profile['address_rt'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
     <?php field('RW (opsional)', 'address_rw', $profile['address_rw'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
-    <?php field('Blok (opsional)', 'address_block', $profile['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
+    <?php field('Detail Alamat (opsional)', 'address_block', $profile['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
     <p class="field-help full-span">Alamat wilayah bersifat opsional. Jika memilih salah satu wilayah, lengkapi seluruh pilihan dari Provinsi hingga Kelurahan/Desa.</p>
     <label class="field"><span>Foto profil (opsional)</span><input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp"><small class="field-help">JPG/PNG/WebP maksimal 4 MB. Tanpa foto, avatar mengikuti jenis kelamin.</small></label>
     <?php if ($profile['profile_photo_path']): ?><img class="profile-photo-preview" src="<?= e($profile['profile_photo_path']) ?>" alt="Foto profil"><?php endif; ?>

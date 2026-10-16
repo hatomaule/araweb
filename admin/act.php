@@ -197,15 +197,15 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         $street = post_value('street_name');
         $rt = post_value('address_rt');
         $rw = post_value('address_rw');
-        $block = post_value('address_block');
-        $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
+        $detailAddress = post_value('address_block');
+        $address = format_indonesia_address($regions, $street, $rt, $rw, $detailAddress);
 
         if ($targetId < 1 || !in_array($accountRole, ['operator', 'seeker'], true)
             || $name === '' || strlen($name) > 100
             || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) || strlen($email) > 255
             || strlen($phone ?? '') > 30 || strlen($street) > 1000
             || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
-            || ($rw !== '' && !ctype_digit($rw)) || strlen($block) > 50
+            || ($rw !== '' && !ctype_digit($rw)) || strlen($detailAddress) > 50
             || strlen($address ?? '') > 1000
             || ($gender !== '' && !in_array($gender, ['male', 'female'], true))) {
             set_flash('error', 'Periksa kembali nama, email, nomor HP, jenis kelamin, dan alamat profil.');
@@ -261,7 +261,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
             'street_name' => $street !== '' ? $street : null,
             'address_rt' => $rt !== '' ? $rt : null,
             'address_rw' => $rw !== '' ? $rw : null,
-            'address_block' => $block !== '' ? $block : null,
+            'address_block' => $detailAddress !== '' ? $detailAddress : null,
             'gender' => $gender !== '' ? $gender : null,
             'id' => $targetId,
             'role' => $accountRole,

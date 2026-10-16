@@ -22,7 +22,7 @@
                             </form>
                         </section>
                     <?php endif; ?>
-                    <form method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="save_building"><input type="hidden" name="id" value="<?= $buildingId ?>">
+                    <form method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="save_building"><input type="hidden" name="id" value="<?= $buildingId ?>"><input type="hidden" name="map_address" id="map-address" value="<?= isset($building['latitude'], $building['longitude']) && $building['latitude'] !== null && $building['longitude'] !== null ? e($building['address'] ?? '') : '' ?>">
                         <?php field('Nama kos / gedung *', 'name', $building['name'] ?? '', 'text', ['required' => 'required', 'maxlength' => '150', 'placeholder' => 'Contoh: Tiara Kos - Gedung Melati']); ?>
                         <label class="field"><span>Status gedung</span><select name="status"><option value="active" <?= ($building['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Aktif</option><option value="inactive" <?= ($building['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Nonaktif</option></select><small class="field-help">Gedung nonaktif tidak tampil pada peta dan tidak dapat dipilih untuk kamar baru.</small></label>
                         <?= indonesia_region_fields($pdo, [
@@ -43,10 +43,13 @@
                         ); ?>
                         <?php field('RT (opsional)', 'address_rt', $building['address_rt'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
                         <?php field('RW (opsional)', 'address_rw', $building['address_rw'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
-                        <?php field('Blok (opsional)', 'address_block', $building['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
+                        <?php field('Detail Alamat (opsional)', 'address_block', $building['address_block'] ?? '', 'text', ['maxlength' => '50', 'placeholder' => 'Nomor rumah, patokan, atau keterangan lain']); ?>
                         <label class="field"><span>Kebijakan penghuni</span><select name="gender_policy"><option value="mixed" <?= ($building['gender_policy'] ?? 'mixed') === 'mixed' ? 'selected' : '' ?>>Campur</option><option value="male" <?= ($building['gender_policy'] ?? '') === 'male' ? 'selected' : '' ?>>Putra</option><option value="female" <?= ($building['gender_policy'] ?? '') === 'female' ? 'selected' : '' ?>>Putri</option></select></label>
                         <div class="building-map-editor full-span" id="lokasi-gedung">
-                            <div class="building-coordinate-help"><strong>Atur lokasi kos</strong><p>Tempel tautan Google Maps untuk mengisi koordinat otomatis, atau isikan latitude dan longitude secara manual. Peta di halaman kos memakai titik koordinat ini.</p></div>
+                            <div class="building-coordinate-help"><strong>Atur lokasi kos (opsional)</strong><p>Pilih titik pada peta untuk mengisi koordinat dan alamat secara otomatis. Lokasi peta boleh dikosongkan; alamat dan data gedung tetap dapat disimpan. Peta publik memakai titik ini bila tersedia.</p></div>
+                            <div class="building-location-map" id="building-location-map" role="application" aria-label="Peta pemilihan lokasi gedung"></div>
+                            <small class="field-help" id="building-map-status" aria-live="polite">Klik peta untuk memilih titik lokasi. Koordinat akan digunakan untuk mencari alamat melalui OpenStreetMap Nominatim.</small>
+                            <small class="field-help">Peta © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>; geocoding memakai <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener noreferrer">Nominatim</a>.</small>
                             <label class="field"><span>Tautan Google Maps (opsional)</span><input type="url" id="google-maps-url" placeholder="https://maps.google.com/..."><small class="field-help" id="google-maps-status">Buka Google Maps, pilih titik kos, lalu salin tautannya ke sini.</small></label>
                             <div class="form-grid building-coordinate-fields">
                                 <?php field('Latitude (opsional)', 'latitude', $building['latitude'] ?? '', 'number', ['id' => 'building-latitude', 'min' => '-90', 'max' => '90', 'step' => 'any', 'placeholder' => '-6.2000000']); field('Longitude (opsional)', 'longitude', $building['longitude'] ?? '', 'number', ['id' => 'building-longitude', 'min' => '-180', 'max' => '180', 'step' => 'any', 'placeholder' => '106.8166667']); ?>
@@ -58,9 +61,11 @@
                         <label class="field full-span"><span>Peraturan kos</span><textarea name="house_rules" rows="3" maxlength="5000"><?= e($building['house_rules'] ?? '') ?></textarea></label>
                         <label class="field full-span"><span>Foto galeri kos (JPG, PNG, WebP; maks. 4 MB/foto)</span><input type="file" name="property_photos[]" accept="image/jpeg,image/png,image/webp" multiple><small class="field-help">Foto galeri ditampilkan sebagai foto tambahan. Unggah hingga 4 foto setiap kali menyimpan.</small></label>
                         <?php if ($buildingPhotos): ?><div class="property-photo-manager full-span"><strong>Foto yang sudah diunggah</strong><div class="property-photo-manager-grid"><?php foreach ($buildingPhotos as $photo): ?><article><img src="<?= e($photo['photo_path']) ?>" alt="Foto kos"><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="delete_property_photo"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>"><button class="text-button" type="submit">Hapus foto</button></form></article><?php endforeach; ?></div></div><?php endif; ?>
-                        <div class="form-actions full-span"><a class="button secondary" href="index.php?page=buildings">Batal</a><button class="button primary" type="submit">Simpan gedung</button></div>
+                        <div class="form-actions full-span"><a class="button secondary" href="index.php?page=buildings">Batal</a><button class="button primary" type="submit"><?= $building ? 'Simpan perubahan terbaru' : 'Simpan gedung' ?></button></div>
                     </form>
                 </div>
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
                 <script>
                 (() => {
                     const mapsUrl = document.getElementById('google-maps-url');
@@ -68,11 +73,20 @@
                     const longitude = document.getElementById('building-longitude');
                     const status = document.getElementById('google-maps-status');
                     const searchLink = document.getElementById('google-maps-search');
+                    const mapElement = document.getElementById('building-location-map');
+                    const mapStatus = document.getElementById('building-map-status');
+                    const streetField = document.querySelector('[name="street_name"]');
+                    const mapAddress = document.getElementById('map-address');
                     const legacyAddress = <?= json_encode(
                         $building['address'] ?? '',
                         JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
                     ) ?>;
-                    if (!mapsUrl || !latitude || !longitude) return;
+                    if (!mapsUrl || !latitude || !longitude || !mapElement || !mapStatus || !streetField || !mapAddress) return;
+                    const hasCoordinates = () => latitude.value !== '' && longitude.value !== ''
+                        && Number.isFinite(Number(latitude.value))
+                        && Number.isFinite(Number(longitude.value))
+                        && Number(latitude.value) >= -90 && Number(latitude.value) <= 90
+                        && Number(longitude.value) >= -180 && Number(longitude.value) <= 180;
                     const updateSearchLink = () => {
                         const selectedAddress = [
                             document.querySelector('[name="street_name"]').value,
@@ -80,7 +94,7 @@
                                 .map((select) => select.selectedOptions[0]?.textContent || '')
                                 .filter((label) => label && !label.startsWith('Pilih ')),
                         ].filter(Boolean).join(', ');
-                        const query = latitude.value && longitude.value
+                        const query = hasCoordinates()
                             ? `${latitude.value},${longitude.value}`
                             : selectedAddress || legacyAddress;
                         searchLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
@@ -97,7 +111,90 @@
                         }
                         return null;
                     };
+                    let locationMap;
+                    let locationMarker;
+                    let reverseGeocodeTimer;
+                    let reverseGeocodeRequest = 0;
+                    const invalidateReverseGeocode = () => {
+                        clearTimeout(reverseGeocodeTimer);
+                        reverseGeocodeRequest += 1;
+                    };
+                    const updateLocationMarker = (center = false) => {
+                        if (!locationMap) return;
+                        if (!hasCoordinates()) {
+                            if (locationMarker) {
+                                locationMap.removeLayer(locationMarker);
+                                locationMarker = null;
+                            }
+                            return;
+                        }
+                        const point = [Number(latitude.value), Number(longitude.value)];
+                        if (locationMarker) locationMarker.setLatLng(point);
+                        else {
+                            locationMarker = L.marker(point, { draggable: true }).addTo(locationMap);
+                            locationMarker.on('dragend', () => selectMapLocation(locationMarker.getLatLng()));
+                        }
+                        if (center) locationMap.setView(point, Math.max(locationMap.getZoom(), 16));
+                    };
+                    const reverseGeocode = async (point, requestId) => {
+                        mapStatus.textContent = 'Mencari alamat titik yang dipilih…';
+                        const endpoint = new URL('index.php', window.location.href);
+                        endpoint.searchParams.set('reverse_geocode', '1');
+                        endpoint.searchParams.set('lat', point.lat.toFixed(7));
+                        endpoint.searchParams.set('lon', point.lng.toFixed(7));
+                        try {
+                            const response = await fetch(endpoint, {
+                                headers: { Accept: 'application/json' },
+                                credentials: 'same-origin',
+                            });
+                            const result = await response.json();
+                            if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+                            if (requestId !== reverseGeocodeRequest) return;
+                            if (latitude.value !== point.lat.toFixed(7)
+                                || longitude.value !== point.lng.toFixed(7)) return;
+                            if (result.street) streetField.value = result.street;
+                            mapAddress.value = result.display_name || '';
+                            mapsUrl.value = '';
+                            updateSearchLink();
+                            mapStatus.textContent = result.display_name
+                                ? `Lokasi dipilih: ${result.display_name}. Alamat jalan diperbarui; lengkapi wilayah, RT/RW, atau detail alamat bila perlu.`
+                                : 'Koordinat tersimpan. Isi alamat jalan secara manual bila diperlukan.';
+                        } catch (error) {
+                            if (requestId !== reverseGeocodeRequest) return;
+                            console.error('Reverse geocoding failed:', error);
+                            mapStatus.textContent = 'Koordinat terpilih, tetapi alamat otomatis gagal dimuat. Lokasi tetap dapat disimpan; isi alamat jalan manual bila diperlukan.';
+                        }
+                    };
+                    const selectMapLocation = (point) => {
+                        invalidateReverseGeocode();
+                        latitude.value = point.lat.toFixed(7);
+                        longitude.value = point.lng.toFixed(7);
+                        mapAddress.value = '';
+                        updateLocationMarker();
+                        updateSearchLink();
+                        const requestId = reverseGeocodeRequest;
+                        reverseGeocodeTimer = setTimeout(() => reverseGeocode(point, requestId), 900);
+                    };
+                    if (window.L) {
+                        const initialPoint = hasCoordinates()
+                            ? [Number(latitude.value), Number(longitude.value)]
+                            : [-2.5, 118];
+                        locationMap = L.map(mapElement, { scrollWheelZoom: false })
+                            .setView(initialPoint, hasCoordinates() ? 15 : 5);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        }).addTo(locationMap);
+                        if (hasCoordinates()) updateLocationMarker();
+                        locationMap.on('click', (event) => {
+                            selectMapLocation(event.latlng);
+                        });
+                        mapElement.dataset.mapReady = 'true';
+                    } else {
+                        mapStatus.textContent = 'Peta gagal dimuat. Lokasi tetap opsional; masukkan koordinat secara manual bila tersedia.';
+                    }
                     mapsUrl.addEventListener('input', () => {
+                        invalidateReverseGeocode();
                         const coordinates = parseCoordinates(mapsUrl.value);
                         if (!coordinates) {
                             status.textContent = mapsUrl.value
@@ -107,16 +204,37 @@
                         }
                         latitude.value = coordinates[0];
                         longitude.value = coordinates[1];
+                        mapAddress.value = '';
+                        updateLocationMarker(true);
                         status.textContent = 'Koordinat berhasil diambil dari Google Maps.';
                         updateSearchLink();
                     });
-                    [latitude, longitude, document.querySelector('[name="street_name"]')].forEach((field) => {
-                        field.addEventListener('input', updateSearchLink);
+                    [
+                        latitude,
+                        longitude,
+                        streetField,
+                        document.querySelector('[name="address_rt"]'),
+                        document.querySelector('[name="address_rw"]'),
+                        document.querySelector('[name="address_block"]'),
+                    ].forEach((field) => {
+                        field.addEventListener('input', () => {
+                            invalidateReverseGeocode();
+                            mapAddress.value = '';
+                            updateSearchLink();
+                            if (field === latitude || field === longitude) updateLocationMarker(true);
+                        });
                     });
                     document.querySelectorAll('[data-region-level]').forEach((select) => {
-                        select.addEventListener('change', updateSearchLink);
+                        select.addEventListener('change', () => {
+                            invalidateReverseGeocode();
+                            mapAddress.value = '';
+                            updateSearchLink();
+                        });
                     });
                     updateSearchLink();
+                    if (locationMap) {
+                        setTimeout(() => locationMap.invalidateSize(), 0);
+                    }
                 })();
                 </script>
             
