@@ -19,9 +19,9 @@ function db(): PDO
         return $connection;
     }
 
-    $host = getenv('DB_HOST') ?: '127.0.0.1';
+    $host = getenv('DB_HOST') ?: 'localhost';
     $name = getenv('DB_NAME') ?: 'manajemen_kos';
-    $username = getenv('DB_USER') ?: 'root';
+    $username = getenv('DB_USER') ?: 'araweb_app';
     $password = getenv('DB_PASS');
     if ($password === false) {
         $password = '';

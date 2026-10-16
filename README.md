@@ -12,17 +12,18 @@ sudo service mariadb start
 php -m | grep -i pdo_mysql
 ```
 
-Atur `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS` pada terminal yang sama
-sebelum menjalankan server PHP agar aplikasi tersambung ke MariaDB WSL.
-Gunakan akun database lokal yang sesuai; jangan menganggap akun `root` tanpa
-kata sandi bawaan XAMPP berlaku di WSL. `config.php` tetap menyediakan nilai
-fallback lama bila variabel tersebut tidak diatur. Untuk menggunakan layanan
-reverse geocoding Nominatim lain yang kompatibel, atur
+Secara bawaan, `config.php` memakai `localhost`, database `manajemen_kos`, dan
+akun aplikasi lokal `araweb_app` (autentikasi socket, tanpa kata sandi), sesuai
+setup WSL Araweb. Pastikan MariaDB WSL berjalan dan akun tersebut sudah dibuat.
+Untuk instalasi lain, atur `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`
+sebelum menjalankan server PHP. Jangan menganggap akun `root` tanpa kata sandi
+bawaan XAMPP berlaku di WSL. Untuk menggunakan layanan reverse geocoding
+Nominatim lain yang kompatibel, atur
 `ARAWEB_REVERSE_GEOCODER_URL` ke URL endpoint `/reverse` layanan tersebut.
 Pastikan pula direktori `uploads/` dapat ditulisi oleh pengguna yang menjalankan PHP.
 
-Contoh mengatur koneksi untuk sesi terminal saat ini (ganti nama pengguna
-dengan akun MariaDB yang sudah disiapkan; masukkan kata sandinya saat diminta):
+Jika memakai akun MariaDB lain, contoh mengatur koneksi untuk sesi terminal
+saat ini:
 
 ```bash
 export DB_HOST=127.0.0.1 DB_NAME=manajemen_kos DB_USER='nama-pengguna-mariadb'

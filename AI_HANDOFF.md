@@ -49,9 +49,9 @@ migrasi hanya untuk melihat hasilnya.
 - README menyebut database `manajemen_kos` dan menjelaskan migrasi yang pernah
   diperlukan. Di WSL, pastikan MariaDB berjalan dan kredensial
   `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASS` cocok dengan database lokal; nilai
-  fallback `root` tanpa kata sandi berasal dari konfigurasi lama dan belum
-  tentu bekerja. Instalasi lokal/target dapat berbeda; jangan anggap seluruh
-  migrasi sudah pernah dijalankan.
+  bawaan lokal saat ini adalah `localhost`/`manajemen_kos`/`araweb_app` dengan
+  kata sandi kosong untuk autentikasi socket. Instalasi lokal/target dapat
+  berbeda; jangan anggap seluruh migrasi sudah pernah dijalankan.
 
 ## Arsitektur dan titik masuk
 
