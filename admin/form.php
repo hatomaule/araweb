@@ -10,6 +10,7 @@ $adminForms = [
     'platform_unhoused_users' => __DIR__ . '/accounts.php',
     'platform_operator_profile' => __DIR__ . '/operator_profile.php',
     'platform_user_profile' => __DIR__ . '/operator_profile.php',
+    'platform_user_payments' => __DIR__ . '/user_payments.php',
     'platform_listings' => __DIR__ . '/datakost/form.php',
 ];
 

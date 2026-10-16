@@ -18,7 +18,7 @@ $allowedPages = [
     'my_payments', 'tenant_payments', 'booking_form', 'payment_proof', 'payment_confirmations', 'profile', 'search_history',
     'platform_dashboard', 'platform_owners', 'platform_accounts',
     'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users',
-    'platform_operator_profile', 'platform_user_profile',
+    'platform_operator_profile', 'platform_user_profile', 'platform_user_payments',
     'platform_listings',
     'platform_reports', 'operator_reports', 'user_reports', 'change_password',
     'operator_bookings', 'tenant_profile', 'facebook_login',
@@ -293,6 +293,7 @@ function page_title(string $page): string
         'my_bookings' => 'Pesanan saya', 'booking_form' => 'Pesan kamar',
         'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil operator',
         'platform_user_profile' => 'Profil User',
+        'platform_user_payments' => 'Profil pembayaran User',
         'operator_bookings' => 'Booking', 'tenant_profile' => 'Profil penghuni',
         'my_payments' => 'Riwayat pembayaran', 'tenant_payments' => 'Histori penghuni',
         'platform_dashboard' => 'Dashboard', 'platform_owners' => 'Akun operator',
@@ -410,11 +411,11 @@ require __DIR__ . '/portal/public.php';
                     </details>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'admin' && $target === 'platform_dashboard'): ?>
-                    <details class="nav-group" <?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile'], true) ? 'open' : '' ?>>
-                        <summary class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile'], true) ? 'active' : '' ?>"><span class="nav-icon">⚙</span>Manajemen akun<span class="nav-chevron">⌄</span></summary>
+                    <details class="nav-group" <?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile', 'platform_user_payments'], true) ? 'open' : '' ?>>
+                        <summary class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile', 'platform_user_payments'], true) ? 'active' : '' ?>"><span class="nav-icon">⚙</span>Manajemen akun<span class="nav-chevron">⌄</span></summary>
                         <div class="nav-submenu">
                             <a class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_operator_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_operator_accounts">Akun operator</a>
-                            <a class="<?= in_array($page, ['platform_seeker_accounts', 'platform_user_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_seeker_accounts">Akun User</a>
+                            <a class="<?= in_array($page, ['platform_seeker_accounts', 'platform_user_profile', 'platform_user_payments'], true) ? 'active' : '' ?>" href="index.php?page=platform_seeker_accounts">Akun User</a>
                             <a class="<?= $page === 'platform_unhoused_users' ? 'active' : '' ?>" href="index.php?page=platform_unhoused_users">User pengguna</a>
                         </div>
                     </details>

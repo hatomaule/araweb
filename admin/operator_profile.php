@@ -18,7 +18,7 @@ $buildings = $profileRole === 'operator' ? rows(
     ['id' => $operatorId]
 ): [];
 ?>
-<div class="page-actions"><a class="button secondary" href="index.php?page=<?= $profileRole === 'operator' ? 'platform_operator_accounts' : 'platform_seeker_accounts' ?>">← Kembali ke akun <?= e($profileRoleLabel) ?></a><span class="badge <?= e($operator['status']) ?>"><?= e(status_label($operator['status'])) ?></span></div>
+<div class="page-actions"><div class="profile-page-actions"><a class="button secondary" href="index.php?page=<?= $profileRole === 'operator' ? 'platform_operator_accounts' : 'platform_seeker_accounts' ?>">← Kembali ke akun <?= e($profileRoleLabel) ?></a><?php if ($profileRole === 'seeker'): ?><a class="button primary" href="index.php?page=platform_user_payments&amp;id=<?= (int) $operator['id'] ?>">Profil pembayaran</a><?php endif; ?></div><span class="badge <?= e($operator['status']) ?>"><?= e(status_label($operator['status'])) ?></span></div>
 <div class="form-panel">
     <div class="panel-heading"><div><h2>Profil <?= e($operator['name']) ?></h2><p>Informasi akun <?= e($profileRoleLabel) ?><?= $profileRole === 'operator' ? ' dan kos yang dikelola' : '' ?>. Foto profil dikelola pemilik akun.</p></div><?= avatar_markup($operator, 'profile-avatar profile-photo-preview') ?></div>
     <form method="post" class="form-grid">

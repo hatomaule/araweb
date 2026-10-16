@@ -24,6 +24,7 @@ const PAGE_MODULES = [
     'platform_unhoused_users' => 'admin',
     'platform_operator_profile' => 'admin',
     'platform_user_profile' => 'admin',
+    'platform_user_payments' => 'admin',
     'platform_listings' => 'admin',
     'platform_reports' => 'reports',
     'operator_reports' => 'reports',

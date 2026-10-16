@@ -34,6 +34,7 @@ h1,h2,p{margin-top:0}
 .welcome-row,.page-actions{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 22px}
 .welcome-row h2{font:700 20px 'Manrope',sans-serif;margin:0 0 5px;letter-spacing:-.4px}
 .welcome-row p,.page-actions p{color:var(--muted);margin:0}
+.profile-page-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:39px;padding:0 15px;border:1px solid transparent;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;transition:.16s}
 .button.primary{background:var(--purple);color:white;box-shadow:0 4px 10px #6958dc30}
 .button.primary:hover{background:#5645cc;transform:translateY(-1px)}
