@@ -26,7 +26,11 @@ $unhousedAccountFilter = $isUnhousedAccountList
 $accounts = rows(
     $pdo,
     "SELECT u.id,u.name,u.email,u.phone,u.gender,u.profile_photo_path,u.role,u.status,u.created_at,u.last_seen_at,
-            b.id AS current_building_id,b.name AS current_building_name
+            b.id AS current_building_id,b.name AS current_building_name,
+            CASE WHEN b.id IS NULL THEN u.province_code ELSE b.province_code END AS province_codes,
+            CASE WHEN b.id IS NULL THEN u.regency_code ELSE b.regency_code END AS regency_codes,
+            CASE WHEN b.id IS NULL THEN u.district_code ELSE b.district_code END AS district_codes,
+            CASE WHEN b.id IS NULL THEN u.village_code ELSE b.village_code END AS village_codes
      FROM users u
      LEFT JOIN tenants t ON t.id=(
         SELECT current_tenant.id FROM tenants current_tenant
@@ -48,6 +52,33 @@ $accounts = rows(
      ORDER BY b.name IS NULL,b.name,u.name,u.id",
     ['role' => $accountRole]
 );
+if ($accountRole === 'operator') {
+    $operatorRegions = [];
+    $buildingRegions = rows(
+        $pdo,
+        "SELECT owner_user_id,province_code,regency_code,district_code,village_code
+         FROM kos_buildings
+         WHERE owner_user_id IN (SELECT id FROM users WHERE role='operator')"
+    );
+    foreach ($buildingRegions as $buildingRegion) {
+        $operatorId = (int) $buildingRegion['owner_user_id'];
+        foreach (['province', 'regency', 'district', 'village'] as $level) {
+            $code = $buildingRegion[$level . '_code'];
+            if ($code !== null) {
+                $operatorRegions[$operatorId][$level][$code] = true;
+            }
+        }
+    }
+    foreach ($accounts as &$account) {
+        foreach (['province', 'regency', 'district', 'village'] as $level) {
+            $account[$level . '_codes'] = implode(
+                ',',
+                array_keys($operatorRegions[(int) $account['id']][$level] ?? [])
+            );
+        }
+    }
+    unset($account);
+}
 $accountGroups = [];
 foreach ($accounts as $account) {
     $groupKey = $accountRole === 'seeker'
@@ -66,7 +97,7 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
 <div class="panel account-management-panel">
     <div class="panel-heading"><div><h2><?= e($heading) ?></h2><p><?= count($accounts) ?> akun terdaftar</p></div></div>
     <?php if ($accountGroups): ?>
-    <div class="table-scroll"><table class="account-management-table" <?= $accountRole === 'seeker' && !$isUnhousedAccountList ? 'data-building-filter' : '' ?>><thead><tr><th>Pengguna</th><th>ID</th><th>Peran</th><th>Status</th><th>Aktivitas terakhir</th><th>Kelola akun</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="account-management-table" data-region-filter <?= $accountRole === 'seeker' && !$isUnhousedAccountList ? 'data-building-filter' : '' ?>><thead><tr><th>Pengguna</th><th>ID</th><th>Peran</th><th>Status</th><th>Aktivitas terakhir</th><th>Kelola akun</th></tr></thead><tbody>
     <?php foreach ($accountGroups as $groupKey => $group): ?>
     <?php if ($accountRole === 'seeker'): ?>
         <tr class="account-group-heading-row" data-table-group-heading data-table-group-key="<?= e((string) $groupKey) ?>">
@@ -76,7 +107,11 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
         </tr>
     <?php endif; ?>
     <?php foreach ($group['accounts'] as $account): ?>
-        <tr <?= $accountRole === 'seeker' && !$isUnhousedAccountList
+        <tr data-province-codes="<?= e($account['province_codes'] ?? '') ?>"
+            data-regency-codes="<?= e($account['regency_codes'] ?? '') ?>"
+            data-district-codes="<?= e($account['district_codes'] ?? '') ?>"
+            data-village-codes="<?= e($account['village_codes'] ?? '') ?>"
+            <?= $accountRole === 'seeker' && !$isUnhousedAccountList
             ? 'data-building-filter="' . e((string) ($account['current_building_id'] ?? '__none')) . '" data-building-label="' . e($account['current_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') . '" data-table-group-key="' . e((string) ($account['current_building_id'] ?? 'unassigned')) . '"'
             : ($accountRole === 'seeker' ? 'data-table-group-key="' . e((string) $groupKey) . '"' : '') ?>>
             <td><div class="account-person"><a class="account-profile-avatar" href="index.php?page=<?= $accountRole === 'operator' ? 'platform_operator_profile' : 'platform_user_profile' ?>&amp;id=<?= (int) $account['id'] ?>" aria-label="Buka profil <?= e($account['name']) ?>" title="Buka profil"><?= avatar_markup($account, 'profile-avatar small') ?></a><div><strong><?= e($account['name']) ?></strong><small class="subline"><?= e($account['email'] ?: 'Email belum diisi') ?></small><small class="subline"><?= e($account['phone'] ?: 'Nomor telepon belum diisi') ?></small></div></div></td>

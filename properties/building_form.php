@@ -25,7 +25,25 @@
                     <form method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="save_building"><input type="hidden" name="id" value="<?= $buildingId ?>">
                         <?php field('Nama kos / gedung *', 'name', $building['name'] ?? '', 'text', ['required' => 'required', 'maxlength' => '150', 'placeholder' => 'Contoh: Tiara Kos - Gedung Melati']); ?>
                         <label class="field"><span>Status gedung</span><select name="status"><option value="active" <?= ($building['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Aktif</option><option value="inactive" <?= ($building['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Nonaktif</option></select><small class="field-help">Gedung nonaktif tidak tampil pada peta dan tidak dapat dipilih untuk kamar baru.</small></label>
-                        <label class="field full-span"><span>Alamat lengkap *</span><textarea name="address" rows="3" required><?= e($building['address'] ?? '') ?></textarea></label>
+                        <?= indonesia_region_fields($pdo, [
+                            'province' => $building['province_code'] ?? '',
+                            'regency' => $building['regency_code'] ?? '',
+                            'district' => $building['district_code'] ?? '',
+                            'village' => $building['village_code'] ?? '',
+                        ], true) ?>
+                        <?php if ($building && empty($building['province_code']) && !empty($building['address'])): ?>
+                            <p class="field-help full-span">Alamat lama dimuat sebagai alamat detail. Lengkapi wilayah di atas, lalu rapikan alamat detail bila perlu.</p>
+                        <?php endif; ?>
+                        <?php field(
+                            'Nama jalan / alamat detail',
+                            'street_name',
+                            $building['street_name'] ?? (empty($building['province_code']) ? ($building['address'] ?? '') : ''),
+                            'text',
+                            ['maxlength' => '1000', 'placeholder' => 'Contoh: Jl. Anggrek No. 12']
+                        ); ?>
+                        <?php field('RT (opsional)', 'address_rt', $building['address_rt'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
+                        <?php field('RW (opsional)', 'address_rw', $building['address_rw'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
+                        <?php field('Blok (opsional)', 'address_block', $building['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
                         <label class="field"><span>Kebijakan penghuni</span><select name="gender_policy"><option value="mixed" <?= ($building['gender_policy'] ?? 'mixed') === 'mixed' ? 'selected' : '' ?>>Campur</option><option value="male" <?= ($building['gender_policy'] ?? '') === 'male' ? 'selected' : '' ?>>Putra</option><option value="female" <?= ($building['gender_policy'] ?? '') === 'female' ? 'selected' : '' ?>>Putri</option></select></label>
                         <div class="building-map-editor full-span" id="lokasi-gedung">
                             <div class="building-coordinate-help"><strong>Atur lokasi kos</strong><p>Tempel tautan Google Maps untuk mengisi koordinat otomatis, atau isikan latitude dan longitude secara manual. Peta di halaman kos memakai titik koordinat ini.</p></div>
@@ -50,11 +68,21 @@
                     const longitude = document.getElementById('building-longitude');
                     const status = document.getElementById('google-maps-status');
                     const searchLink = document.getElementById('google-maps-search');
+                    const legacyAddress = <?= json_encode(
+                        $building['address'] ?? '',
+                        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+                    ) ?>;
                     if (!mapsUrl || !latitude || !longitude) return;
                     const updateSearchLink = () => {
+                        const selectedAddress = [
+                            document.querySelector('[name="street_name"]').value,
+                            ...Array.from(document.querySelectorAll('[data-region-level]'))
+                                .map((select) => select.selectedOptions[0]?.textContent || '')
+                                .filter((label) => label && !label.startsWith('Pilih ')),
+                        ].filter(Boolean).join(', ');
                         const query = latitude.value && longitude.value
                             ? `${latitude.value},${longitude.value}`
-                            : document.querySelector('[name="address"]').value;
+                            : selectedAddress || legacyAddress;
                         searchLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
                     };
                     const parseCoordinates = (value) => {
@@ -82,9 +110,13 @@
                         status.textContent = 'Koordinat berhasil diambil dari Google Maps.';
                         updateSearchLink();
                     });
-                    [latitude, longitude, document.querySelector('[name="address"]')].forEach((field) => {
+                    [latitude, longitude, document.querySelector('[name="street_name"]')].forEach((field) => {
                         field.addEventListener('input', updateSearchLink);
                     });
+                    document.querySelectorAll('[data-region-level]').forEach((select) => {
+                        select.addEventListener('change', updateSearchLink);
+                    });
+                    updateSearchLink();
                 })();
                 </script>
             

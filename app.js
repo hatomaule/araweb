@@ -1,5 +1,108 @@
 const initializeApp = () => {
     let generatedPasswordId = 0;
+    const regionLevels = ['province', 'regency', 'district', 'village'];
+    const regionLabels = {
+        province: 'Provinsi',
+        regency: 'Kabupaten/Kota',
+        district: 'Kecamatan',
+        village: 'Kelurahan/Desa',
+    };
+    const loadRegionOptions = async (level, parentCode = '') => {
+        const endpoint = new URL('index.php', document.baseURI);
+        endpoint.searchParams.set('region_options', '1');
+        endpoint.searchParams.set('level', level);
+        if (parentCode) endpoint.searchParams.set('parent_code', parentCode);
+        const response = await fetch(endpoint, { credentials: 'same-origin' });
+        const result = await response.json();
+        if (!response.ok || !Array.isArray(result.regions)) {
+            throw new Error(result.error || 'Data wilayah tidak dapat dimuat.');
+        }
+        return result.regions;
+    };
+    const reportRegionError = (container, message) => {
+        let error = container.querySelector('.region-load-error');
+        if (!error) {
+            error = document.createElement('p');
+            error.className = 'region-load-error';
+            error.setAttribute('role', 'alert');
+            container.append(error);
+        }
+        error.textContent = message;
+    };
+    const initializeRegionPicker = async (container) => {
+        const selects = regionLevels.map((level) =>
+            container.querySelector(`[data-region-level="${level}"]`)
+        );
+        if (selects.some((select) => !(select instanceof HTMLSelectElement))) return;
+        const initialOptions = new Map(selects.map((select, index) => [
+            regionLevels[index],
+            Array.from(select.options, (option) => option.cloneNode(true)),
+        ]));
+        selects.forEach((select, index) => {
+            select.disabled = index > 0;
+        });
+
+        const populate = (select, level, regions, selectedCode = '') => {
+            const savedOption = selectedCode
+                ? initialOptions.get(level).find((option) => option.value === selectedCode)
+                : null;
+            select.replaceChildren(new Option(
+                select.dataset.defaultLabel || `Pilih ${regionLabels[level].toLocaleLowerCase('id')}`,
+                ''
+            ));
+            regions.forEach((region) => select.add(new Option(region.name, region.code)));
+            if (selectedCode && !regions.some((region) => region.code === selectedCode) && savedOption) {
+                const staleOption = savedOption.cloneNode(true);
+                staleOption.textContent = `${staleOption.textContent} (data lama)`;
+                select.add(staleOption);
+            }
+            select.value = selectedCode;
+        };
+        const populateChildren = async (parentIndex, restoreSaved) => {
+            let parentCode = selects[parentIndex].value;
+            for (let index = parentIndex + 1; index < regionLevels.length; index += 1) {
+                const select = selects[index];
+                const level = regionLevels[index];
+                select.disabled = true;
+                populate(select, level, [], '');
+                if (!parentCode) continue;
+                const regions = await loadRegionOptions(level, parentCode);
+                const selectedCode = restoreSaved ? select.dataset.selectedCode || '' : '';
+                populate(select, level, regions, selectedCode);
+                select.disabled = false;
+                parentCode = select.value;
+                if (!parentCode) restoreSaved = false;
+            }
+            container.querySelector('.region-load-error')?.remove();
+        };
+
+        try {
+            const provinces = await loadRegionOptions('province');
+            populate(selects[0], 'province', provinces, selects[0].dataset.selectedCode || '');
+            selects[0].disabled = false;
+            await populateChildren(0, true);
+        } catch (error) {
+            console.error('Indonesia region picker failed to load:', error);
+            reportRegionError(container, 'Data wilayah gagal dimuat. Pastikan migrasi wilayah Indonesia telah diterapkan, lalu muat ulang halaman.');
+        }
+
+        selects.forEach((select, index) => {
+            select.addEventListener('change', async () => {
+                for (let childIndex = index + 1; childIndex < selects.length; childIndex += 1) {
+                    selects[childIndex].dataset.selectedCode = '';
+                }
+                try {
+                    await populateChildren(index, false);
+                } catch (error) {
+                    console.error('Indonesia region children failed to load:', error);
+                    reportRegionError(container, 'Pilihan wilayah berikutnya gagal dimuat. Periksa koneksi lalu coba lagi.');
+                }
+                container.dispatchEvent(new Event('regionchange', { bubbles: true }));
+            });
+        });
+    };
+    document.querySelectorAll('[data-region-picker]').forEach(initializeRegionPicker);
+
     document.querySelectorAll('.main-area .content table').forEach((table) => {
         if (!(table instanceof HTMLTableElement) || !table.tHead || !table.tBodies.length) return;
         const tbody = table.tBodies[0];
@@ -45,6 +148,31 @@ const initializeApp = () => {
                 buildingLabel.append(caption, buildingFilter);
                 tools.append(buildingLabel);
             }
+        }
+
+        const regionFilters = [];
+        if (table.hasAttribute('data-region-filter')) {
+            const regionControls = document.createElement('div');
+            regionControls.className = 'data-table-region-filters';
+            regionControls.dataset.regionPicker = '';
+            regionLevels.forEach((level) => {
+                const label = document.createElement('label');
+                label.className = 'data-table-select';
+                const caption = document.createElement('span');
+                caption.textContent = regionLabels[level];
+                const select = document.createElement('select');
+                select.dataset.regionLevel = level;
+                select.dataset.defaultLabel = `Semua ${regionLabels[level].toLocaleLowerCase('id')}`;
+                select.disabled = level !== 'province';
+                select.setAttribute('aria-label', `Filter berdasarkan ${regionLabels[level].toLocaleLowerCase('id')}`);
+                select.add(new Option(`Semua ${regionLabels[level].toLocaleLowerCase('id')}`, ''));
+                label.append(caption, select);
+                regionControls.append(label);
+                regionFilters.push(select);
+            });
+            tools.append(regionControls);
+            initializeRegionPicker(regionControls);
+            regionControls.addEventListener('regionchange', () => { currentPage = 1; render(); });
         }
 
         const pageSizeLabel = document.createElement('label');
@@ -94,7 +222,12 @@ const initializeApp = () => {
                 const searchableText = `${row.textContent} ${row.dataset.buildingLabel || ''}`.toLocaleLowerCase('id');
                 const matchesSearch = !query || searchableText.includes(query);
                 const matchesBuilding = !selectedBuilding || row.dataset.buildingFilter === selectedBuilding;
-                return matchesSearch && matchesBuilding;
+                const matchesRegions = regionFilters.every((filter, index) => {
+                    if (!filter.value) return true;
+                    const codes = (row.dataset[`${regionLevels[index]}Codes`] || '').split(',');
+                    return codes.includes(filter.value);
+                });
+                return matchesSearch && matchesBuilding && matchesRegions;
             });
             const pageSize = pageSizeSelect.value === 'all' ? matchingRows.length || 1 : 10;
             const pageCount = Math.max(1, Math.ceil(matchingRows.length / pageSize));

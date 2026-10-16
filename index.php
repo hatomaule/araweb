@@ -126,12 +126,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $databaseErrorMessage = in_array($action, ['upload_room_type_gallery_photos', 'delete_room_type_gallery_photo', 'select_room_gallery_photo'], true)
             ? 'Galeri tidak dapat diperbarui. Pastikan migrasi galeri tipe kamar sudah diterapkan, lalu coba lagi.'
             : (in_array($action, ['save_profile', 'admin_update_operator_profile'], true)
-            ? 'Email tersebut sudah digunakan akun lain atau perubahan profil tidak dapat disimpan.'
+            ? 'Profil tidak dapat disimpan. Pastikan migrasi wilayah Indonesia sudah diterapkan dan email belum digunakan akun lain.'
+            : ($action === 'save_building'
+                ? 'Data gedung tidak dapat disimpan. Pastikan migrasi wilayah Indonesia sudah diterapkan.'
             : ($action === 'save_operator_payment'
                 ? 'Pembayaran tidak dapat disimpan. Periksa email/telepon, kamar, dan periode pembayaran.'
                 : (in_array($action, ['operator_review_reply', 'operator_review_visibility'], true)
                     ? 'Ulasan tidak dapat diperbarui. Pastikan migrasi balasan ulasan telah diterapkan.'
-                    : 'Data tidak dapat disimpan. Pastikan tidak ada nomor identitas atau kamar yang duplikat.')));
+                    : 'Data tidak dapat disimpan. Pastikan tidak ada nomor identitas atau kamar yang duplikat.'))));
         set_flash('error', $databaseErrorMessage);
         if ($action === 'admin_update_operator_profile') {
             redirect((post_value('account_role') === 'seeker' ? 'platform_user_profile' : 'platform_operator_profile')
@@ -155,6 +157,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $user = current_user();
+if (isset($_GET['region_options'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Silakan masuk untuk memuat data wilayah.']);
+        exit;
+    }
+
+    $level = isset($_GET['level']) && is_string($_GET['level']) ? $_GET['level'] : '';
+    $parentCode = isset($_GET['parent_code']) && is_string($_GET['parent_code'])
+        ? $_GET['parent_code']
+        : '';
+    $parentLevels = [
+        'regency' => 'province',
+        'district' => 'regency',
+        'village' => 'district',
+    ];
+    if ($level !== 'province'
+        && (!isset($parentLevels[$level]) || !preg_match('/^[0-9.]{1,13}$/', $parentCode))) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Permintaan data wilayah tidak valid.']);
+        exit;
+    }
+
+    try {
+        if ($level === 'province') {
+            $statement = $pdo->query(
+                "SELECT code,name FROM indonesia_regions WHERE level='province' ORDER BY name"
+            );
+        } else {
+            $statement = $pdo->prepare(
+                'SELECT child.code,child.name
+                 FROM indonesia_regions child
+                 JOIN indonesia_regions parent ON parent.code=child.parent_code
+                 WHERE child.level=:level AND parent.level=:parent_level AND parent.code=:parent_code
+                 ORDER BY child.name'
+            );
+            $statement->execute([
+                'level' => $level,
+                'parent_level' => $parentLevels[$level],
+                'parent_code' => $parentCode,
+            ]);
+        }
+        echo json_encode(['regions' => $statement->fetchAll()], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    } catch (PDOException $exception) {
+        error_log('Indonesia region lookup failed: ' . $exception->getMessage());
+        http_response_code(503);
+        echo json_encode(['error' => 'Data wilayah belum tersedia. Pastikan migrasi wilayah Indonesia telah diterapkan.']);
+    } catch (JsonException $exception) {
+        error_log('Indonesia region response encoding failed: ' . $exception->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Data wilayah tidak dapat dikirim saat ini.']);
+    }
+    exit;
+}
 if ($user) {
     $pdo->prepare('UPDATE users SET last_seen_at=NOW() WHERE id=:id')
         ->execute(['id' => $user['id']]);

@@ -4,7 +4,8 @@ $profileRole = $page === 'platform_user_profile' ? 'seeker' : 'operator';
 $profileRoleLabel = $profileRole === 'operator' ? 'operator' : 'User';
 $operator = one(
     $pdo,
-    'SELECT id,name,email,phone,address,gender,profile_photo_path,avatar_key,status,created_at
+    'SELECT id,name,email,phone,address,province_code,regency_code,district_code,village_code,
+            street_name,address_rt,address_rw,address_block,gender,profile_photo_path,avatar_key,status,created_at
      FROM users WHERE id=:id AND role=:role',
     ['id' => $operatorId, 'role' => $profileRole]
 );
@@ -25,7 +26,17 @@ $buildings = $profileRole === 'operator' ? rows(
         <?= csrf_field() ?><input type="hidden" name="action" value="admin_update_operator_profile"><input type="hidden" name="user_id" value="<?= (int) $operator['id'] ?>"><input type="hidden" name="account_role" value="<?= e($profileRole) ?>">
         <?php field('Nama lengkap *', 'name', $operator['name'], 'text', ['required' => 'required', 'maxlength' => '100']); field('Email (opsional)', 'email', $operator['email'] ?? '', 'email', ['maxlength' => '255']); field('Nomor HP', 'phone', $operator['phone'] ?? '', 'tel', ['maxlength' => '30']); ?>
         <label class="field"><span>Jenis kelamin *</span><select name="gender" required><option value="">Pilih jenis kelamin</option><option value="male" <?= ($operator['gender'] ?? '') === 'male' ? 'selected' : '' ?>>Pria</option><option value="female" <?= ($operator['gender'] ?? '') === 'female' ? 'selected' : '' ?>>Wanita</option></select></label>
-        <label class="field full-span"><span>Alamat</span><textarea name="address" rows="3" maxlength="1000"><?= e($operator['address'] ?? '') ?></textarea></label>
+        <?= indonesia_region_fields($pdo, [
+            'province' => $operator['province_code'] ?? '',
+            'regency' => $operator['regency_code'] ?? '',
+            'district' => $operator['district_code'] ?? '',
+            'village' => $operator['village_code'] ?? '',
+        ]) ?>
+        <?php field('Nama jalan / alamat detail', 'street_name', $operator['street_name'] ?? $operator['address'] ?? '', 'text', ['maxlength' => '1000']); ?>
+        <?php field('RT (opsional)', 'address_rt', $operator['address_rt'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
+        <?php field('RW (opsional)', 'address_rw', $operator['address_rw'] ?? '', 'text', ['maxlength' => '3', 'inputmode' => 'numeric', 'pattern' => '[0-9]{1,3}']); ?>
+        <?php field('Blok (opsional)', 'address_block', $operator['address_block'] ?? '', 'text', ['maxlength' => '50']); ?>
+        <p class="field-help full-span">Jika memilih wilayah, lengkapi seluruh pilihan dari Provinsi hingga Kelurahan/Desa.</p>
         <div class="form-actions full-span"><button class="button primary" type="submit">Simpan profil <?= e($profileRoleLabel) ?></button></div>
     </form>
 </div>

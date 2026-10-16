@@ -350,15 +350,26 @@ if ($action === 'save_building') {
             }
             $id = (int) post_value('id');
             $name = post_value('name');
-            $address = post_value('address');
+            $regions = resolve_indonesia_regions($pdo, true);
+            $street = post_value('street_name');
+            $rt = post_value('address_rt');
+            $rw = post_value('address_rw');
+            $block = post_value('address_block');
+            if (strlen($street) > 1000 || strlen($rt) > 3 || strlen($rw) > 3
+                || ($rt !== '' && !ctype_digit($rt)) || ($rw !== '' && !ctype_digit($rw))
+                || strlen($block) > 50) {
+                set_flash('error', 'Periksa kembali alamat jalan, RT/RW, dan blok.');
+                redirect('building_form' . ($id ? '&id=' . $id : ''));
+            }
+            $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
             $latitude = post_value('latitude');
             $longitude = post_value('longitude');
             $coordinatesProvided = $latitude !== '' || $longitude !== '';
-            if ($name === '' || strlen($name) > 150 || $address === ''
+            if ($name === '' || strlen($name) > 150 || $address === null || strlen($address) > 1000
                 || ($coordinatesProvided && (!is_numeric($latitude) || !is_numeric($longitude)
                     || (float) $latitude < -90 || (float) $latitude > 90
                     || (float) $longitude < -180 || (float) $longitude > 180))) {
-                set_flash('error', 'Isi nama dan alamat. Koordinat harus diisi berpasangan dan berada dalam rentang yang valid.');
+                set_flash('error', 'Isi nama dan alamat dengan benar. Koordinat harus diisi berpasangan dan berada dalam rentang yang valid.');
                 redirect('building_form' . ($id ? '&id=' . $id : ''));
             }
             if ($id && !can_manage_building($pdo, $user, $id)) {
@@ -373,6 +384,14 @@ if ($action === 'save_building') {
             $photos = collect_photo_uploads('property_photos');
             $values = [
                 'name' => $name, 'address' => $address,
+                'province_code' => $regions['province_code'],
+                'regency_code' => $regions['regency_code'],
+                'district_code' => $regions['district_code'],
+                'village_code' => $regions['village_code'],
+                'street_name' => $street !== '' ? $street : null,
+                'address_rt' => $rt !== '' ? $rt : null,
+                'address_rw' => $rw !== '' ? $rw : null,
+                'address_block' => $block !== '' ? $block : null,
                 'latitude' => $coordinatesProvided ? number_format((float) $latitude, 7, '.', '') : null,
                 'longitude' => $coordinatesProvided ? number_format((float) $longitude, 7, '.', '') : null,
                 'description' => post_value('description') ?: null,
@@ -388,7 +407,10 @@ if ($action === 'save_building') {
                     ? ", approval_status='approved', approval_note=NULL, reviewed_by=NULL, reviewed_at=NOW()"
                     : '';
                 $building = $pdo->prepare(
-                    'UPDATE kos_buildings SET name=:name, address=:address, latitude=:latitude,
+                    'UPDATE kos_buildings SET name=:name, address=:address, province_code=:province_code,
+                     regency_code=:regency_code, district_code=:district_code, village_code=:village_code,
+                     street_name=:street_name, address_rt=:address_rt, address_rw=:address_rw,
+                     address_block=:address_block, latitude=:latitude,
                      longitude=:longitude, description=:description, gender_policy=:gender_policy,
                      general_facilities=:general_facilities, house_rules=:house_rules, status=:status'
                      . $approvalSql . ' WHERE id=:id'
@@ -397,10 +419,12 @@ if ($action === 'save_building') {
                 $values['owner_user_id'] = $user['role'] === 'operator' ? $user['id'] : null;
                 $building = $pdo->prepare(
                     "INSERT INTO kos_buildings
-                     (owner_user_id, name, address, latitude, longitude, description, gender_policy,
-                      general_facilities, house_rules, status, approval_status)
-                     VALUES (:owner_user_id, :name, :address, :latitude, :longitude, :description,
-                      :gender_policy, :general_facilities, :house_rules, :status, 'approved')"
+                     (owner_user_id, name, address, province_code, regency_code, district_code, village_code,
+                      street_name, address_rt, address_rw, address_block, latitude, longitude, description,
+                      gender_policy, general_facilities, house_rules, status, approval_status)
+                     VALUES (:owner_user_id, :name, :address, :province_code, :regency_code, :district_code,
+                      :village_code, :street_name, :address_rt, :address_rw, :address_block, :latitude,
+                      :longitude, :description, :gender_policy, :general_facilities, :house_rules, :status, 'approved')"
                 );
             }
             $building->execute($values);

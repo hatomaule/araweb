@@ -193,12 +193,20 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         $email = strtolower(post_value('email'));
         $phone = post_value('phone');
         $gender = post_value('gender');
-        $address = post_value('address');
+        $regions = resolve_indonesia_regions($pdo);
+        $street = post_value('street_name');
+        $rt = post_value('address_rt');
+        $rw = post_value('address_rw');
+        $block = post_value('address_block');
+        $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
 
         if ($targetId < 1 || !in_array($accountRole, ['operator', 'seeker'], true)
             || $name === '' || strlen($name) > 100
             || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) || strlen($email) > 255
-            || strlen($phone ?? '') > 30 || strlen($address ?? '') > 1000
+            || strlen($phone ?? '') > 30 || strlen($street) > 1000
+            || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
+            || ($rw !== '' && !ctype_digit($rw)) || strlen($block) > 50
+            || strlen($address ?? '') > 1000
             || ($gender !== '' && !in_array($gender, ['male', 'female'], true))) {
             set_flash('error', 'Periksa kembali nama, email, nomor HP, jenis kelamin, dan alamat profil.');
             redirect($accountRole === 'operator' ? 'platform_operator_accounts' : 'platform_seeker_accounts');
@@ -230,6 +238,14 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
                  email=:email,
                  phone=:phone,
                  address=:address,
+                 province_code=:province_code,
+                 regency_code=:regency_code,
+                 district_code=:district_code,
+                 village_code=:village_code,
+                 street_name=:street_name,
+                 address_rt=:address_rt,
+                 address_rw=:address_rw,
+                 address_block=:address_block,
                  gender=:gender
              WHERE id=:id AND role=:role'
         );
@@ -237,7 +253,15 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
             'name' => $name,
             'email' => $email !== '' ? $email : null,
             'phone' => $phone !== '' ? $phone : null,
-            'address' => $address !== '' ? $address : null,
+            'address' => $address,
+            'province_code' => $regions['province_code'] ?? null,
+            'regency_code' => $regions['regency_code'] ?? null,
+            'district_code' => $regions['district_code'] ?? null,
+            'village_code' => $regions['village_code'] ?? null,
+            'street_name' => $street !== '' ? $street : null,
+            'address_rt' => $rt !== '' ? $rt : null,
+            'address_rw' => $rw !== '' ? $rw : null,
+            'address_block' => $block !== '' ? $block : null,
             'gender' => $gender !== '' ? $gender : null,
             'id' => $targetId,
             'role' => $accountRole,

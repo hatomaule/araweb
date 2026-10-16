@@ -297,27 +297,50 @@ if ($action === 'operator_add_tenant_account') {
 if ($action === 'save_profile') {
             $name = post_value('name');
             $phone = post_value('phone');
-            $address = post_value('address');
-            $email = strtolower(post_value('email'));
-            $gender = post_value('gender');
-            if ($name === '' || strlen($name) > 100 || strlen($phone) > 30 || strlen($address) > 1000
-                || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255
-                || ($gender !== '' && !in_array($gender, ['male', 'female'], true))
-                || ($user['role'] !== 'admin' && !in_array($gender, ['male', 'female'], true))) {
-                set_flash('error', 'Periksa nama, email, nomor WhatsApp, alamat, dan jenis kelamin.');
-                redirect('profile');
-            }
-            $profilePath = store_profile_photo_upload();
-            $profile = $pdo->prepare(
-                'UPDATE users SET name=:name, email=:email, phone=:phone, address=:address,
-                 gender=:gender, profile_photo_path=COALESCE(:photo, profile_photo_path)
-                 WHERE id=:id'
-            );
-            $profile->execute([
-                'name' => $name, 'email' => $email, 'phone' => $phone ?: null,
-                'address' => $address ?: null,
-                'gender' => $gender !== '' ? $gender : null, 'photo' => $profilePath, 'id' => $user['id'],
-            ]);
+    $regions = resolve_indonesia_regions($pdo);
+    $street = post_value('street_name');
+    $rt = post_value('address_rt');
+    $rw = post_value('address_rw');
+    $block = post_value('address_block');
+    $address = format_indonesia_address($regions, $street, $rt, $rw, $block);
+    $email = strtolower(post_value('email'));
+    $gender = post_value('gender');
+    if ($name === '' || strlen($name) > 100 || strlen($phone) > 30 || strlen($street) > 1000
+        || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
+        || ($rw !== '' && !ctype_digit($rw)) || strlen($block) > 50
+        || strlen($address ?? '') > 1000
+        || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255
+        || ($gender !== '' && !in_array($gender, ['male', 'female'], true))
+        || ($user['role'] !== 'admin' && !in_array($gender, ['male', 'female'], true))) {
+        set_flash('error', 'Periksa nama, email, nomor WhatsApp, alamat, dan jenis kelamin.');
+        redirect('profile');
+    }
+    $profilePath = store_profile_photo_upload();
+    $profile = $pdo->prepare(
+        'UPDATE users SET name=:name, email=:email, phone=:phone, address=:address,
+         province_code=:province_code, regency_code=:regency_code,
+         district_code=:district_code, village_code=:village_code,
+         street_name=:street_name, address_rt=:address_rt, address_rw=:address_rw,
+         address_block=:address_block, gender=:gender,
+         profile_photo_path=COALESCE(:photo, profile_photo_path)
+         WHERE id=:id'
+    );
+    $regionValues = [
+        'province_code' => $regions['province_code'] ?? null,
+        'regency_code' => $regions['regency_code'] ?? null,
+        'district_code' => $regions['district_code'] ?? null,
+        'village_code' => $regions['village_code'] ?? null,
+    ];
+    $profile->execute([
+        'name' => $name, 'email' => $email, 'phone' => $phone ?: null,
+        'address' => $address,
+        'street_name' => $street !== '' ? $street : null,
+        'address_rt' => $rt !== '' ? $rt : null,
+        'address_rw' => $rw !== '' ? $rw : null,
+        'address_block' => $block !== '' ? $block : null,
+        ...$regionValues,
+        'gender' => $gender !== '' ? $gender : null, 'photo' => $profilePath, 'id' => $user['id'],
+    ]);
             if ($user['role'] === 'seeker') {
                 $pdo->prepare('UPDATE tenants SET full_name=:name, phone=:phone, email=:email WHERE user_id=:id')
                     ->execute(['name' => $name, 'phone' => $phone, 'email' => $email, 'id' => $user['id']]);

@@ -154,7 +154,19 @@ akun dan kepemilikan diperiksa.
 - Tabel yang tampak dalam source/migrasi mencakup akun (`users`), properti
   (`kos_buildings`), kamar (`rooms`), penghuni (`tenants`), masa sewa
   (`rentals`), tagihan (`invoices`), pembayaran (`payments`), ulasan, pencarian,
-  booking, serta rekening.
+  booking, rekening, dan `indonesia_regions`.
+- `migration_indonesia_regions.sql` menyediakan data wilayah berjenjang
+  Provinsi/Kabupaten-Kota/Kecamatan/Kelurahan-Desa, serta kolom kode wilayah
+  dan alamat rinci pada gedung dan profil akun. Migrasi memuat 91.599 baris
+  dari snapshot `cahyadsn/wilayah` commit
+  `d68e8d5516f969d1905d0b2940f20034becb0db7` (13 Februari 2026); sumber
+  mencantumkan Kepmendagri No. 300.2.2-2138/2025, tetapi belum diverifikasi
+  sebagai rilis Kemendagri terbaru. Lisensi MIT dan atribusi dipertahankan
+  pada berkas migrasi.
+- Filter wilayah pada manajemen akun admin memakai lokasi semua gedung milik
+  Operator, lokasi gedung aktif untuk User yang sedang menghuni, dan alamat
+  profil untuk User tanpa hunian. Pilihan dropdown wilayah dimuat melalui
+  endpoint berjenjang; jangan kirim seluruh desa ke browser.
 - Daftar ini bukan dump skema lengkap dan tidak menjamin tabel/kolom tersebut
   tersedia di setiap database.
 - Baca bagian instalasi di `README.md` dan migrasi terkait sebelum menyentuh

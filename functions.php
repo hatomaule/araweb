@@ -49,6 +49,134 @@ function post_value(string $key): string
         : '';
 }
 
+function indonesia_region_fields(PDO $pdo, array $selectedCodes = [], bool $required = false): string
+{
+    $levels = [
+        'province' => 'Provinsi',
+        'regency' => 'Kabupaten/Kota',
+        'district' => 'Kecamatan',
+        'village' => 'Kelurahan/Desa',
+    ];
+    $selectedCodes = array_intersect_key($selectedCodes, $levels);
+    $selectedNames = [];
+    $parameters = [];
+    foreach ($levels as $level => $_label) {
+        $code = $selectedCodes[$level] ?? '';
+        if (is_string($code) && $code !== '') {
+            $placeholder = 'code_' . count($parameters);
+            $parameters[$placeholder] = $code;
+            $selectedNames[$code] = $placeholder;
+        }
+    }
+    if ($parameters) {
+        $placeholders = implode(',', array_map(
+            static fn (string $placeholder): string => ':' . $placeholder,
+            array_values($selectedNames)
+        ));
+        $statement = $pdo->prepare(
+            'SELECT code,name FROM indonesia_regions WHERE code IN (' . $placeholders . ')'
+        );
+        $statement->execute($parameters);
+        foreach ($statement->fetchAll() as $region) {
+            $selectedNames[$region['code']] = $region['name'];
+        }
+    }
+
+    $html = '<div class="indonesia-address-fields full-span" data-region-picker>';
+    foreach ($levels as $level => $label) {
+        $name = $level . '_code';
+        $selectedCode = (string) ($selectedCodes[$level] ?? '');
+        $html .= '<label class="field"><span>' . e($label) . ($required ? ' *' : '') . '</span>'
+            . '<select name="' . e($name) . '" data-region-level="' . e($level)
+            . '" data-selected-code="' . e($selectedCode) . '"' . ($required ? ' required' : '') . '>'
+            . '<option value="">Pilih ' . e(strtolower($label)) . '</option>';
+        if ($selectedCode !== '' && isset($selectedNames[$selectedCode])) {
+            $html .= '<option value="' . e($selectedCode) . '" selected>'
+                . e($selectedNames[$selectedCode]) . '</option>';
+        }
+        $html .= '</select></label>';
+    }
+    return $html . '</div>';
+}
+
+function resolve_indonesia_regions(PDO $pdo, bool $required = false): ?array
+{
+    $levels = ['province', 'regency', 'district', 'village'];
+    $codes = [];
+    foreach ($levels as $level) {
+        $key = $level . '_code';
+        if (isset($_POST[$key]) && !is_string($_POST[$key])) {
+            throw new RuntimeException('Kode wilayah yang dipilih tidak valid.');
+        }
+        $code = post_value($key);
+        if (strlen($code) > 13 || ($code !== '' && !preg_match('/^[0-9.]+$/', $code))) {
+            throw new RuntimeException('Kode wilayah yang dipilih tidak valid.');
+        }
+        $codes[$level] = $code;
+    }
+
+    $provided = count(array_filter($codes, static fn (string $code): bool => $code !== ''));
+    if ($provided === 0 && !$required) {
+        return null;
+    }
+    if ($provided !== count($levels)) {
+        throw new RuntimeException('Pilih Provinsi, Kabupaten/Kota, Kecamatan, dan Kelurahan/Desa secara lengkap.');
+    }
+
+    $statement = $pdo->prepare(
+        "SELECT province.code AS province_code,province.name AS province_name,
+                regency.code AS regency_code,regency.name AS regency_name,
+                district.code AS district_code,district.name AS district_name,
+                village.code AS village_code,village.name AS village_name
+         FROM indonesia_regions province
+         JOIN indonesia_regions regency
+           ON regency.parent_code=province.code AND regency.level='regency'
+         JOIN indonesia_regions district
+           ON district.parent_code=regency.code AND district.level='district'
+         JOIN indonesia_regions village
+           ON village.parent_code=district.code AND village.level='village'
+         WHERE province.code=:province AND province.level='province'
+           AND regency.code=:regency AND district.code=:district AND village.code=:village"
+    );
+    $statement->execute([
+        'province' => $codes['province'],
+        'regency' => $codes['regency'],
+        'district' => $codes['district'],
+        'village' => $codes['village'],
+    ]);
+    $regions = $statement->fetch();
+    if (!$regions) {
+        throw new RuntimeException('Kombinasi wilayah yang dipilih tidak sesuai.');
+    }
+
+    return $regions;
+}
+
+function format_indonesia_address(?array $regions, string $street, string $rt, string $rw, string $block): ?string
+{
+    $parts = [];
+    if ($street !== '') {
+        $parts[] = $street;
+    }
+    if ($rt !== '' || $rw !== '') {
+        $parts[] = 'RT ' . ($rt !== '' ? $rt : '-') . '/RW ' . ($rw !== '' ? $rw : '-');
+    }
+    if ($block !== '') {
+        $parts[] = 'Blok ' . $block;
+    }
+    if ($regions === null) {
+        return $parts ? implode(', ', $parts) : null;
+    }
+    array_push(
+        $parts,
+        $regions['village_name'],
+        'Kecamatan ' . $regions['district_name'],
+        $regions['regency_name'],
+        $regions['province_name']
+    );
+    return implode(', ', $parts);
+}
+
 function set_flash(string $type, string $message): void
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
