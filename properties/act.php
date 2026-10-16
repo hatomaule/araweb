@@ -10,54 +10,60 @@ if ($action === 'upload_room_type_gallery_photos') {
             }
             $buildingId = (int) post_value('building_id');
             $roomType = post_value('room_type');
-            $category = post_value('category');
             $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
             if (!can_manage_building($pdo, $user, $buildingId)) {
                 set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
                 redirect('gallery');
             }
-            if (!in_array($category, ['building', 'room', 'room_facility', 'general_facility'], true)
-                || !one($pdo, 'SELECT id FROM rooms WHERE building_id=:building_id AND room_type=:room_type LIMIT 1', [
-                    'building_id' => $buildingId, 'room_type' => $roomType,
-                ])) {
-                set_flash('error', 'Pilih tipe kamar dan kategori galeri yang valid.');
-                redirect($returnToGallery);
+            if (!in_array($roomType, ['Tipe Standart', 'Tipe Premium', 'Tipe Eksklusif'], true)) {
+                set_flash('error', 'Pilih tipe kamar galeri yang valid.');
+                redirect('gallery&building_id=' . $buildingId);
             }
-            $uploads = collect_photo_uploads('gallery_photos');
-            if (!$uploads) {
+            $categoryUploads = [];
+            foreach (['building', 'room', 'room_facility', 'general_facility'] as $category) {
+                $uploads = collect_photo_uploads('gallery_photos_' . $category);
+                if ($uploads) {
+                    $categoryUploads[$category] = $uploads;
+                }
+            }
+            if (!$categoryUploads) {
                 set_flash('error', 'Pilih minimal satu foto untuk diunggah.');
                 redirect($returnToGallery);
             }
-            $uploadSubdirectory = $category === 'building' ? 'properties' : 'rooms';
-            $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads'
-                . DIRECTORY_SEPARATOR . $uploadSubdirectory;
-            if (!is_dir($uploadDirectory)
-                && !mkdir($uploadDirectory, 0755, true)
-                && !is_dir($uploadDirectory)) {
-                throw new RuntimeException('Folder penyimpanan galeri tidak dapat dibuat. Periksa izin folder uploads.');
-            }
             $movedFiles = [];
+            $uploadedCount = 0;
             $pdo->beginTransaction();
             try {
                 $insert = $pdo->prepare(
                     'INSERT INTO room_type_gallery_photos (building_id,room_type,category,photo_path)
                      VALUES (:building_id,:room_type,:category,:photo_path)'
                 );
-                foreach ($uploads as $upload) {
-                    $filename = bin2hex(random_bytes(16)) . '.' . $upload['extension'];
-                    $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
-                    if (!move_uploaded_file($upload['tmp_name'], $filePath)) {
-                        throw new RuntimeException('Foto gagal disimpan. Periksa izin folder uploads/' . $uploadSubdirectory . '.');
+                foreach ($categoryUploads as $category => $uploads) {
+                    $uploadSubdirectory = $category === 'building' ? 'properties' : 'rooms';
+                    $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads'
+                        . DIRECTORY_SEPARATOR . $uploadSubdirectory;
+                    if (!is_dir($uploadDirectory)
+                        && !mkdir($uploadDirectory, 0755, true)
+                        && !is_dir($uploadDirectory)) {
+                        throw new RuntimeException('Folder penyimpanan galeri tidak dapat dibuat. Periksa izin folder uploads.');
                     }
-                    $movedFiles[] = $filePath;
-                    $insert->execute([
-                        'building_id' => $buildingId,
-                        'room_type' => $roomType,
-                        'category' => $category,
-                        'photo_path' => 'uploads/' . $uploadSubdirectory . '/' . $filename,
-                    ]);
+                    foreach ($uploads as $upload) {
+                        $filename = bin2hex(random_bytes(16)) . '.' . $upload['extension'];
+                        $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+                        if (!move_uploaded_file($upload['tmp_name'], $filePath)) {
+                            throw new RuntimeException('Foto gagal disimpan. Periksa izin folder uploads/' . $uploadSubdirectory . '.');
+                        }
+                        $movedFiles[] = $filePath;
+                        $insert->execute([
+                            'building_id' => $buildingId,
+                            'room_type' => $roomType,
+                            'category' => $category,
+                            'photo_path' => 'uploads/' . $uploadSubdirectory . '/' . $filename,
+                        ]);
+                        $uploadedCount++;
+                    }
                 }
-                if ($category === 'building') {
+                if (isset($categoryUploads['building'])) {
                     $firstBuildingPhoto = one(
                         $pdo,
                         "SELECT photo_path FROM room_type_gallery_photos
@@ -84,7 +90,7 @@ if ($action === 'upload_room_type_gallery_photos') {
                 }
                 throw $exception;
             }
-            set_flash('success', count($uploads) . ' foto berhasil ditambahkan ke galeri ' . $roomType . '.');
+            set_flash('success', $uploadedCount . ' foto berhasil disimpan ke galeri ' . $roomType . '.');
             redirect($returnToGallery);
         }
 

@@ -109,6 +109,7 @@ Modul memakai koneksi, sesi, dan helper yang disediakan inti aplikasi. Pemetaan 
 - Kelola beberapa gedung kos beserta alamat dan koordinat latitude/longitude; nomor kamar boleh berulang di gedung yang berbeda.
 - Setiap kamar terhubung ke satu gedung. Nama gedung ditampilkan pada daftar kamar, booking, masa sewa, tagihan, dan pembayaran.
 - Operator dapat mengunggah foto profil kos dan kamar secara terpisah dari galeri. Foto profil kos tampil di banner detail kos dan kartu kos di halaman depan; foto profil kamar tampil pada kartu kamar dan detail kamar. JPG/PNG/WebP maksimal 4 MB.
+- Galeri operator menyediakan tipe Standart, Premium, dan Eksklusif untuk setiap gedung. Pilih foto di satu atau beberapa kategori, lalu tekan **Simpan foto** di bagian atas atau bawah untuk menyimpan semua pilihan sekaligus.
 - Peta publik memakai Leaflet dan OpenStreetMap tanpa API key, menampilkan lokasi gedung aktif yang memiliki kamar tersedia beserta tipe kamar dan harga bulanan. Isi alamat serta koordinat gedung dari menu **Gedung kos**. Pustaka peta dan petanya memerlukan koneksi internet.
 - Pilih tipe kamar dari Tipe Standart, Tipe Premium, dan Tipe Eksklusif.
 - Status kamar Kosong/Perawatan diatur pengelola; Terisi/Pending mengikuti masa sewa dan booking. Booking yang disetujui tampil di data kamar beserta nama User dan status pembayarannya, tetapi baru menjadi penghuni aktif dan berstatus Terisi setelah tagihan lunas.

@@ -24,13 +24,11 @@ if ($building && !can_manage_building($pdo, $user, $buildingId)) {
     set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
     redirect('gallery');
 }
-$roomTypes = $building
-    ? rows($pdo, 'SELECT DISTINCT room_type FROM rooms WHERE building_id=:id ORDER BY room_type', ['id' => $buildingId])
-    : [];
+$roomTypes = $building ? ['Tipe Standart', 'Tipe Premium', 'Tipe Eksklusif'] : [];
 $selectedRoomType = isset($_GET['room_type']) && is_string($_GET['room_type'])
     ? $_GET['room_type'] : '';
-if ($roomTypes && !in_array($selectedRoomType, array_column($roomTypes, 'room_type'), true)) {
-    $selectedRoomType = $roomTypes[0]['room_type'];
+if ($roomTypes && !in_array($selectedRoomType, $roomTypes, true)) {
+    $selectedRoomType = $roomTypes[0];
 }
 $galleryPhotos = $selectedRoomType
     ? rows(
@@ -84,10 +82,19 @@ foreach ($galleryPhotos as $galleryPhoto) {
         <input type="hidden" name="page" value="gallery">
         <label class="field"><span>Gedung kos</span><select name="building_id" onchange="this.form.submit()"><?php foreach ($buildings as $buildingOption): ?><option value="<?= (int) $buildingOption['id'] ?>" <?= (int) $buildingOption['id'] === $buildingId ? 'selected' : '' ?>><?= e($buildingOption['name']) ?></option><?php endforeach; ?></select></label>
         <?php if ($roomTypes): ?>
-            <label class="field"><span>Tipe kamar</span><select name="room_type" onchange="this.form.submit()"><?php foreach ($roomTypes as $roomType): ?><option value="<?= e($roomType['room_type']) ?>" <?= $roomType['room_type'] === $selectedRoomType ? 'selected' : '' ?>><?= e($roomType['room_type']) ?></option><?php endforeach; ?></select></label>
+            <label class="field"><span>Tipe kamar</span><select name="room_type" onchange="this.form.submit()"><?php foreach ($roomTypes as $roomType): ?><option value="<?= e($roomType) ?>" <?= $roomType === $selectedRoomType ? 'selected' : '' ?>><?= e($roomType) ?></option><?php endforeach; ?></select></label>
         <?php endif; ?>
         <noscript><button class="button secondary" type="submit">Tampilkan galeri</button></noscript>
     </form>
+    <?php if ($building && $selectedRoomType): ?>
+        <form id="gallery-upload-form" method="post" enctype="multipart/form-data">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="upload_room_type_gallery_photos">
+            <input type="hidden" name="building_id" value="<?= $buildingId ?>">
+            <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
+        </form>
+        <button class="button primary gallery-save-button" type="submit" form="gallery-upload-form">Simpan foto</button>
+    <?php endif; ?>
 </div>
 <?php if (!$buildings): ?>
     <div class="panel"><div class="empty-state"><span>⌂</span><strong>Belum ada gedung kos</strong><p>Tambahkan gedung kos sebelum mengelola galeri.</p><a class="button primary" href="index.php?page=building_form">Tambah gedung</a></div></div>
@@ -106,15 +113,7 @@ foreach ($galleryPhotos as $galleryPhoto) {
                 <div><h2><?= e($categoryInfo['title']) ?></h2><p><?= e($categoryInfo['description']) ?></p></div>
                 <span class="gallery-photo-count"><?= count($photosByCategory[$category]) ?> foto</span>
             </div>
-            <form method="post" enctype="multipart/form-data" class="gallery-upload-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="upload_room_type_gallery_photos">
-                <input type="hidden" name="building_id" value="<?= $buildingId ?>">
-                <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
-                <input type="hidden" name="category" value="<?= e($category) ?>">
-                <label class="field"><span>Tambah <?= e($categoryInfo['title']) ?></span><input type="file" name="gallery_photos[]" accept="image/jpeg,image/png,image/webp" multiple required><small class="field-help">Pilih hingga 4 foto sekaligus. Format JPG, PNG, atau WebP; maksimal 4 MB per foto.</small></label>
-                <button class="button primary" type="submit">＋ Unggah foto</button>
-            </form>
+            <label class="field gallery-upload-field"><span>Tambah <?= e($categoryInfo['title']) ?></span><input form="gallery-upload-form" type="file" name="gallery_photos_<?= e($category) ?>[]" accept="image/jpeg,image/png,image/webp" multiple><small class="field-help">Pilih hingga 4 foto sekaligus. Format JPG, PNG, atau WebP; maksimal 4 MB per foto.</small></label>
             <?php if ($photosByCategory[$category]): ?>
                 <div class="gallery-photo-grid">
                     <?php foreach ($photosByCategory[$category] as $photo): ?>
@@ -147,4 +146,5 @@ foreach ($galleryPhotos as $galleryPhoto) {
             <?php endif; ?>
         </section>
     <?php endforeach; ?>
+    <div class="gallery-save-bottom"><button class="button primary gallery-save-button" type="submit" form="gallery-upload-form">Simpan foto</button></div>
 <?php endif; ?>
