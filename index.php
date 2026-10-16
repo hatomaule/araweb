@@ -372,7 +372,7 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261016-room-type-gallery"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261016-data-tables"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
         <a class="brand" href="index.php"><span class="brand-mark">A</span><span>Araweb<small>Manajemen kos</small></span></a>
@@ -481,4 +481,4 @@ require __DIR__ . '/portal/public.php';
         <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
     </form>
 </dialog>
-<script src="app.js?v=20261016-interactive-controls"></script></body></html>
+<script src="app.js?v=20261016-data-tables"></script></body></html>

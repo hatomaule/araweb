@@ -23,11 +23,19 @@ $activeRentalRoomScope = $user['role'] === 'operator'
         WHERE active_room_rm.id=r.room_id AND active_room_b.owner_user_id=:owner_room_scope_id
     )'
     : '';
+$activeBuildingScope = $user['role'] === 'operator'
+    ? 'AND EXISTS (
+        SELECT 1 FROM kos_buildings active_building
+        WHERE active_building.id=active_building_room.building_id
+          AND active_building.owner_user_id=:owner_building_id
+    )'
+    : '';
 $tenantParameters = $user['role'] === 'operator'
     ? [
         'owner_scope_id' => $user['id'],
         'owner_active_id' => $user['id'],
         'owner_room_scope_id' => $user['id'],
+        'owner_building_id' => $user['id'],
     ]
     : [];
 $list = rows(
@@ -41,7 +49,15 @@ $list = rows(
      (SELECT r.room_id FROM rentals r
       WHERE r.tenant_id=t.id AND r.status='active'
         AND r.start_date<=CURDATE() AND (r.end_date IS NULL OR r.end_date>=CURDATE())
-        {$activeRentalRoomScope} ORDER BY r.id DESC LIMIT 1) AS active_room_id
+        {$activeRentalRoomScope} ORDER BY r.id DESC LIMIT 1) AS active_room_id,
+     (SELECT active_building.name FROM rentals active_building_rental
+        JOIN rooms active_building_room ON active_building_room.id=active_building_rental.room_id
+        JOIN kos_buildings active_building ON active_building.id=active_building_room.building_id
+        WHERE active_building_rental.tenant_id=t.id AND active_building_rental.status='active'
+          AND active_building_rental.start_date<=CURDATE()
+          AND (active_building_rental.end_date IS NULL OR active_building_rental.end_date>=CURDATE())
+          {$activeBuildingScope}
+        ORDER BY active_building_rental.id DESC LIMIT 1) AS active_building_name
      FROM tenants t LEFT JOIN users u ON u.id=t.user_id {$tenantScope}
      ORDER BY t.created_at DESC",
     $tenantParameters
@@ -73,7 +89,7 @@ $availableRooms = $user['role'] === 'operator'
 </div>
 <div class="panel">
     <div class="table-scroll">
-        <table>
+        <table data-building-filter>
             <thead>
                 <tr>
                     <th><?= $user['role'] === 'operator' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
@@ -83,7 +99,7 @@ $availableRooms = $user['role'] === 'operator'
             </thead>
             <tbody>
                 <?php foreach ($list as $row): ?>
-                    <tr>
+                    <tr data-building-filter="<?= e($row['active_building_name'] ?: '__none') ?>" data-building-label="<?= e($row['active_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') ?>">
                         <td>
                             <?php if ($user['role'] === 'operator' && $row['account_user_id']): ?>
                                 <a class="tenant-avatar-link" href="index.php?page=tenant_profile&amp;id=<?= (int) $row['account_user_id'] ?>">

@@ -77,7 +77,7 @@ foreach ($approvedBookings as $booking) {
 </div>
 <div class="panel">
     <div class="table-scroll">
-        <table class="room-management-table">
+        <table class="room-management-table" data-building-filter>
             <thead><tr><th>Gedung / kamar</th><th>Tipe / lantai</th><th>Tarif bulanan</th><th>Penghuni</th><th>Aksi kamar</th></tr></thead>
             <tbody>
                 <?php foreach ($list as $room):
@@ -89,7 +89,7 @@ foreach ($approvedBookings as $booking) {
                     $roomResidents = $residentsByRoom[(int) $room['id']] ?? [];
                     $roomBookings = $bookingsByRoom[(int) $room['id']] ?? [];
                 ?>
-                    <tr>
+                    <tr data-building-filter="<?= (int) $room['building_id'] ?>" data-building-label="<?= e($room['building_name']) ?>">
                         <td>
                             <div class="room-heading">
                                 <a class="room-number-profile" href="index.php?page=room&amp;id=<?= (int) $room['id'] ?>" aria-label="Lihat profil kamar <?= e($room['room_number']) ?>"><?= e($room['room_number']) ?></a>

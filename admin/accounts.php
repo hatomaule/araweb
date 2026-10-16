@@ -65,15 +65,20 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
     : 'Kelola akun ' . ($accountRole === 'operator' ? 'operator' : 'User') . '. Riwayat sewa dan pembayaran dipertahankan saat akun dihapus.' ?></p></div>
 <div class="panel account-management-panel">
     <div class="panel-heading"><div><h2><?= e($heading) ?></h2><p><?= count($accounts) ?> akun terdaftar</p></div></div>
-    <?php foreach ($accountGroups as $group): ?>
+    <?php if ($accountGroups): ?>
+    <div class="table-scroll"><table class="account-management-table" <?= $accountRole === 'seeker' && !$isUnhousedAccountList ? 'data-building-filter' : '' ?>><thead><tr><th>Pengguna</th><th>ID</th><th>Peran</th><th>Status</th><th>Aktivitas terakhir</th><th>Kelola akun</th></tr></thead><tbody>
+    <?php foreach ($accountGroups as $groupKey => $group): ?>
     <?php if ($accountRole === 'seeker'): ?>
-    <div class="account-group-heading"><h3><?= e($isUnhousedAccountList
-        ? 'Tidak sedang menghuni kos'
-        : ($group['building_name'] ?: 'Belum tercatat sebagai penghuni aktif')) ?></h3><span><?= count($group['accounts']) ?> user</span></div>
+        <tr class="account-group-heading-row" data-table-group-heading data-table-group-key="<?= e((string) $groupKey) ?>">
+            <td colspan="6"><div class="account-group-heading"><h3><?= e($isUnhousedAccountList
+                ? 'Tidak sedang menghuni kos'
+                : ($group['building_name'] ?: 'Belum tercatat sebagai penghuni aktif')) ?></h3><span data-table-group-count><?= count($group['accounts']) ?> user</span></div></td>
+        </tr>
     <?php endif; ?>
-    <div class="table-scroll"><table class="account-management-table"><thead><tr><th>Pengguna</th><th>ID</th><th>Peran</th><th>Status</th><th>Aktivitas terakhir</th><th>Kelola akun</th></tr></thead><tbody>
     <?php foreach ($group['accounts'] as $account): ?>
-        <tr>
+        <tr <?= $accountRole === 'seeker' && !$isUnhousedAccountList
+            ? 'data-building-filter="' . e((string) ($account['current_building_id'] ?? '__none')) . '" data-building-label="' . e($account['current_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') . '" data-table-group-key="' . e((string) ($account['current_building_id'] ?? 'unassigned')) . '"'
+            : ($accountRole === 'seeker' ? 'data-table-group-key="' . e((string) $groupKey) . '"' : '') ?>>
             <td><div class="account-person"><a class="account-profile-avatar" href="index.php?page=<?= $accountRole === 'operator' ? 'platform_operator_profile' : 'platform_user_profile' ?>&amp;id=<?= (int) $account['id'] ?>" aria-label="Buka profil <?= e($account['name']) ?>" title="Buka profil"><?= avatar_markup($account, 'profile-avatar small') ?></a><div><strong><?= e($account['name']) ?></strong><small class="subline"><?= e($account['email'] ?: 'Email belum diisi') ?></small><small class="subline"><?= e($account['phone'] ?: 'Nomor telepon belum diisi') ?></small></div></div></td>
             <td>ID-<?= str_pad((string) $account['id'], 6, '0', STR_PAD_LEFT) ?></td>
             <td><?= e($roleLabel) ?></td>
@@ -86,8 +91,9 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
             </div></td>
         </tr>
     <?php endforeach; ?>
-    </tbody></table></div>
     <?php endforeach; ?>
+    </tbody></table></div>
+    <?php endif; ?>
     <?php if (!$accounts): ?><div class="table-scroll"><table><tbody><tr><td class="no-data">Belum ada <?= $accountRole === 'operator' ? 'akun operator' : 'akun User' ?>.</td></tr></tbody></table></div><?php endif; ?>
     <?php foreach ($accounts as $account):
         $id = (int) $account['id'];

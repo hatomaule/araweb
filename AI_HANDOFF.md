@@ -92,6 +92,12 @@ gedung, foto kamar, fasilitas kamar, dan fasilitas umum. Perubahan skema
 memerlukan `migration_room_type_gallery.sql` satu kali; lihat urutan migrasi di
 README sebelum memperbarui database target.
 
+Tabel pada halaman manajemen menggunakan kontrol bersama di `app.js` untuk
+pencarian per tabel, 10 baris per halaman atau semua baris, serta navigasi
+sebelumnya/berikutnya. Tabel kamar, penghuni, dan akun User admin menyediakan
+filter dropdown gedung/kos; jangan hilangkan metadata gedung pada baris saat
+mengubah query atau markup halaman tersebut.
+
 ## Role dan akses
 
 Role yang digunakan pada aplikasi:

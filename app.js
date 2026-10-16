@@ -1,5 +1,138 @@
 const initializeApp = () => {
     let generatedPasswordId = 0;
+    document.querySelectorAll('.main-area .content table').forEach((table) => {
+        if (!(table instanceof HTMLTableElement) || !table.tHead || !table.tBodies.length) return;
+        const tbody = table.tBodies[0];
+        const rows = Array.from(tbody.rows).filter((row) =>
+            !row.hasAttribute('data-table-group-heading') && !row.querySelector('.no-data')
+        );
+        if (!rows.length) return;
+
+        const tools = document.createElement('div');
+        tools.className = 'data-table-tools';
+
+        const searchLabel = document.createElement('label');
+        searchLabel.className = 'data-table-search';
+        const searchCaption = document.createElement('span');
+        searchCaption.textContent = 'Cari di tabel';
+        const search = document.createElement('input');
+        search.type = 'search';
+        search.placeholder = 'Nama, email, ID, status...';
+        search.setAttribute('aria-label', 'Cari data dalam tabel');
+        searchLabel.append(searchCaption, search);
+        tools.append(searchLabel);
+
+        let buildingFilter;
+        if (table.hasAttribute('data-building-filter')) {
+            const buildings = new Map();
+            rows.forEach((row) => {
+                const value = row.dataset.buildingFilter;
+                if (value !== undefined && !buildings.has(value)) {
+                    buildings.set(value, row.dataset.buildingLabel || value);
+                }
+            });
+            if (buildings.size) {
+                const buildingLabel = document.createElement('label');
+                buildingLabel.className = 'data-table-select';
+                const caption = document.createElement('span');
+                caption.textContent = 'Gedung kos';
+                buildingFilter = document.createElement('select');
+                buildingFilter.setAttribute('aria-label', 'Filter berdasarkan gedung kos');
+                buildingFilter.add(new Option('Semua gedung', ''));
+                Array.from(buildings.entries())
+                    .sort((first, second) => first[1].localeCompare(second[1], 'id'))
+                    .forEach(([value, label]) => buildingFilter.add(new Option(label, value)));
+                buildingLabel.append(caption, buildingFilter);
+                tools.append(buildingLabel);
+            }
+        }
+
+        const pageSizeLabel = document.createElement('label');
+        pageSizeLabel.className = 'data-table-select data-table-page-size';
+        const pageSizeCaption = document.createElement('span');
+        pageSizeCaption.textContent = 'Tampilkan';
+        const pageSizeSelect = document.createElement('select');
+        pageSizeSelect.setAttribute('aria-label', 'Jumlah data yang ditampilkan');
+        pageSizeSelect.add(new Option('10', '10'));
+        pageSizeSelect.add(new Option('Semua', 'all'));
+        pageSizeLabel.append(pageSizeCaption, pageSizeSelect);
+        tools.append(pageSizeLabel);
+
+        const navigation = document.createElement('div');
+        navigation.className = 'data-table-navigation';
+        const summary = document.createElement('span');
+        summary.className = 'data-table-summary';
+        summary.setAttribute('aria-live', 'polite');
+        const previous = document.createElement('button');
+        previous.type = 'button';
+        previous.className = 'button secondary compact-button';
+        previous.textContent = 'Sebelumnya';
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'button secondary compact-button';
+        next.textContent = 'Berikutnya';
+        navigation.append(summary, previous, next);
+        tools.append(navigation);
+        const tableContainer = table.closest('.table-scroll') || table;
+        tableContainer.before(tools);
+
+        const emptyRow = document.createElement('tr');
+        emptyRow.hidden = true;
+        emptyRow.dataset.tableEmpty = 'true';
+        const emptyCell = document.createElement('td');
+        emptyCell.className = 'no-data';
+        emptyCell.colSpan = table.tHead.rows[0]?.cells.length || 1;
+        emptyCell.textContent = 'Tidak ada data yang cocok dengan pencarian atau filter.';
+        emptyRow.append(emptyCell);
+        tbody.append(emptyRow);
+
+        let currentPage = 1;
+        const render = () => {
+            const query = search.value.trim().toLocaleLowerCase('id');
+            const selectedBuilding = buildingFilter?.value ?? '';
+            const matchingRows = rows.filter((row) => {
+                const searchableText = `${row.textContent} ${row.dataset.buildingLabel || ''}`.toLocaleLowerCase('id');
+                const matchesSearch = !query || searchableText.includes(query);
+                const matchesBuilding = !selectedBuilding || row.dataset.buildingFilter === selectedBuilding;
+                return matchesSearch && matchesBuilding;
+            });
+            const pageSize = pageSizeSelect.value === 'all' ? matchingRows.length || 1 : 10;
+            const pageCount = Math.max(1, Math.ceil(matchingRows.length / pageSize));
+            currentPage = Math.min(currentPage, pageCount);
+            const start = pageSizeSelect.value === 'all' ? 0 : (currentPage - 1) * pageSize;
+            const visibleRows = matchingRows.slice(start, start + pageSize);
+            const visibleSet = new Set(visibleRows);
+            rows.forEach((row) => { row.hidden = !visibleSet.has(row); });
+            emptyRow.hidden = matchingRows.length !== 0;
+
+            const groupCounts = new Map();
+            matchingRows.forEach((row) => {
+                const groupKey = row.dataset.tableGroupKey;
+                if (groupKey !== undefined) groupCounts.set(groupKey, (groupCounts.get(groupKey) || 0) + 1);
+            });
+            tbody.querySelectorAll('[data-table-group-heading]').forEach((heading) => {
+                const key = heading.dataset.tableGroupKey;
+                const count = groupCounts.get(key) || 0;
+                heading.hidden = !visibleRows.some((row) => row.dataset.tableGroupKey === key);
+                const countLabel = heading.querySelector('[data-table-group-count]');
+                if (countLabel) countLabel.textContent = `${count} user`;
+            });
+
+            const first = matchingRows.length ? start + 1 : 0;
+            const last = Math.min(start + visibleRows.length, matchingRows.length);
+            summary.textContent = `Menampilkan ${first}–${last} dari ${matchingRows.length} data`;
+            previous.disabled = currentPage <= 1 || pageSizeSelect.value === 'all';
+            next.disabled = currentPage >= pageCount || pageSizeSelect.value === 'all';
+        };
+
+        search.addEventListener('input', () => { currentPage = 1; render(); });
+        buildingFilter?.addEventListener('change', () => { currentPage = 1; render(); });
+        pageSizeSelect.addEventListener('change', () => { currentPage = 1; render(); });
+        previous.addEventListener('click', () => { currentPage -= 1; render(); });
+        next.addEventListener('click', () => { currentPage += 1; render(); });
+        render();
+    });
+
     document.querySelectorAll('input[type="password"]').forEach((input) => {
         let wrapper = input.closest('.password-input-wrap');
         if (wrapper && wrapper.querySelector('[data-password-toggle]')) return;
