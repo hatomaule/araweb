@@ -33,12 +33,23 @@ $bookingRequests = rows(
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="decide_booking">
                                     <input type="hidden" name="rental_id" value="<?= (int) $booking['id'] ?>">
-                                    <button class="button primary" name="decision" value="approved" type="submit">Setujui booking</button>
-                                    <input name="decision_note" maxlength="1000" placeholder="Alasan jika ditolak">
-                                    <button class="button secondary" name="decision" value="rejected" type="submit">Tolak</button>
+                                    <button class="button primary booking-approve-button" name="decision" value="approved" type="submit">Setujui booking</button>
+                                    <label class="booking-rejection-field" for="booking-rejection-note-<?= (int) $booking['id'] ?>">
+                                        <span>Alasan penolakan <small>opsional</small></span>
+                                        <textarea id="booking-rejection-note-<?= (int) $booking['id'] ?>" name="decision_note" maxlength="1000" rows="3" placeholder="Jelaskan alasan agar pemohon memahami keputusan Anda."></textarea>
+                                        <small class="field-help">Alasan ini akan ditampilkan kepada pemohon.</small>
+                                    </label>
+                                    <button class="button secondary booking-reject-button" name="decision" value="rejected" type="submit">Tolak booking</button>
                                 </form>
                             <?php else: ?>
-                                <?= e($booking['booking_decision_note'] ?: '—') ?>
+                                <?php if ($booking['booking_decision_note']): ?>
+                                    <div class="booking-decision-note">
+                                        <strong><?= $booking['booking_status'] === 'rejected' ? 'Alasan penolakan' : 'Catatan keputusan' ?></strong>
+                                        <span><?= e($booking['booking_decision_note']) ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="booking-no-decision-note">—</span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                     </tr>
