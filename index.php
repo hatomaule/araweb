@@ -12,7 +12,7 @@ require_once __DIR__ . '/bookings/act.php';
 require_once __DIR__ . '/payments/act.php';
 
 $allowedPages = [
-    'home', 'search', 'property', 'room', 'dashboard', 'buildings', 'building_form',
+    'home', 'search', 'property', 'room', 'dashboard', 'buildings', 'building_form', 'gallery',
     'tenants', 'tenant_form', 'rooms', 'room_form', 'rentals', 'rental_form',
     'invoices', 'invoice_form', 'operator_payment', 'payments', 'bank_settings', 'my_bookings',
     'my_payments', 'tenant_payments', 'booking_form', 'payment_proof', 'payment_confirmations', 'profile', 'search_history',
@@ -113,23 +113,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect((post_value('account_role') === 'seeker' ? 'platform_user_profile' : 'platform_operator_profile')
                 . '&id=' . max(0, (int) post_value('user_id')));
         }
+        if (in_array($action, ['upload_room_type_gallery_photos', 'delete_room_type_gallery_photo', 'select_room_gallery_photo'], true)) {
+            redirect('gallery&building_id=' . max(0, (int) post_value('building_id'))
+                . '&room_type=' . rawurlencode(post_value('room_type')));
+        }
         if ($action === 'save_profile') {
             redirect('profile');
         }
         redirect($page);
     } catch (PDOException $exception) {
         error_log('Kos application database operation failed: ' . $exception->getMessage());
-        $databaseErrorMessage = in_array($action, ['save_profile', 'admin_update_operator_profile'], true)
+        $databaseErrorMessage = in_array($action, ['upload_room_type_gallery_photos', 'delete_room_type_gallery_photo', 'select_room_gallery_photo'], true)
+            ? 'Galeri tidak dapat diperbarui. Pastikan migrasi galeri tipe kamar sudah diterapkan, lalu coba lagi.'
+            : (in_array($action, ['save_profile', 'admin_update_operator_profile'], true)
             ? 'Email tersebut sudah digunakan akun lain atau perubahan profil tidak dapat disimpan.'
             : ($action === 'save_operator_payment'
                 ? 'Pembayaran tidak dapat disimpan. Periksa email/telepon, kamar, dan periode pembayaran.'
                 : (in_array($action, ['operator_review_reply', 'operator_review_visibility'], true)
                     ? 'Ulasan tidak dapat diperbarui. Pastikan migrasi balasan ulasan telah diterapkan.'
-                    : 'Data tidak dapat disimpan. Pastikan tidak ada nomor identitas atau kamar yang duplikat.'));
+                    : 'Data tidak dapat disimpan. Pastikan tidak ada nomor identitas atau kamar yang duplikat.')));
         set_flash('error', $databaseErrorMessage);
         if ($action === 'admin_update_operator_profile') {
             redirect((post_value('account_role') === 'seeker' ? 'platform_user_profile' : 'platform_operator_profile')
                 . '&id=' . max(0, (int) post_value('user_id')));
+        }
+        if (in_array($action, ['upload_room_type_gallery_photos', 'delete_room_type_gallery_photo', 'select_room_gallery_photo'], true)) {
+            redirect('gallery&building_id=' . max(0, (int) post_value('building_id'))
+                . '&room_type=' . rawurlencode(post_value('room_type')));
         }
         if ($action === 'save_profile') {
             redirect('profile');
@@ -251,7 +261,7 @@ if ($user && $user['role'] === 'operator' && $page === 'operator_reports') {
     redirect('dashboard');
 }
 if ($user && $user['role'] === 'operator'
-    && !in_array($page, ['home', 'search', 'dashboard', 'buildings', 'building_form', 'rooms',
+    && !in_array($page, ['home', 'search', 'dashboard', 'buildings', 'building_form', 'gallery', 'rooms',
         'room_form', 'tenants', 'tenant_form', 'tenant_payments', 'invoices',
         'invoice_form', 'operator_payment', 'payments', 'tenant_profile',
         'operator_bookings', 'payment_confirmations', 'bank_settings', 'profile', 'payment_proof',
@@ -285,7 +295,7 @@ function page_title(string $page): string
 {
     $titles = [
         'dashboard' => 'Laporan', 'tenants' => 'Penghuni', 'tenant_form' => 'Tambah penghuni',
-        'buildings' => 'Gedung kos', 'building_form' => 'Form gedung',
+        'buildings' => 'Gedung kos', 'building_form' => 'Form gedung', 'gallery' => 'Galeri foto',
         'rooms' => 'Kamar', 'room_form' => 'Form kamar', 'rentals' => 'Masa sewa',
         'rental_form' => 'Sewa baru', 'invoices' => 'Tagihan', 'invoice_form' => 'Buat tagihan',
         'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran',
@@ -362,7 +372,7 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261012-account-activity"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - Araweb</title><link rel="stylesheet" href="style.css?v=20261016-room-type-gallery"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
         <a class="brand" href="index.php"><span class="brand-mark">A</span><span>Araweb<small>Manajemen kos</small></span></a>
@@ -390,12 +400,13 @@ require __DIR__ . '/portal/public.php';
             ?>
                 <a class="<?= $page === $target || str_starts_with($page, rtrim($target, 's') . '_') ? 'active' : '' ?>" href="index.php?page=<?= e($target) ?>"><span class="nav-icon"><?= e($icon) ?></span><?= e($label) ?></a>
                 <?php if ($user['role'] === 'operator' && $target === 'dashboard'): ?>
-                    <?php $propertyMenuPages = ['buildings', 'building_form', 'rooms', 'room_form']; ?>
+                    <?php $propertyMenuPages = ['buildings', 'building_form', 'rooms', 'room_form', 'gallery']; ?>
                     <details class="nav-group" <?= in_array($page, $propertyMenuPages, true) ? 'open' : '' ?>>
                         <summary class="<?= in_array($page, $propertyMenuPages, true) ? 'active' : '' ?>"><span class="nav-icon">⌂</span>Properti<span class="nav-chevron">⌄</span></summary>
                         <div class="nav-submenu">
                             <a class="<?= in_array($page, ['buildings', 'building_form'], true) ? 'active' : '' ?>" href="index.php?page=buildings">Gedung</a>
                             <a class="<?= in_array($page, ['rooms', 'room_form'], true) ? 'active' : '' ?>" href="index.php?page=rooms">Kamar</a>
+                            <a class="<?= $page === 'gallery' ? 'active' : '' ?>" href="index.php?page=gallery">Galeri</a>
                         </div>
                     </details>
                     <a class="<?= in_array($page, ['tenants', 'tenant_form', 'tenant_profile', 'tenant_payments'], true) ? 'active' : '' ?>" href="index.php?page=tenants"><span class="nav-icon">♙</span>Penghuni</a>

@@ -38,6 +38,15 @@
                 $roomPhotoList = $record
                     ? rows($pdo, 'SELECT id, category, photo_path FROM room_photos WHERE room_id=:id ORDER BY (category = \'room\') DESC, id', ['id' => $id])
                     : [];
+                $roomTypeGalleryPhotos = $record
+                    ? rows(
+                        $pdo,
+                        "SELECT id,photo_path FROM room_type_gallery_photos
+                         WHERE building_id=:building_id AND room_type=:room_type AND category='room'
+                         ORDER BY id",
+                        ['building_id' => $record['building_id'], 'room_type' => $record['room_type']]
+                    )
+                    : [];
                 $firstRoomPhoto = null;
                 foreach ($roomPhotoList as $roomPhoto) {
                     if ($roomPhoto['category'] === 'room') {
@@ -61,6 +70,19 @@
                 <?php if ($roomPhotoList): ?><div class="room-photo-manager"><div class="room-photo-manager-heading"><strong>Foto yang sudah diunggah</strong><span>Foto kamar pertama menjadi sampul di halaman publik.</span></div><div class="room-photo-manager-grid">
                     <?php foreach ($roomPhotoList as $photo): ?><article class="room-photo-manager-card"><img src="<?= e($photo['photo_path']) ?>" alt="<?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?>"><div class="room-photo-manager-info"><span><?= $photo['category'] === 'room' ? 'Foto kamar' : 'Foto fasilitas' ?></span><form method="post" onsubmit="return confirm('Hapus foto ini?')"><?= csrf_field() ?><input type="hidden" name="action" value="delete_room_photo"><input type="hidden" name="room_id" value="<?= $id ?>"><input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>"><button class="text-button" type="submit">Hapus</button></form></div></article><?php endforeach; ?>
                 </div></div><?php endif; ?>
+                <?php if ($roomTypeGalleryPhotos): ?><section class="room-type-gallery-selection">
+                    <div class="room-photo-manager-heading"><strong>Foto bersama galeri <?= e($record['room_type']) ?></strong><a class="text-link" href="index.php?page=gallery&amp;building_id=<?= (int) $record['building_id'] ?>&amp;room_type=<?= rawurlencode($record['room_type']) ?>">Kelola galeri ↗</a></div>
+                    <div class="room-photo-manager-grid">
+                        <?php foreach ($roomTypeGalleryPhotos as $galleryPhoto): ?>
+                            <article class="room-photo-manager-card <?= ($record['profile_photo_path'] ?? null) === $galleryPhoto['photo_path'] ? 'is-profile-photo' : '' ?>">
+                                <img src="<?= e($galleryPhoto['photo_path']) ?>" alt="Foto bersama <?= e($record['room_type']) ?>">
+                                <div class="room-photo-manager-info"><span><?= ($record['profile_photo_path'] ?? null) === $galleryPhoto['photo_path'] ? 'Foto profil saat ini' : 'Foto galeri bersama' ?></span>
+                                    <?php if (($record['profile_photo_path'] ?? null) !== $galleryPhoto['photo_path']): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="select_room_gallery_photo"><input type="hidden" name="building_id" value="<?= (int) $record['building_id'] ?>"><input type="hidden" name="room_type" value="<?= e($record['room_type']) ?>"><input type="hidden" name="room_id" value="<?= $id ?>"><input type="hidden" name="photo_id" value="<?= (int) $galleryPhoto['id'] ?>"><button class="text-button" type="submit">Jadikan foto profil</button></form><?php endif; ?>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </section><?php endif; ?>
                 <?php if ($buildings): ?><form method="post" enctype="multipart/form-data" class="form-grid room-editor-form"><?= csrf_field() ?><input type="hidden" name="action" value="save_room"><input type="hidden" name="id" value="<?= $id ?>">
                     <label class="field full-span"><span>Nama kos *</span><select name="building_id" required><option value="">Pilih kos</option><?php foreach ($buildings as $buildingOption): ?><option value="<?= (int) $buildingOption['id'] ?>" <?= (int) ($record['building_id'] ?? 0) === (int) $buildingOption['id'] ? 'selected' : '' ?>><?= e($buildingOption['name']) ?><?= $buildingOption['status'] === 'inactive' ? ' (nonaktif - pindahkan kamar ke kos aktif)' : '' ?></option><?php endforeach; ?></select></label>
                     <?php if (!$record): ?>

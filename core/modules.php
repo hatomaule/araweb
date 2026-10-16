@@ -32,6 +32,7 @@ const PAGE_MODULES = [
     'dashboard' => 'properties',
     'buildings' => 'properties',
     'building_form' => 'properties',
+    'gallery' => 'properties',
     'tenants' => 'properties',
     'tenant_form' => 'properties',
     'tenant_profile' => 'properties',

@@ -3,6 +3,215 @@ declare(strict_types=1);
 
 function handle_property_action(PDO $pdo, array $user, string $action): void
 {
+if ($action === 'upload_room_type_gallery_photos') {
+            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+                set_flash('error', 'Anda tidak memiliki akses mengelola galeri foto.');
+                redirect('home');
+            }
+            $buildingId = (int) post_value('building_id');
+            $roomType = post_value('room_type');
+            $category = post_value('category');
+            $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
+            if (!can_manage_building($pdo, $user, $buildingId)) {
+                set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
+                redirect('gallery');
+            }
+            if (!in_array($category, ['building', 'room', 'room_facility', 'general_facility'], true)
+                || !one($pdo, 'SELECT id FROM rooms WHERE building_id=:building_id AND room_type=:room_type LIMIT 1', [
+                    'building_id' => $buildingId, 'room_type' => $roomType,
+                ])) {
+                set_flash('error', 'Pilih tipe kamar dan kategori galeri yang valid.');
+                redirect($returnToGallery);
+            }
+            $uploads = collect_photo_uploads('gallery_photos');
+            if (!$uploads) {
+                set_flash('error', 'Pilih minimal satu foto untuk diunggah.');
+                redirect($returnToGallery);
+            }
+            $uploadSubdirectory = $category === 'building' ? 'properties' : 'rooms';
+            $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads'
+                . DIRECTORY_SEPARATOR . $uploadSubdirectory;
+            if (!is_dir($uploadDirectory)
+                && !mkdir($uploadDirectory, 0755, true)
+                && !is_dir($uploadDirectory)) {
+                throw new RuntimeException('Folder penyimpanan galeri tidak dapat dibuat. Periksa izin folder uploads.');
+            }
+            $movedFiles = [];
+            $pdo->beginTransaction();
+            try {
+                $insert = $pdo->prepare(
+                    'INSERT INTO room_type_gallery_photos (building_id,room_type,category,photo_path)
+                     VALUES (:building_id,:room_type,:category,:photo_path)'
+                );
+                foreach ($uploads as $upload) {
+                    $filename = bin2hex(random_bytes(16)) . '.' . $upload['extension'];
+                    $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+                    if (!move_uploaded_file($upload['tmp_name'], $filePath)) {
+                        throw new RuntimeException('Foto gagal disimpan. Periksa izin folder uploads/' . $uploadSubdirectory . '.');
+                    }
+                    $movedFiles[] = $filePath;
+                    $insert->execute([
+                        'building_id' => $buildingId,
+                        'room_type' => $roomType,
+                        'category' => $category,
+                        'photo_path' => 'uploads/' . $uploadSubdirectory . '/' . $filename,
+                    ]);
+                }
+                if ($category === 'building') {
+                    $firstBuildingPhoto = one(
+                        $pdo,
+                        "SELECT photo_path FROM room_type_gallery_photos
+                         WHERE building_id=:building_id AND category='building' ORDER BY id LIMIT 1",
+                        ['building_id' => $buildingId]
+                    );
+                    $pdo->prepare(
+                        'UPDATE kos_buildings SET profile_photo_path=:photo_path
+                         WHERE id=:building_id AND profile_photo_path IS NULL'
+                    )->execute([
+                        'photo_path' => $firstBuildingPhoto['photo_path'],
+                        'building_id' => $buildingId,
+                    ]);
+                }
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                foreach ($movedFiles as $movedFile) {
+                    if (is_file($movedFile) && !unlink($movedFile)) {
+                        error_log('Unable to remove uncommitted gallery photo: ' . $movedFile);
+                    }
+                }
+                throw $exception;
+            }
+            set_flash('success', count($uploads) . ' foto berhasil ditambahkan ke galeri ' . $roomType . '.');
+            redirect($returnToGallery);
+        }
+
+        if ($action === 'select_room_gallery_photo') {
+            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+                set_flash('error', 'Anda tidak memiliki akses mengubah foto kamar.');
+                redirect('home');
+            }
+            $buildingId = (int) post_value('building_id');
+            $roomId = (int) post_value('room_id');
+            $photoId = (int) post_value('photo_id');
+            $roomType = post_value('room_type');
+            $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
+            if (!can_manage_building($pdo, $user, $buildingId) || !can_manage_room($pdo, $user, $roomId)) {
+                set_flash('error', 'Anda tidak dapat mengubah foto kamar tersebut.');
+                redirect('gallery');
+            }
+            $photo = one(
+                $pdo,
+                "SELECT photo_path FROM room_type_gallery_photos
+                 WHERE id=:photo_id AND building_id=:building_id
+                   AND room_type=:room_type AND category='room'",
+                ['photo_id' => $photoId, 'building_id' => $buildingId, 'room_type' => $roomType]
+            );
+            $room = one(
+                $pdo,
+                'SELECT id FROM rooms WHERE id=:room_id AND building_id=:building_id AND room_type=:room_type',
+                ['room_id' => $roomId, 'building_id' => $buildingId, 'room_type' => $roomType]
+            );
+            if (!$photo || !$room) {
+                set_flash('error', 'Foto atau kamar tidak sesuai dengan tipe galeri yang dipilih.');
+                redirect($returnToGallery);
+            }
+            $pdo->prepare('UPDATE rooms SET profile_photo_path=:photo_path WHERE id=:room_id')
+                ->execute(['photo_path' => $photo['photo_path'], 'room_id' => $roomId]);
+            set_flash('success', 'Foto galeri diterapkan sebagai foto profil kamar.');
+            redirect($returnToGallery);
+        }
+
+        if ($action === 'delete_room_type_gallery_photo') {
+            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+                set_flash('error', 'Anda tidak memiliki akses menghapus foto galeri.');
+                redirect('home');
+            }
+            $buildingId = (int) post_value('building_id');
+            $photoId = (int) post_value('photo_id');
+            $roomType = post_value('room_type');
+            $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
+            if (!can_manage_building($pdo, $user, $buildingId)) {
+                set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
+                redirect('gallery');
+            }
+            $photo = one(
+                $pdo,
+                'SELECT id,room_type,category,photo_path FROM room_type_gallery_photos
+                 WHERE id=:photo_id AND building_id=:building_id AND room_type=:room_type',
+                ['photo_id' => $photoId, 'building_id' => $buildingId, 'room_type' => $roomType]
+            );
+            if (!$photo) {
+                set_flash('error', 'Foto galeri tidak ditemukan.');
+                redirect($returnToGallery);
+            }
+            $replacementPhoto = null;
+            if ($photo['category'] === 'building') {
+                $replacementPhoto = one(
+                    $pdo,
+                    "SELECT photo_path FROM room_type_gallery_photos
+                     WHERE building_id=:building_id AND category='building' AND id<>:photo_id
+                     ORDER BY id LIMIT 1",
+                    ['building_id' => $buildingId, 'photo_id' => $photoId]
+                );
+                if (!$replacementPhoto) {
+                    $replacementPhoto = one(
+                        $pdo,
+                        'SELECT photo_path FROM property_photos WHERE building_id=:building_id ORDER BY display_order,id LIMIT 1',
+                        ['building_id' => $buildingId]
+                    );
+                }
+            } elseif ($photo['category'] === 'room') {
+                $replacementPhoto = one(
+                    $pdo,
+                    "SELECT photo_path FROM room_type_gallery_photos
+                     WHERE building_id=:building_id AND room_type=:room_type AND category='room' AND id<>:photo_id
+                     ORDER BY id LIMIT 1",
+                    ['building_id' => $buildingId, 'room_type' => $roomType, 'photo_id' => $photoId]
+                );
+            }
+            $uploadSubdirectory = $photo['category'] === 'building' ? 'properties' : 'rooms';
+            $pdo->beginTransaction();
+            try {
+                if ($photo['category'] === 'building') {
+                    $pdo->prepare(
+                        'UPDATE kos_buildings SET profile_photo_path=:replacement
+                         WHERE id=:building_id AND profile_photo_path=:photo_path'
+                    )->execute([
+                        'replacement' => $replacementPhoto['photo_path'] ?? null,
+                        'building_id' => $buildingId,
+                        'photo_path' => $photo['photo_path'],
+                    ]);
+                } elseif ($photo['category'] === 'room') {
+                    $pdo->prepare(
+                        'UPDATE rooms SET profile_photo_path=:replacement
+                         WHERE building_id=:building_id AND room_type=:room_type AND profile_photo_path=:photo_path'
+                    )->execute([
+                        'replacement' => $replacementPhoto['photo_path'] ?? null,
+                        'building_id' => $buildingId,
+                        'room_type' => $roomType,
+                        'photo_path' => $photo['photo_path'],
+                    ]);
+                }
+                $pdo->prepare('DELETE FROM room_type_gallery_photos WHERE id=:id')->execute(['id' => $photoId]);
+                delete_uploaded_image(
+                    $photo['photo_path'],
+                    dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $uploadSubdirectory,
+                    'foto galeri'
+                );
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $exception;
+            }
+            set_flash('success', 'Foto galeri berhasil dihapus.');
+            redirect($returnToGallery);
+        }
+
 if ($action === 'update_building_profile_photo') {
             $buildingId = (int) post_value('building_id');
             if (!can_manage_building($pdo, $user, $buildingId)) {

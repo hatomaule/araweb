@@ -86,6 +86,12 @@ properti, booking, dan pembayaran; tidak ada modul operator tersendiri.
 | `uploads/` | Foto properti/kamar/profil dan bukti pembayaran; perlakukan sebagai data |
 | `migration_*.sql` | Perubahan skema bertahap; bukan skrip yang aman dijalankan ulang |
 
+Operator mengelola galeri foto bersama berdasarkan gedung dan tipe kamar melalui
+`index.php?page=gallery`. Tabel `room_type_gallery_photos` memisahkan foto
+gedung, foto kamar, fasilitas kamar, dan fasilitas umum. Perubahan skema
+memerlukan `migration_room_type_gallery.sql` satu kali; lihat urutan migrasi di
+README sebelum memperbarui database target.
+
 ## Role dan akses
 
 Role yang digunakan pada aplikasi:

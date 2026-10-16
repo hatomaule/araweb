@@ -7,6 +7,7 @@ $propertyForms = [
         : __DIR__ . '/dashboard.php',
     'buildings' => __DIR__ . '/buildings.php',
     'building_form' => __DIR__ . '/building_form.php',
+    'gallery' => __DIR__ . '/gallery.php',
     'tenants' => __DIR__ . '/tenants.php',
     'tenant_form' => __DIR__ . '/tenant_form.php',
     'tenant_profile' => __DIR__ . '/tenant_profile.php',

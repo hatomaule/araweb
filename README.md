@@ -73,6 +73,7 @@ migrasi yang sudah diterapkan.
 19. Untuk menambahkan data uji lokal, set `ARA_DEMO_PASSWORD` ke kata sandi acak minimal 12 karakter di lingkungan terminal, lalu jalankan `php seed_demo_data.php`. Seeder membuat 3 akun operator, 3 listing berisi masing-masing 5 kamar, 9 akun User, sewa aktif, dan enam periode tagihan/pembayaran per sewa. Data rekening demo ditandai agar tidak digunakan untuk transfer nyata; semua akun demo menggunakan kata sandi yang sama dari variabel lingkungan tersebut. Seeder berhenti jika data demo sudah ada.
 20. Setelah backup, jalankan `migration_account_activity_and_deletion.sql` satu kali setelah migrasi multi-owner dan business flow. Migrasi ini menambahkan log aktivitas akun dan mempertahankan histori booking/pencarian saat akun User dihapus. Jangan jalankan ulang.
 21. Setelah backup, jalankan `migration_property_and_room_profile_photos.sql` satu kali setelah migrasi `migration_multi_owner_platform.sql` dan `migration_room_photos.sql`. Migrasi ini menambahkan kolom foto profil terpisah untuk kos dan kamar. Foto galeri lama tetap digunakan sebagai sampul jika foto profil belum diunggah. Jangan jalankan ulang.
+22. Setelah backup, jalankan `migration_room_type_gallery.sql` satu kali setelah migrasi gedung dan tipe kamar. Migrasi ini membuat galeri foto bersama per gedung dan tipe kamar untuk foto gedung, kamar, fasilitas kamar, dan fasilitas umum. Foto gedung akan masuk ke galeri profil kos; foto kamar dapat dipilih sebagai foto profil unit bertipe sama. Jangan jalankan ulang.
 
 ## Struktur modul
 
