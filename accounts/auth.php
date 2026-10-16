@@ -12,7 +12,7 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
     $authTitle = $isForgot ? 'Lupa password' : ($isReset ? 'Atur password baru'
         : ($isSetup ? 'Buat Admin' : ($isRegister ? 'Daftar ' . e($registerLabel) : 'Masuk')));
     ?><!doctype html>
-    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-5"></head>
+    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-6"></head>
     <body class="auth-page"><main class="auth-wrap"><section class="auth-card">
         <div class="auth-brand-row"><a class="brand auth-brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos lebih mudah</small></span></a><?= theme_switcher() ?></div>
         <h1><?= $isForgot ? 'Lupa password?' : ($isReset ? 'Buat password baru' : ($isSetup ? 'Siapkan akun admin' : ($isRegister ? 'Daftar sebagai ' . e($registerLabel) : 'Selamat datang kembali'))) ?></h1>

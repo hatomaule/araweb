@@ -223,16 +223,74 @@ halaman publik pada desktop dan lebar ponsel tanpa horizontal overflow.
 Fungsionalitas internal yang memerlukan sesi operator/User belum tentu sudah
 diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
 
+## Catatan sesi terbaru (16 Oktober 2026)
+
+- Merek UI dan komunikasi pengguna sekarang **KosKosan** (bukan
+  `koskosan.my.id`). Nama repository GitHub, akun database `araweb_app`,
+  alamat email demo `@araweb.test`, class placeholder/identifier teknis, dan
+  nama variabel lama tidak otomatis diganti karena berpotensi memutus
+  kompatibilitas. `KOSKOSAN_REVERSE_GEOCODER_URL` dan `KOSKOSAN_MAIL_FROM`
+  menjadi nama konfigurasi baru; variabel `ARAWEB_REVERSE_GEOCODER_URL` dan
+  `ARAWEB_MAIL_FROM` tetap didukung sebagai fallback.
+- Pemilih tema Light/Dark memakai dropdown HTML kustom yang dibangun oleh
+  `theme_switcher()` di `functions.php`; `app.js` menyimpan pilihan pada
+  `localStorage` dengan key `koskosan-theme`, menyinkronkan kontrol, menutup
+  dropdown dengan Escape/klik luar, dan fokus kembali ke pemilih tema. Aturan
+  tema termasuk menu publik, panel, form autentikasi, dan dropdown berada di
+  `style.css`. Hormati `prefers-reduced-motion`.
+- Navigasi beranda publik diseragamkan dengan tombol menu berbingkai,
+  dropdown tema yang lebih terarah, serta menu responsif. Tata letak browser
+  telah diuji pada lebar 320–1280 px tanpa overflow horizontal; pengujian
+  mencakup halaman login dan penyimpanan tema. Uji lagi dengan sesi/role yang
+  dibutuhkan jika mengubah navigasi panel.
+- Daftar kos Admin ada di `admin/datakost/form.php` lewat route
+  `index.php?page=platform_listings`. Tautan nama kos membuka profil publik
+  melalui `index.php?page=property&id=...`; avatar bulat baru juga harus
+  menuju URL yang sama. Foto profil kos didahulukan, lalu foto properti
+  pertama, lalu foto galeri gedung pertama; jika tidak tersedia, tampilkan
+  huruf K. CSS avatar berada di `style.css`. Jangan mengubah tautan operator
+  di kolom berikutnya.
+- Database lokal saat diperiksa terakhir: MariaDB 11.8 aktif; `db()` pada
+  konfigurasi default sukses ke `manajemen_kos` sebagai
+  `araweb_app@localhost`. Pesan error database yang sempat tampil disebabkan
+  override terminal `DB_USER='nama-pengguna-mariadb'` (placeholder dokumentasi)
+  beserta kredensial tidak valid, bukan database mati. Hapus override dengan
+  `unset DB_HOST DB_NAME DB_USER DB_PASS`, lalu tes koneksi memakai
+  `php -r 'require "config.php"; db(); echo "Koneksi database berhasil\n";'`.
+- Server PHP lokal sempat dijalankan di `127.0.0.1:8000`; port yang sedang
+  terpakai berarti server sudah berjalan, bukan alasan menjalankan instance
+  kedua. Periksa dengan `curl -I http://127.0.0.1:8000/`; untuk mengganti
+  instance, hentikan proses yang sesuai dengan `Ctrl+C` pada terminal pemilik
+  proses. Buka `http://localhost:8000/`.
+- Pengguna mendorong commit dari terminal Linux secara manual; bila perlu,
+  berikan perintah `cd ~/projects/ekosan && git push origin main`. Jangan
+  mencoba push tanpa diminta.
+- Perubahan lokal di `uploads/` pernah tampak sebagai penghapusan/berkas baru
+  dan bukan bagian perubahan fitur. Selalu periksa status sebelum stage; jangan
+  masukkan, hapus, atau pulihkan data upload ini tanpa instruksi.
+
 ## Keadaan terakhir yang diketahui
 
 - Branch terakhir yang diketahui: `main`.
-- Commit implementasi terakhir yang tercatat: `6fd0dea`
-  (`Organize booking and account reporting flows`).
-- Perubahan tersebut mengatur navigasi Booking/Konfirmasi Pembayaran,
-  histori pembayaran, panel akun dan ulasan, laporan operator, perbaikan query
-  bukti pembayaran, serta banner/logo.
-- Panduan ini tidak menyatakan bahwa semua perubahan berikutnya sudah
-  tervalidasi di semua role atau terhadap semua variasi database.
+- Commit terakhir yang diketahui sebelum fitur daftar kos/handoff sesi ini:
+  `ada66dc` (`Clarify local database credential setup`). Riwayat baru yang
+  terkait UI/brand: `bd29c69` (`Add koskosan.my.id branding and themes`),
+  `7d12e47` (`Refine KosKosan branding and interactions`), dan `ada66dc`.
+- Riwayat fitur yang penting sebelum penggantian merek: `d44ec60` (lokasi peta
+  dan filter wilayah), `f87c949` (posisi kontrol jumlah baris tabel), dan
+  `7d16e06` (default database lokal dan cache aset). Commit sebelumnya dapat
+  berisi perubahan yang sudah dikirim user; jangan mengasumsikan remote sama
+  dengan lokal tanpa membandingkan.
+- Pada awal sesi ini `main` dan `origin/main` sama-sama berada di `ada66dc`;
+  perubahan avatar kos dan dokumentasi sedang dikerjakan. Periksa ulang
+  `git status --short --branch` dan `git log -5 --oneline` ketika mulai lagi;
+  jangan menganggap perubahan sudah dipush atau status branch masih sama.
+- Langkah berikut untuk AI esok: verifikasi commit/status terbaru, konfirmasi
+  `admin/datakost/form.php` serta README/handoff sudah tercatat, lalu buka
+  `index.php?page=platform_listings` memakai sesi Admin jika tersedia. Pastikan
+  setiap avatar (foto/fallback K) membuka profil properti yang sama dengan
+  tautan nama, tema Light/Dark tetap tersimpan, dan filter wilayah/paginasi
+  daftar kos tidak terganggu.
 - Selalu periksa status Git saat mulai dan sebelum commit. Stage file yang
   diperlukan secara eksplisit; jangan memakai stage-all secara otomatis.
 
