@@ -292,7 +292,7 @@ if ($action === 'save_operator_payment') {
             } else {
                 $name = $email = $phone = $gender = $password = null;
                 if ((int) post_value('existing_user_id') < 1) {
-                    set_flash('error', 'Pilih akun koskosan.my.id dari hasil pencarian terlebih dahulu.');
+                    set_flash('error', 'Pilih akun KosKosan dari hasil pencarian terlebih dahulu.');
                     redirect('operator_payment');
                 }
             }
@@ -338,7 +338,7 @@ if ($action === 'save_operator_payment') {
                     $existingAccountQuery->execute(['id' => (int) post_value('existing_user_id')]);
                     $existingAccount = $existingAccountQuery->fetch();
                     if (!$existingAccount) {
-                        throw new RuntimeException('Akun koskosan.my.id tidak ditemukan atau tidak aktif. Cari dan pilih ulang.');
+                        throw new RuntimeException('Akun KosKosan tidak ditemukan atau tidak aktif. Cari dan pilih ulang.');
                     }
                     $userId = (int) $existingAccount['id'];
                     $name = $existingAccount['name'];

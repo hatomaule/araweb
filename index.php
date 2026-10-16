@@ -237,7 +237,7 @@ if (isset($_GET['reverse_geocode'])) {
 
     $latitude = number_format((float) $latitude, 7, '.', '');
     $longitude = number_format((float) $longitude, 7, '.', '');
-    $lockName = 'araweb_nominatim_reverse_geocode';
+    $lockName = 'koskosan_nominatim_reverse_geocode';
     $lockAcquired = false;
     try {
         $lock = $pdo->prepare('SELECT GET_LOCK(:lock_name, 10)');
@@ -265,8 +265,9 @@ if (isset($_GET['reverse_geocode'])) {
         }
 
         sleep(1);
-        $endpoint = getenv('ARAWEB_REVERSE_GEOCODER_URL')
-            ?: 'https://nominatim.openstreetmap.org/reverse';
+        $endpoint = getenv('KOSKOSAN_REVERSE_GEOCODER_URL')
+            ?: (getenv('ARAWEB_REVERSE_GEOCODER_URL')
+                ?: 'https://nominatim.openstreetmap.org/reverse');
         $query = http_build_query([
             'format' => 'jsonv2',
             'lat' => $latitude,
@@ -279,7 +280,7 @@ if (isset($_GET['reverse_geocode'])) {
             'http' => [
                 'method' => 'GET',
                 'header' => "Accept: application/json\r\n"
-                    . "User-Agent: koskosan.my.id/1.0 (+https://github.com/hatomaule/araweb)\r\n",
+                    . "User-Agent: KosKosan/1.0 (+https://github.com/hatomaule/araweb)\r\n",
                 'timeout' => 8,
                 'ignore_errors' => true,
             ],
@@ -553,10 +554,10 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - koskosan.my.id</title><link rel="stylesheet" href="style.css?v=20261016-dark-light-3"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-5"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
-        <a class="brand" href="index.php"><span class="brand-mark">K</span><span>koskosan.my.id<small>Manajemen kos</small></span></a>
+        <a class="brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos</small></span></a>
         <div class="nav-caption">MENU UTAMA</div>
         <nav class="main-nav">
             <?php
@@ -662,4 +663,4 @@ require __DIR__ . '/portal/public.php';
         <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
     </form>
 </dialog>
-<script src="app.js?v=20261016-dark-light"></script></body></html>
+<script src="app.js?v=koskosan-ui-20261016-5"></script></body></html>

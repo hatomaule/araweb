@@ -141,7 +141,7 @@ try {
             'owner_id' => $operatorId,
             'name' => $operator['kos'],
             'address' => 'Gambesi, Ternate Selatan, Kota Ternate, Maluku Utara',
-            'description' => 'Listing contoh koskosan.my.id di sekitar Tiara Kost. Foto properti dapat dilengkapi operator.',
+            'description' => 'Listing contoh KosKosan di sekitar Tiara Kost. Foto properti dapat dilengkapi operator.',
             'facilities' => 'Area parkir, Wi-Fi bersama, dapur bersama, ruang santai',
             'rules' => 'Jaga kebersihan dan ketenangan bersama.',
             'latitude' => $operator['lat'], 'longitude' => $operator['lon'],

@@ -39,7 +39,7 @@ $rooms = rows(
             <label class="field">
                 <span>Jenis akun *</span>
                 <select name="account_type" id="account-type" required>
-                    <option value="existing">Sudah punya akun koskosan.my.id</option>
+                    <option value="existing">Sudah punya akun KosKosan</option>
                     <option value="new">User baru</option>
                 </select>
             </label>
@@ -248,7 +248,7 @@ $rooms = rows(
         const form = document.getElementById('operator-payment-form');
         if (!form.reportValidity()) return;
         if (typeSelect.value === 'existing' && !selectedId.value) {
-            status.textContent = 'Pilih akun koskosan.my.id dari hasil pencarian terlebih dahulu.';
+            status.textContent = 'Pilih akun KosKosan dari hasil pencarian terlebih dahulu.';
             search.focus();
             return;
         }

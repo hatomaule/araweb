@@ -9,19 +9,45 @@ const initializeApp = () => {
     }
     document.documentElement.dataset.theme = savedTheme;
     themeSwitchers.forEach((switcher) => {
-        if (!(switcher instanceof HTMLSelectElement)) return;
-        switcher.value = savedTheme;
-        switcher.addEventListener('change', () => {
-            const selectedTheme = switcher.value === 'dark' ? 'dark' : 'light';
-            document.documentElement.dataset.theme = selectedTheme;
-            themeSwitchers.forEach((otherSwitcher) => {
-                if (otherSwitcher instanceof HTMLSelectElement) otherSwitcher.value = selectedTheme;
+        const syncThemeMenu = (theme) => {
+            const label = switcher.querySelector('[data-theme-label]');
+            if (label) label.textContent = theme === 'dark' ? 'Dark' : 'Light';
+            switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
+                choice.setAttribute('aria-pressed', String(choice.dataset.themeChoice === theme));
             });
-            try {
-                localStorage.setItem(themeStorageKey, selectedTheme);
-            } catch (error) {
-                console.error('Display theme preference could not be saved:', error);
-            }
+        };
+        syncThemeMenu(savedTheme);
+        switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
+            choice.addEventListener('click', () => {
+                const selectedTheme = choice.dataset.themeChoice === 'dark' ? 'dark' : 'light';
+                document.documentElement.dataset.theme = selectedTheme;
+                themeSwitchers.forEach((otherSwitcher) => {
+                    const label = otherSwitcher.querySelector('[data-theme-label]');
+                    if (label) label.textContent = selectedTheme === 'dark' ? 'Dark' : 'Light';
+                    otherSwitcher.querySelectorAll('[data-theme-choice]').forEach((otherChoice) => {
+                        otherChoice.setAttribute('aria-pressed', String(otherChoice.dataset.themeChoice === selectedTheme));
+                    });
+                    otherSwitcher.open = false;
+                });
+                try {
+                    localStorage.setItem(themeStorageKey, selectedTheme);
+                } catch (error) {
+                    console.error('Display theme preference could not be saved:', error);
+                }
+            });
+        });
+    });
+    document.addEventListener('click', (event) => {
+        themeSwitchers.forEach((switcher) => {
+            if (event.target instanceof Node && !switcher.contains(event.target)) switcher.open = false;
+        });
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        themeSwitchers.forEach((switcher) => {
+            if (!switcher.open) return;
+            switcher.open = false;
+            switcher.querySelector('summary')?.focus();
         });
     });
 

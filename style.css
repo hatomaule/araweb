@@ -5,6 +5,11 @@
 body{margin:0;background:var(--canvas);color:var(--ink);font:14px 'DM Sans',Arial,sans-serif}
 a{color:inherit;text-decoration:none}
 button,input,select,textarea{font:inherit}
+a[href],button,summary,[role="button"],.profile-avatar{transition:transform .22s cubic-bezier(.2,.75,.25,1),box-shadow .22s ease,border-color .22s ease,background-color .22s ease,color .22s ease}
+a[href]:hover,button:not(:disabled):hover,summary:hover,[role="button"]:hover,.profile-avatar:hover{transform:translateY(-2px)}
+a[href]:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus-visible{outline:3px solid #8d80e866;outline-offset:3px}
+button:not(:disabled):active,[role="button"]:active{transform:translateY(0) scale(.98)}
+@media(prefers-reduced-motion:reduce){a[href],button,summary,[role="button"],.profile-avatar{transition:none!important}a[href]:hover,button:not(:disabled):hover,summary:hover,[role="button"]:hover,.profile-avatar:hover,button:not(:disabled):active,[role="button"]:active{transform:none!important}}
 .app-shell{min-height:100vh}
 .sidebar{width:248px;background:#fff;position:fixed;inset:0 auto 0 0;z-index:3;border-right:1px solid var(--line);padding:27px 17px 16px;display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:11px;padding:0 9px;font:800 19px 'Manrope',sans-serif;letter-spacing:-.7px}
@@ -210,20 +215,20 @@ td strong,.strong{color:#29344a;font-weight:700}
 @media(max-width:1050px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content{padding-left:25px;padding-right:25px}.topbar{padding:0 25px}}
 @media(max-width:700px){.sidebar{width:63px;padding:19px 8px 12px}.brand{padding:0 4px}.brand>span:last-child,.nav-caption,.main-nav a:not(.active){font-size:0}.brand-mark{width:39px}.main-nav{margin-top:32px}.main-nav a{justify-content:center;padding:0}.main-nav a.active{font-size:0}.nav-icon{font-size:19px}.sidebar-bottom{padding:12px 0;justify-content:center;flex-wrap:wrap}.sidebar-bottom .profile-copy,.sidebar-bottom form{display:none}.main-area{margin-left:63px}.topbar{height:75px;padding:0 15px}.topbar h1{font-size:18px}.today{display:none}.content{padding:20px 14px 38px}.welcome-row{align-items:flex-start}.welcome-row h2{font-size:17px}.welcome-row p,.page-actions p{font-size:11px}.welcome-row .button,.page-actions .button{white-space:nowrap;padding:0 10px;font-size:10px}.stats-grid{gap:9px}.stat-card{padding:13px 10px;gap:8px}.stat-icon{width:33px;height:33px;font-size:16px}.stat-card strong{font-size:15px}.stat-card span{font-size:10px}.stat-card small{font-size:9px}.page-actions{align-items:flex-start}.form-panel{padding:0 14px 17px}.panel-heading{padding:16px}.form-panel .panel-heading{padding:17px 0}.form-grid{grid-template-columns:1fr;gap:13px}.full-span{grid-column:auto}.form-actions{grid-column:auto}.auth-card{padding:27px 22px}.actions{gap:7px}}
 
-/* Tiara Kos public storefront */
+/* KosKosan public storefront */
 .public-page{--tiara-ink:#383b26;--tiara-muted:#85836d;--tiara-yellow:#f4c940;--tiara-green:#6f9844;background:#fffefa;color:var(--tiara-ink);font-family:'DM Sans',Arial,sans-serif}
 .public-header{height:82px;background:#fffefa;position:sticky;top:0;z-index:10;border-bottom:1px solid #f1eddf}
-.public-nav{max-width:1180px;height:100%;margin:auto;padding:0 26px;display:flex;align-items:center;justify-content:space-between;gap:30px}
+.public-nav{max-width:1400px;height:100%;margin:auto;padding:0 26px;display:flex;align-items:center;justify-content:space-between;gap:14px}
 .tiara-brand{display:inline-flex;align-items:center;gap:10px;font:800 20px 'Manrope',sans-serif;letter-spacing:-1px;color:#42422e;white-space:nowrap}
 .tiara-brand>span:last-child>span{color:#84a644}
 .tiara-brand small{display:block;font:700 8px 'DM Sans',sans-serif;letter-spacing:1.65px;color:#a19d83;margin-top:1px}
 .tiara-brand-icon{width:39px;height:39px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#ffdc57,#f0bd31 65%,#91a64e);box-shadow:0 5px 13px #d7bb4b45;color:white;font:800 21px 'Manrope',sans-serif}
-.public-nav-links{display:flex;align-items:center;gap:34px;margin-left:auto;margin-right:auto}
-.public-nav-links a{font-size:12px;color:#7d7a67;font-weight:600;transition:color .2s}
-.public-nav-links a:hover,.public-nav-links a.nav-current{color:#718f3a}
-.public-nav-cta{display:flex;align-items:center;gap:10px;border:1px solid #e9e4cf;border-radius:30px;padding:11px 16px;font-size:11px;font-weight:700;color:#55543d;transition:.2s}
+.public-nav-links{display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:auto;padding:4px;border:1px solid #eeecdf;border-radius:15px;background:#f7f6ef}
+.public-nav-links a{display:flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border:1px solid transparent;border-radius:11px;font-size:11px;color:#6f705d;font-weight:700;white-space:nowrap;transition:color .2s,background-color .2s,border-color .2s,box-shadow .2s}
+.public-nav-links a:hover,.public-nav-links a.nav-current{color:#617c31;background:#fff;border-color:#eae8d9;box-shadow:0 3px 8px #5a52200c}
+.public-nav-cta{display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;border:1px solid #e4dfc9;border-radius:16px;padding:0 17px;font-size:11px;font-weight:700;color:#55543d;background:linear-gradient(145deg,#fff,#fbfaf4);box-shadow:0 3px 9px #504a2008;white-space:nowrap;transition:transform .2s,border-color .2s,background-color .2s,box-shadow .2s}
 .public-nav-cta span{color:#849c45;font-size:15px}
-.public-nav-cta:hover{background:#fff6d5;border-color:#e9cb60}
+.public-nav-cta:hover{background:linear-gradient(145deg,#fff9e6,#fff2c1);border-color:#e5c74e;box-shadow:0 7px 16px #a78a2a20}
 .public-menu-toggle{display:none;border:0;background:#fff4cf;color:#657d36;border-radius:10px;height:39px;width:42px;font-size:20px}
 .tiara-hero{position:relative;overflow:hidden;background:linear-gradient(112deg,#fff8dc 0%,#fff4cb 46%,#f4f4cf 75%,#e9f0d8 100%);min-height:474px}
 .hero-inner{max-width:1180px;margin:auto;padding:53px 26px 57px;min-height:474px;display:grid;grid-template-columns:1fr .93fr;align-items:center;gap:36px;position:relative;z-index:1}
@@ -358,9 +363,25 @@ td strong,.strong{color:#29344a;font-weight:700}
 .public-footer-bottom{grid-column:1/-1;margin-top:5px;padding-top:16px;border-top:1px solid #cfc99e;display:flex;align-items:center;justify-content:space-between;color:#85836d;font-size:9px}
 .public-footer-bottom>a{display:grid;place-items:center;width:33px;height:33px;border-radius:50%;background:#e5bd2c;color:#fff;font-size:19px}
 .public-footer-bottom>a:hover{background:#f2ca3e}
-.theme-switcher-wrap{display:inline-flex;align-items:center;flex:none}
-.theme-switcher{min-height:36px;padding:0 28px 0 11px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
-.public-nav .theme-switcher{border-color:#e9e4cf;border-radius:20px;color:#55543d}
+.theme-switcher{position:relative;display:inline-flex;align-items:center;flex:none;color:var(--ink)}
+.theme-switcher>summary{position:relative;display:flex;align-items:center;justify-content:space-between;gap:13px;min-width:98px;min-height:42px;padding:0 13px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(145deg,var(--paper),var(--canvas));box-shadow:0 3px 10px #25324a0c;font-size:11px;font-weight:700;cursor:pointer;list-style:none}
+.theme-switcher>summary::-webkit-details-marker{display:none}
+.theme-switcher[open]>summary{border-color:#b7afea;box-shadow:0 0 0 3px #6958dc12,0 7px 18px #25324a14}
+.theme-switcher-chevron{color:#8b90a0;font-size:15px;transition:transform .2s ease}
+.theme-switcher[open] .theme-switcher-chevron{transform:rotate(180deg)}
+.theme-switcher-menu{position:absolute;z-index:30;top:calc(100% + 9px);right:0;width:176px;padding:7px;border:1px solid #e8eaf0;border-radius:15px;background:var(--paper);box-shadow:0 16px 38px #17213b20,0 3px 10px #17213b0d;animation:theme-menu-appear .16s ease-out}
+.theme-switcher-menu::before{position:absolute;top:-5px;right:19px;width:9px;height:9px;border-top:1px solid #e8eaf0;border-left:1px solid #e8eaf0;background:var(--paper);content:"";transform:rotate(45deg)}
+.theme-switcher-menu button{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:39px;padding:0 10px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--ink);text-align:left;font-size:11px;font-weight:600;cursor:pointer}
+.theme-switcher-menu button:hover,.theme-switcher-menu button[aria-pressed="true"]{border-color:#e8e4fa;background:#f7f5ff;color:#5b4bc8}
+.theme-choice-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#f3f1ff;color:#7667d4;font-size:13px}
+.theme-choice-check{margin-left:auto;color:#6958dc;font-size:12px;opacity:0}
+.theme-switcher-menu button[aria-pressed="true"] .theme-choice-check{opacity:1}
+.public-nav .theme-switcher>summary{min-height:46px;border-color:#e9e4cf;border-radius:15px;background:linear-gradient(145deg,#fff,#fbfaf4);color:#55543d}
+.public-nav .theme-switcher[open]>summary{border-color:#e5d88c;box-shadow:0 0 0 3px #d9c35c24,0 7px 18px #504a2014}
+.public-nav .theme-switcher-menu{border-color:#e8e4d6}
+.public-nav .theme-switcher-menu::before{border-color:#e8e4d6}
+.auth-brand-row>.theme-switcher>summary{min-height:38px}
+@keyframes theme-menu-appear{from{opacity:0;transform:translateY(-5px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .auth-brand-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:34px}
 .auth-brand-row .auth-brand{margin:0}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -400,8 +421,15 @@ html[data-theme="dark"] .public-footer-links a,html[data-theme="dark"] .public-f
 html[data-theme="dark"] .public-footer-bottom{border-color:#3e4941}
 html[data-theme="dark"] .property-tabs{background:#192226;border-color:#303a39}
 html[data-theme="dark"] .property-tabs a,html[data-theme="dark"] .text-link{color:#d5d2bd}
-html[data-theme="dark"] .theme-switcher{background-color:var(--paper);border-color:var(--line);color:var(--ink)}
-html[data-theme="dark"] .public-nav .theme-switcher{border-color:#495044;color:#dedccd}
+html[data-theme="dark"] .theme-switcher>summary{background:linear-gradient(145deg,#202d3c,#1a2532);border-color:#3b4a5c;color:#e3e9f1;box-shadow:0 4px 12px #0003}
+html[data-theme="dark"] .theme-switcher-menu{background:#1d2836;border-color:#3b4a5c;box-shadow:0 16px 38px #0006}
+html[data-theme="dark"] .theme-switcher-menu::before{background:#1d2836;border-color:#3b4a5c}
+html[data-theme="dark"] .theme-switcher-menu button:hover,html[data-theme="dark"] .theme-switcher-menu button[aria-pressed="true"]{background:#302a4c;border-color:#4a3f78;color:#ded8ff}
+html[data-theme="dark"] .theme-choice-icon{background:#302a4c;color:#c4baff}
+html[data-theme="dark"] .public-nav .theme-switcher>summary{background:linear-gradient(145deg,#202a2a,#192225);border-color:#495044;color:#dedccd}
+html[data-theme="dark"] .public-nav .theme-switcher[open]>summary{border-color:#777052;box-shadow:0 0 0 3px #cbb45520,0 7px 18px #0004}
+html[data-theme="dark"] .public-nav .theme-switcher-menu{background:#1d292b;border-color:#48504a}
+html[data-theme="dark"] .public-nav .theme-switcher-menu::before{background:#1d292b;border-color:#48504a}
 html[data-theme="dark"] .public-search{background:#172123;border-color:#3b4742}
 html[data-theme="dark"] .public-search input{background:transparent;color:#e6e5d9}
 html[data-theme="dark"] .public-nav-links{background:#192226;border-color:#303a39}
@@ -592,10 +620,10 @@ html[data-theme="dark"] .property-booking-card>span,html[data-theme="dark"] .pro
 .property-photo-placeholder{height:100%;display:grid;place-items:center;padding:20px;background:linear-gradient(145deg,#f9f4df,#e9eddc);color:#858568;font-size:12px;text-align:center}
 .koskosan-brand{font-size:15px;letter-spacing:-.65px;color:var(--tiara-ink)}
 .koskosan-brand .tiara-brand-icon{background:#6958dc}
-.araweb-house-placeholder{align-content:center;gap:8px;background:radial-gradient(circle at 50% 30%,#fff6d7 0,#f4efdc 46%,#e9eddc 100%);color:#746e50}
-.araweb-house-placeholder>span{width:92px;height:92px;border-radius:28px;display:grid;place-items:center;background:#fff9e6;color:#b99a4c;font-size:67px;box-shadow:0 14px 34px #665d2b1a}
-.araweb-house-placeholder strong{font:700 20px 'Manrope',sans-serif;color:#34402f}
-.araweb-house-placeholder small{color:#83856e;font-size:11px}
+.koskosan-house-placeholder{align-content:center;gap:8px;background:radial-gradient(circle at 50% 30%,#fff6d7 0,#f4efdc 46%,#e9eddc 100%);color:#746e50}
+.koskosan-house-placeholder>span{width:92px;height:92px;border-radius:28px;display:grid;place-items:center;background:#fff9e6;color:#b99a4c;font-size:67px;box-shadow:0 14px 34px #665d2b1a}
+.koskosan-house-placeholder strong{font:700 20px 'Manrope',sans-serif;color:#34402f}
+.koskosan-house-placeholder small{color:#83856e;font-size:11px}
 .property-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .property-result-card{overflow:hidden;background:#fff;border:1px solid #f0eee7;border-radius:16px;box-shadow:0 9px 28px #36321d0c}
 .property-result-visual{height:205px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 36%,#fff5d9,#e9eddf 80%);color:#73724f}
@@ -1017,3 +1045,50 @@ html[data-theme="dark"] .property-booking-card>span,html[data-theme="dark"] .pro
     .public-nav-cta{flex:none;margin-left:0;padding:8px 7px;font-size:9px;white-space:nowrap}
     .public-menu-toggle{flex:none}
 }
+@media(max-width:1050px) and (min-width:651px){
+    .public-nav{gap:9px;padding-inline:18px}
+    .public-search{display:none}
+    .public-nav-links{gap:2px}
+    .public-nav-links a{padding-inline:9px}
+    .public-nav-cta{padding-inline:12px}
+}
+@media(max-width:900px){
+    .public-menu-toggle{display:grid;place-items:center;flex:none;width:42px;height:42px;border:1px solid #e9e4cf;border-radius:14px;background:#fffdf5;color:#657d36;font-size:20px;cursor:pointer}
+    .public-nav-links{display:none;position:absolute;top:calc(100% + 8px);right:18px;z-index:20;width:min(270px,calc(100vw - 36px));margin:0;padding:8px;border:1px solid #eeecdf;border-radius:17px;background:#fffefa;box-shadow:0 18px 42px #30301e24;align-items:stretch;gap:4px}
+    .public-nav-links.is-open{display:grid;animation:theme-menu-appear .16s ease-out}
+    .public-nav-links a{justify-content:flex-start;min-height:42px;padding-inline:13px;border-radius:11px}
+    .public-nav-links a:hover,.public-nav-links a.nav-current{background:#f5f4e9;box-shadow:none}
+    html[data-theme="dark"] .public-menu-toggle{border-color:#495044;background:#202a2a;color:#e2d38c}
+    html[data-theme="dark"] .public-nav-links{border-color:#3a4542;background:#1d292b;box-shadow:0 18px 42px #0008}
+    html[data-theme="dark"] .public-nav-links a:hover,html[data-theme="dark"] .public-nav-links a.nav-current{background:#30372b;color:#d8dbb5}
+}
+@media(max-width:650px){
+    .public-header{height:72px}
+    .public-nav{padding-inline:14px;gap:7px}
+    .koskosan-brand{gap:7px;font-size:13px;letter-spacing:-.4px}
+    .koskosan-brand .tiara-brand-icon{width:33px;height:33px}
+    .koskosan-brand small{font-size:6px;letter-spacing:.8px}
+    .public-nav .theme-switcher{min-height:0;padding:0}
+    .public-nav .theme-switcher>summary{min-width:78px;min-height:39px;padding-inline:9px;gap:7px;border-radius:13px}
+    .public-nav .theme-switcher-menu{right:-18px;width:164px}
+    .public-nav-cta{min-height:39px;margin-left:auto;padding-inline:11px;border-radius:13px;font-size:10px}
+    .public-menu-toggle{width:39px;height:39px;border-radius:13px}
+}
+@media(max-width:380px){
+    .public-nav{padding-inline:10px;gap:4px}
+    .koskosan-brand{gap:5px;font-size:12px}
+    .koskosan-brand .tiara-brand-icon{width:30px;height:30px}
+    .koskosan-brand small{font-size:5.5px;letter-spacing:.5px}
+    .public-nav .theme-switcher>summary{min-width:68px;min-height:37px;padding-inline:7px;font-size:10px}
+    .public-nav-cta{padding-inline:6px;font-size:8px}
+    .public-menu-toggle{width:36px;height:36px}
+}
+html[data-theme="dark"] .public-nav-links{background:#192226;border-color:#303a39}
+html[data-theme="dark"] .public-nav-links a:hover,html[data-theme="dark"] .public-nav-links a.nav-current{background:#283127;color:#e2dfb7;border-color:#3c4937}
+html[data-theme="dark"] .public-nav-cta{background:linear-gradient(145deg,#25312d,#1d2928);border-color:#485448;color:#e7e3d2;box-shadow:0 4px 12px #0003}
+html[data-theme="dark"] .public-nav-cta:hover{background:linear-gradient(145deg,#344137,#29352e);border-color:#778456;box-shadow:0 8px 18px #0005}
+.account-menu summary:hover .profile-avatar,.sidebar-bottom .profile-avatar:hover{transform:translateY(-2px) scale(1.06);box-shadow:0 6px 15px #6958dc35}
+.account-menu summary:active .profile-avatar{transform:scale(.97)}
+.account-menu[open] summary{color:var(--purple)}
+.account-menu-dropdown a:hover,.account-menu-dropdown button:hover{transform:translateX(3px)}
+@media(prefers-reduced-motion:reduce){.theme-switcher-menu,.public-nav-links.is-open{animation:none!important}}

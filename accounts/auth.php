@@ -12,11 +12,11 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
     $authTitle = $isForgot ? 'Lupa password' : ($isReset ? 'Atur password baru'
         : ($isSetup ? 'Buat Admin' : ($isRegister ? 'Daftar ' . e($registerLabel) : 'Masuk')));
     ?><!doctype html>
-    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - koskosan.my.id</title><link rel="stylesheet" href="style.css?v=20261016-dark-light-3"></head>
+    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-5"></head>
     <body class="auth-page"><main class="auth-wrap"><section class="auth-card">
-        <div class="auth-brand-row"><a class="brand auth-brand" href="index.php"><span class="brand-mark">K</span><span>koskosan.my.id<small>Manajemen kos lebih mudah</small></span></a><?= theme_switcher() ?></div>
+        <div class="auth-brand-row"><a class="brand auth-brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos lebih mudah</small></span></a><?= theme_switcher() ?></div>
         <h1><?= $isForgot ? 'Lupa password?' : ($isReset ? 'Buat password baru' : ($isSetup ? 'Siapkan akun admin' : ($isRegister ? 'Daftar sebagai ' . e($registerLabel) : 'Selamat datang kembali'))) ?></h1>
-        <p class="muted"><?= $isForgot ? 'Masukkan email akun User. Kami akan mengirim kode reset yang berlaku 15 menit.' : ($isReset ? 'Masukkan email dan kode enam digit dari email koskosan.my.id.' : ($isSetup ? 'Buat akun admin pertama untuk mulai mengelola kos.' : ($isRegister ? ($registerRole === 'operator' ? 'Daftarkan akun operator untuk mengelola dan mempromosikan kos Anda.' : 'Buat akun User untuk memesan kamar dan memantau booking Anda.') : 'Masuk untuk mengelola akun atau pesanan kamar.'))) ?></p>
+        <p class="muted"><?= $isForgot ? 'Masukkan email akun User. Kami akan mengirim kode reset yang berlaku 15 menit.' : ($isReset ? 'Masukkan email dan kode enam digit dari email KosKosan.' : ($isSetup ? 'Buat akun admin pertama untuk mulai mengelola kos.' : ($isRegister ? ($registerRole === 'operator' ? 'Daftarkan akun operator untuk mengelola dan mempromosikan kos Anda.' : 'Buat akun User untuk memesan kamar dan memantau booking Anda.') : 'Masuk untuk mengelola akun atau pesanan kamar.'))) ?></p>
         <?php if ($flash): ?><div class="alert <?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endif; ?>
         <form method="post" class="form-stack" <?= $isRegister ? 'enctype="multipart/form-data"' : '' ?>><?= csrf_field() ?><input type="hidden" name="action" value="<?= $isForgot ? 'request_password_reset' : ($isReset ? 'complete_password_reset' : ($isSetup ? 'setup' : ($isRegister ? 'register_account' : 'login'))) ?>"><?php if ($isRegister): ?><input type="hidden" name="role" value="<?= e($registerRole) ?>"><input type="hidden" name="next" value="<?= $nextBookingId ? 'booking' : '' ?>"><input type="hidden" name="next_room_id" value="<?= $nextBookingId ?>"><?php endif; ?>
             <?php if ($isSetup || $isRegister) { field('Nama lengkap', 'name', '', 'text', ['required' => 'required', 'maxlength' => '100', 'autocomplete' => 'name']); } ?>
@@ -62,7 +62,7 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
         <?php endif; ?>
         <?php if (!$isSetup && !$isForgot && !$isReset): ?><p class="auth-switch"><?= $isRegister ? 'Sudah punya akun?' : 'Belum punya akun User?' ?> <a href="index.php?page=<?= $isRegister ? 'login' : 'register' ?>"><?= $isRegister ? 'Masuk' : 'Daftar sekarang' ?></a></p><?php endif; ?>
         <?php if ($page === 'login'): ?><p class="auth-switch"><a href="index.php?page=forgot_password">Lupa password?</a></p><?php elseif ($isForgot): ?><p class="auth-switch">Sudah menerima kode? <a href="index.php?page=reset_password">Masukkan kode reset</a></p><?php elseif ($isReset): ?><p class="auth-switch">Belum menerima kode? <a href="index.php?page=forgot_password">Kirim ulang kode</a></p><?php endif; ?>
-        <a class="auth-home-link" href="index.php">← Kembali ke koskosan.my.id</a>
-    </section></main><script src="app.js?v=20261016-dark-light"></script></body></html><?php
+        <a class="auth-home-link" href="index.php">← Kembali ke KosKosan</a>
+    </section></main><script src="app.js?v=koskosan-ui-20261016-5"></script></body></html><?php
     exit;
 }

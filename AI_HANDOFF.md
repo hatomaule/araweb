@@ -1,6 +1,6 @@
 # AI / Developer Handoff
 
-Panduan orientasi untuk AI atau developer yang melanjutkan koskosan.my.id. Dokumen ini
+Panduan orientasi untuk AI atau developer yang melanjutkan KosKosan. Dokumen ini
 merangkum cara mulai, arsitektur, alur bisnis, batasan, dan validasi. Kode yang
 sedang berjalan tetap menjadi sumber kebenaran; periksa ulang detail di bawah
 terhadap source dan database target sebelum mengambil keputusan.
@@ -31,7 +31,7 @@ migrasi hanya untuk melihat hasilnya.
 
 ## Ringkasan proyek
 
-- Aplikasi web manajemen kos koskosan.my.id menggunakan PHP native, PDO, dan
+- Aplikasi web manajemen kos KosKosan menggunakan PHP native, PDO, dan
   MySQL/MariaDB.
 - Di lingkungan WSL saat ini, proyek berada di
   `/home/alan_hatomaule/projects/ekosan`. Lingkungan yang diperiksa memakai
@@ -43,9 +43,11 @@ migrasi hanya untuk melihat hasilnya.
 - Tidak ada framework aplikasi atau sistem build frontend yang menjadi bagian
   dari pola utama proyek. Antarmuka menggunakan PHP, `style.css`, dan
   `app.js`.
-- Nama produk yang tampil kepada pengguna adalah `koskosan.my.id`; identifier
+- Nama produk yang tampil kepada pengguna adalah `KosKosan`; identifier
   teknis lama seperti akun database `araweb_app` dan nama repository tetap
-  dipertahankan untuk kompatibilitas. Tema Light/Dark disimpan pada browser
+  dipertahankan untuk kompatibilitas. Variabel `ARAWEB_REVERSE_GEOCODER_URL`
+  dan `ARAWEB_MAIL_FROM` tetap diterima sebagai alias untuk konfigurasi
+  deployment lama. Tema Light/Dark disimpan pada browser
   melalui `localStorage` dan kontrolnya tersedia di panel, autentikasi, serta
   halaman publik.
 - Koneksi database dikonfigurasi di `config.php`; variabel lingkungan yang

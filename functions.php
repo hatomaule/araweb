@@ -8,10 +8,12 @@ function e($value): string
 
 function theme_switcher(): string
 {
-    return '<label class="theme-switcher-wrap"><span class="visually-hidden">Tema tampilan</span>'
-        . '<select class="theme-switcher" data-theme-switcher aria-label="Pilih tema tampilan">'
-        . '<option value="light">Light</option><option value="dark">Dark</option>'
-        . '</select></label>';
+    return '<details class="theme-switcher" data-theme-switcher>'
+        . '<summary aria-label="Pilih tema tampilan"><span data-theme-label>Light</span><span class="theme-switcher-chevron" aria-hidden="true">⌄</span></summary>'
+        . '<div class="theme-switcher-menu" role="group" aria-label="Tema tampilan">'
+        . '<button type="button" aria-pressed="true" data-theme-choice="light"><span class="theme-choice-icon" aria-hidden="true">☀</span>Light<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
+        . '<button type="button" aria-pressed="false" data-theme-choice="dark"><span class="theme-choice-icon" aria-hidden="true">☾</span>Dark<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
+        . '</div></details>';
 }
 
 function avatar_markup(array $user, string $class = 'profile-avatar'): string

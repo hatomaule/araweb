@@ -1,6 +1,6 @@
-# koskosan.my.id
+# KosKosan
 
-Aplikasi manajemen kamar kos koskosan.my.id berbasis PHP native dan MySQL/MariaDB.
+Aplikasi manajemen kamar kos KosKosan berbasis PHP native dan MySQL/MariaDB.
 
 ## Menjalankan secara lokal di WSL
 
@@ -14,12 +14,14 @@ php -m | grep -i pdo_mysql
 
 Secara bawaan, `config.php` memakai `localhost`, database `manajemen_kos`, dan
 akun aplikasi lokal `araweb_app` (autentikasi socket, tanpa kata sandi), sesuai
-setup WSL koskosan.my.id. Pastikan MariaDB WSL berjalan dan akun tersebut sudah dibuat.
+setup WSL KosKosan. Pastikan MariaDB WSL berjalan dan akun tersebut sudah dibuat.
 Untuk instalasi lain, atur `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`
 sebelum menjalankan server PHP. Jangan menganggap akun `root` tanpa kata sandi
 bawaan XAMPP berlaku di WSL. Untuk menggunakan layanan reverse geocoding
 Nominatim lain yang kompatibel, atur
-`ARAWEB_REVERSE_GEOCODER_URL` ke URL endpoint `/reverse` layanan tersebut.
+`KOSKOSAN_REVERSE_GEOCODER_URL` ke URL endpoint `/reverse` layanan tersebut.
+Variabel lama `ARAWEB_REVERSE_GEOCODER_URL` tetap didukung untuk konfigurasi
+yang sudah ada.
 Pastikan pula direktori `uploads/` dapat ditulisi oleh pengguna yang menjalankan PHP.
 
 Jika memakai akun MariaDB lain, contoh mengatur koneksi untuk sesi terminal
@@ -72,7 +74,7 @@ migrasi yang sudah diterapkan.
 15. Koneksi database diatur melalui variabel lingkungan `DB_HOST`, `DB_NAME`, `DB_USER`, dan `DB_PASS`; nilai fallback di `config.php` adalah `127.0.0.1`, `manajemen_kos`, `root`, dan kata sandi kosong. Pada WSL, atur kredensial yang benar untuk MariaDB lokal sebelum menjalankan PHP.
 16. Buka `http://localhost:8000/` untuk melihat kos aktif dan kamar-kamarnya. Kamar terisi tetap ditampilkan dengan status tidak tersedia.
 17. Buat/masuk menggunakan akun Admin. Operator mendaftar dari halaman publik dan kos aktifnya langsung dapat ditemukan tanpa persetujuan admin; User dapat mendaftar untuk booking. Pendaftaran meminta minimal salah satu email atau nomor HP, dan menerima foto profil opsional.
-18. Untuk mengirim kode lupa password, set `ARAWEB_MAIL_FROM` ke alamat pengirim yang valid dan konfigurasikan transport email PHP pada mesin server. Untuk PHP CLI di WSL, periksa berkas konfigurasi dengan `php --ini`; jika mengubah konfigurasi, mulai ulang proses PHP development server. Kode hanya berlaku 15 menit, satu kali pakai, maksimal 5 percobaan; permintaan ulang dibatasi 60 detik. Jika email tidak dapat dimasukkan ke antrean, aplikasi mencatat kegagalan ke log server.
+18. Untuk mengirim kode lupa password, set `KOSKOSAN_MAIL_FROM` ke alamat pengirim yang valid dan konfigurasikan transport email PHP pada mesin server. Variabel lama `ARAWEB_MAIL_FROM` tetap didukung untuk konfigurasi yang sudah ada. Untuk PHP CLI di WSL, periksa berkas konfigurasi dengan `php --ini`; jika mengubah konfigurasi, mulai ulang proses PHP development server. Kode hanya berlaku 15 menit, satu kali pakai, maksimal 5 percobaan; permintaan ulang dibatasi 60 detik. Jika email tidak dapat dimasukkan ke antrean, aplikasi mencatat kegagalan ke log server.
 19. Untuk menambahkan data uji lokal, set `ARA_DEMO_PASSWORD` ke kata sandi acak minimal 12 karakter di lingkungan terminal, lalu jalankan `php seed_demo_data.php`. Seeder membuat 3 akun operator, 3 listing berisi masing-masing 5 kamar, 9 akun User, sewa aktif, dan enam periode tagihan/pembayaran per sewa. Data rekening demo ditandai agar tidak digunakan untuk transfer nyata; semua akun demo menggunakan kata sandi yang sama dari variabel lingkungan tersebut. Seeder berhenti jika data demo sudah ada.
 20. Setelah backup, jalankan `migration_account_activity_and_deletion.sql` satu kali setelah migrasi multi-owner dan business flow. Migrasi ini menambahkan log aktivitas akun dan mempertahankan histori booking/pencarian saat akun User dihapus. Jangan jalankan ulang.
 21. Setelah backup, jalankan `migration_property_and_room_profile_photos.sql` satu kali setelah migrasi `migration_multi_owner_platform.sql` dan `migration_room_photos.sql`. Migrasi ini menambahkan kolom foto profil terpisah untuk kos dan kamar. Foto galeri lama tetap digunakan sebagai sampul jika foto profil belum diunggah. Jangan jalankan ulang.
@@ -103,7 +105,7 @@ Modul memakai koneksi, sesi, dan helper yang disediakan inti aplikasi. Pemetaan 
 - Booking memerlukan akun pencari. Operator menyetujui atau menolak booking; setelah disetujui, pencari memiliki waktu 24 jam untuk membayar dan mengunggah bukti transfer.
 - Rekening transfer disimpan per kos. Penghuni hanya dapat melihat histori pembayaran sendiri; operator dibatasi pada histori penghuni dan transaksi kos miliknya; admin platform dapat mengelola semua akun. Kode lupa password email khusus akun pengguna aktif.
 - Profil Admin, Operator, dan User menyediakan nama, email, nomor HP, alamat wilayah Indonesia berjenjang, RT/RW, jalan/detail alamat, jenis kelamin, serta unggah foto profil. ID akun otomatis dari primary key ditampilkan di profil, daftar Penghuni, dan manajemen akun tanpa migrasi ID tambahan. Avatar pria/wanita digunakan otomatis bila foto tidak tersedia. Kolom alamat dan gender ditambahkan melalui `migration_account_profiles.sql` dan `migration_account_gender.sql`.
-- Panel operator menyediakan Laporan, Properti (Gedung dan Kamar), Penghuni, Input Pembayaran, Histori pembayaran, Booking, dan Analitik kos. Menu Kamar mengelompokkan penghuni menurut kamar; menu Penghuni menyediakan histori, reset password melalui dialog konfirmasi, pindahkan kamar, dan keluarkan. Input pembayaran dapat membuat hunian bagi akun koskosan.my.id yang belum memiliki hunian atau akun baru, memakai harga kamar atau nominal khusus transaksi, serta mencatat metode dan periode pembayaran. Pemindahan penghuni mempertahankan sewa, tagihan, dan pembayaran; pengakhiran sewa tidak menghapus atau menonaktifkan akun.
+- Panel operator menyediakan Laporan, Properti (Gedung dan Kamar), Penghuni, Input Pembayaran, Histori pembayaran, Booking, dan Analitik kos. Menu Kamar mengelompokkan penghuni menurut kamar; menu Penghuni menyediakan histori, reset password melalui dialog konfirmasi, pindahkan kamar, dan keluarkan. Input pembayaran dapat membuat hunian bagi akun KosKosan yang belum memiliki hunian atau akun baru, memakai harga kamar atau nominal khusus transaksi, serta mencatat metode dan periode pembayaran. Pemindahan penghuni mempertahankan sewa, tagihan, dan pembayaran; pengakhiran sewa tidak menghapus atau menonaktifkan akun.
 - Analitik operator menampilkan pencarian/pengunjung dan aktivitas terbaru, serta mengizinkan pengelola membalas atau memoderasi ulasan. Balasan ulasan ditampilkan pada halaman publik kos.
 - Admin dapat mengelola akun Operator dan User dari submenu terpisah, melihat avatar, serta membuka dan mengedit profil kedua jenis akun tanpa mengubah foto profil mereka. Ketiga submenu manajemen akun menyediakan filter Provinsi, Kabupaten/Kota, Kecamatan, dan Kelurahan/Desa. Lokasi Operator berasal dari gedung yang dikelolanya; lokasi User aktif berasal dari gedung huniannya, sedangkan User tanpa hunian difilter menurut alamat profil. Menu **User pengguna** menampilkan akun tanpa sewa atau booking aktif. Kolom Aktivitas terakhir menampilkan akses terbaru; operator juga dapat melihat waktu aktivitas terakhir akun penghuni. Aktivitas disimpan sebagai peristiwa berkala (maksimal satu catatan per lima menit sesi) untuk penggunaan lanjutan. Admin dapat menghapus permanen akun User yang tidak memiliki sewa atau booking berjalan; data sewa, pembayaran, booking, pencarian, dan aktivitas tetap disimpan dengan relasi akun dilepas. Akun Operator tidak dapat dihapus melalui menu ini. Aksi manajemen akun dan pengeluaran penghuni meminta konfirmasi melalui kotak centang di dialog.
 - Tabel manajemen menyediakan pencarian, tampilan 10 baris per halaman dengan tombol sebelumnya/berikutnya, serta pilihan untuk menampilkan semua baris. Daftar kamar dan penghuni dapat difilter berdasarkan gedung; daftar akun User admin dapat difilter berdasarkan kos; Daftar kos admin dapat difilter berdasarkan Provinsi, Kabupaten/Kota, Kecamatan, dan Kelurahan/Desa.
@@ -125,11 +127,11 @@ Modul memakai koneksi, sesi, dan helper yang disediakan inti aplikasi. Pemetaan 
 - Catat pembayaran penuh atau bertahap dengan metode tunai, transfer, e-wallet, dan lainnya.
 - Status lunas diperbarui otomatis saat jumlah pembayaran terkonfirmasi mencapai total tagihan.
 - Riwayat transaksi penghuni tersedia pada menu **Riwayat pembayaran**; penghuni tidak dapat melihat pembayaran pengguna lain.
-- Halaman publik koskosan.my.id menampilkan kos yang tersedia, tipe kamar, fasilitas, lokasi, serta harga bulanan tanpa memerlukan login.
+- Halaman publik KosKosan menampilkan kos yang tersedia, tipe kamar, fasilitas, lokasi, serta harga bulanan tanpa memerlukan login.
 - Dari menu **Kamar → Edit**, pengelola dapat mengunggah hingga 4 foto kamar dan 4 foto fasilitas sekaligus. Format JPG, PNG, dan WebP didukung dengan batas 4 MB per foto. Foto kamar pertama menjadi sampul; foto fasilitas ditampilkan sebagai galeri di halaman publik.
 
 Dataset pada migrasi wilayah dipatok dari `cahyadsn/wilayah` commit `d68e8d5516f969d1905d0b2940f20034becb0db7`, bertanggal 13 Februari 2026, dan berlisensi MIT (pemberitahuan ada di berkas migrasi). Sumber mencantumkan Kepmendagri No. 300.2.2-2138/2025; data belum diverifikasi sebagai rilis Kemendagri paling mutakhir. Sebelum memperbarui data, verifikasi rilis resmi, simpan backup, serta perbarui atribusi dan jumlah data pada migrasi.
 
-Folder `uploads/rooms`, `uploads/properties`, `uploads/profiles`, dan `uploads/payments` harus dapat ditulisi oleh pengguna yang menjalankan PHP. Koordinat peta serta foto kos/kamar bersifat opsional; jika foto belum tersedia, halaman publik menggunakan ilustrasi bawaan koskosan.my.id. Tema Light/Dark dapat dipilih pada halaman panel, autentikasi, dan publik; preferensi tema disimpan di browser. Pembayaran online bukan payment gateway: transfer tetap dilakukan manual dan bukti harus diverifikasi operator. Penghentian atau pembatalan sewa dan penonaktifan pelanggan menggunakan status, bukan penghapusan data, agar riwayat tagihan/pembayaran tetap terjaga.
+Folder `uploads/rooms`, `uploads/properties`, `uploads/profiles`, dan `uploads/payments` harus dapat ditulisi oleh pengguna yang menjalankan PHP. Koordinat peta serta foto kos/kamar bersifat opsional; jika foto belum tersedia, halaman publik menggunakan ilustrasi bawaan KosKosan. Tema Light/Dark dapat dipilih pada halaman panel, autentikasi, dan publik; preferensi tema disimpan di browser. Pembayaran online bukan payment gateway: transfer tetap dilakukan manual dan bukti harus diverifikasi operator. Penghentian atau pembatalan sewa dan penonaktifan pelanggan menggunakan status, bukan penghapusan data, agar riwayat tagihan/pembayaran tetap terjaga.
 
 Login Facebook untuk User menggunakan OAuth. Agar tombolnya aktif, set variabel lingkungan server `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, dan `FACEBOOK_REDIRECT_URI` (URL callback persis `https://domain-anda/ekosan/index.php?page=facebook_callback`) lalu daftarkan URL callback yang sama pada aplikasi Meta. Jangan menyimpan App Secret di source code. Login email tetap tersedia.

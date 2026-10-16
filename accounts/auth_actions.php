@@ -9,9 +9,9 @@ if ($action === 'request_password_reset') {
                 set_flash('error', 'Masukkan alamat email yang valid.');
                 redirect('forgot_password');
             }
-            $mailFrom = getenv('ARAWEB_MAIL_FROM') ?: '';
+            $mailFrom = getenv('KOSKOSAN_MAIL_FROM') ?: (getenv('ARAWEB_MAIL_FROM') ?: '');
             if (!filter_var($mailFrom, FILTER_VALIDATE_EMAIL) || !function_exists('mail')) {
-                set_flash('error', 'Layanan email belum dikonfigurasi. Hubungi administrator koskosan.my.id.');
+                set_flash('error', 'Layanan email belum dikonfigurasi. Hubungi administrator KosKosan.');
                 redirect('forgot_password');
             }
 
@@ -44,19 +44,19 @@ if ($action === 'request_password_reset') {
                        attempts=0,used_at=NULL'
                 );
                 $reset->execute(['user_id' => $account['id'], 'code_hash' => $codeHash]);
-                $subject = 'Kode reset password koskosan.my.id';
+                $subject = 'Kode reset password KosKosan';
                 $message = "Halo {$account['name']},\n\n"
                     . "Gunakan kode berikut untuk membuat password baru: {$code}\n"
                     . "Kode berlaku selama 15 menit dan hanya dapat digunakan sekali.\n"
-                    . "Jika Anda tidak meminta reset password, abaikan email ini.\n\nkoskosan.my.id";
-                $headers = "From: koskosan.my.id <{$mailFrom}>\r\n"
+                    . "Jika Anda tidak meminta reset password, abaikan email ini.\n\nKosKosan";
+                $headers = "From: KosKosan <{$mailFrom}>\r\n"
                     . "Content-Type: text/plain; charset=UTF-8\r\n"
                     . "X-Mailer: PHP/" . PHP_VERSION;
                 if (!mail($account['email'], $subject, $message, $headers)) {
                     $pdo->prepare(
                         'DELETE FROM account_password_resets WHERE user_id=:user_id AND code_hash=:code_hash'
                     )->execute(['user_id' => $account['id'], 'code_hash' => $codeHash]);
-                    error_log('koskosan.my.id password reset email could not be queued for user ID ' . (int) $account['id']);
+                    error_log('KosKosan password reset email could not be queued for user ID ' . (int) $account['id']);
                     set_flash('error', 'Email kode reset gagal dikirim oleh server. Coba lagi nanti atau hubungi administrator.');
                     redirect('forgot_password');
                 }
