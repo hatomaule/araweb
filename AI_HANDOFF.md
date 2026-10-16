@@ -91,11 +91,10 @@ Operator mengelola galeri foto bersama berdasarkan gedung dan tipe kamar melalui
 gedung, foto kamar, fasilitas kamar, dan fasilitas umum. Perubahan skema
 memerlukan `migration_room_type_gallery.sql` satu kali; lihat urutan migrasi di
 README sebelum memperbarui database target.
-Pemilih galeri selalu mencantumkan tipe Standart, Premium, dan Eksklusif meski
-gedung belum memiliki kamar untuk salah satu tipe. Pilih foto pada satu atau
-beberapa kategori dan kirim semuanya dengan tombol **Simpan foto** atas/bawah;
-handler membaca `gallery_photos_{category}` dan memvalidasi maksimal empat foto
-per kategori.
+Pemilih galeri hanya mencantumkan tipe kamar yang benar-benar tersedia pada
+gedung terpilih. Pilih foto pada satu atau beberapa kategori dan kirim semuanya
+dengan tombol **Simpan foto** atas/bawah; handler membaca
+`gallery_photos_{category}` dan memvalidasi maksimal empat foto per kategori.
 
 Tabel pada halaman manajemen menggunakan kontrol bersama di `app.js` untuk
 pencarian per tabel, 10 baris per halaman atau semua baris, serta navigasi

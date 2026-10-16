@@ -24,7 +24,12 @@ if ($building && !can_manage_building($pdo, $user, $buildingId)) {
     set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
     redirect('gallery');
 }
-$roomTypes = $building ? ['Tipe Standart', 'Tipe Premium', 'Tipe Eksklusif'] : [];
+$roomTypes = $building
+    ? array_column(
+        rows($pdo, 'SELECT DISTINCT room_type FROM rooms WHERE building_id=:id ORDER BY room_type', ['id' => $buildingId]),
+        'room_type'
+    )
+    : [];
 $selectedRoomType = isset($_GET['room_type']) && is_string($_GET['room_type'])
     ? $_GET['room_type'] : '';
 if ($roomTypes && !in_array($selectedRoomType, $roomTypes, true)) {

@@ -15,7 +15,10 @@ if ($action === 'upload_room_type_gallery_photos') {
                 set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
                 redirect('gallery');
             }
-            if (!in_array($roomType, ['Tipe Standart', 'Tipe Premium', 'Tipe Eksklusif'], true)) {
+            if (!one($pdo, 'SELECT id FROM rooms WHERE building_id=:building_id AND room_type=:room_type LIMIT 1', [
+                'building_id' => $buildingId,
+                'room_type' => $roomType,
+            ])) {
                 set_flash('error', 'Pilih tipe kamar galeri yang valid.');
                 redirect('gallery&building_id=' . $buildingId);
             }
