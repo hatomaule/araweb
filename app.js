@@ -1,4 +1,330 @@
 const initializeApp = () => {
+    const tableViewIcons = {
+        table: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg>',
+        cards: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/></svg>',
+    };
+    const tableViewLabels = { table: 'Tabel', cards: 'Kartu' };
+    const createDataViewPicker = (ariaLabel) => {
+        const picker = document.createElement('details');
+        picker.className = 'data-table-view-switch data-view-picker';
+        picker.setAttribute('aria-label', ariaLabel);
+        picker.innerHTML = '<summary class="data-view-picker-trigger"><span class="data-view-current-icon" data-view-current-icon aria-hidden="true"></span><span data-view-current-label></span><span class="data-view-picker-chevron" aria-hidden="true">⌄</span></summary><div class="data-view-picker-menu" role="group" aria-label="Pilihan tampilan"></div>';
+        const menu = picker.querySelector('.data-view-picker-menu');
+        const buttons = new Map();
+        Object.entries(tableViewLabels).forEach(([view, label]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'data-view-option';
+            button.dataset.viewValue = view;
+            button.setAttribute('aria-pressed', 'false');
+            button.innerHTML = `<span class="data-view-option-icon" aria-hidden="true">${tableViewIcons[view]}</span><span>${label}</span><span class="data-view-option-check" aria-hidden="true">✓</span>`;
+            buttons.set(view, button);
+            menu.append(button);
+        });
+        return { picker, buttons };
+    };
+    const syncDataViewPicker = (picker, buttons, view) => {
+        const selectedButton = buttons.get(view);
+        if (!selectedButton) return;
+        const currentIcon = picker.querySelector('[data-view-current-icon]');
+        const currentLabel = picker.querySelector('[data-view-current-label]');
+        const optionIcon = selectedButton.querySelector('.data-view-option-icon');
+        const optionLabel = selectedButton.querySelector('span:nth-child(2)');
+        if (currentIcon && optionIcon) currentIcon.innerHTML = optionIcon.innerHTML;
+        if (currentLabel && optionLabel) currentLabel.textContent = optionLabel.textContent;
+        buttons.forEach((button, buttonView) => {
+            button.setAttribute('aria-pressed', String(buttonView === view));
+        });
+    };
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.data-view-picker[open]').forEach((picker) => {
+            if (event.target instanceof Node && !picker.contains(event.target)) picker.open = false;
+        });
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.data-view-picker[open]').forEach((picker) => {
+            picker.open = false;
+            picker.querySelector('summary')?.focus();
+        });
+    });
+    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+    const sidebarBackdrop = document.querySelector('.sidebar-backdrop');
+    const closeMobileMenu = () => {
+        document.body.classList.remove('mobile-sidebar-open');
+        mobileMenuToggle?.setAttribute('aria-expanded', 'false');
+    };
+    mobileMenuToggle?.addEventListener('click', () => {
+        const isOpen = document.body.classList.toggle('mobile-sidebar-open');
+        mobileMenuToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+    sidebarBackdrop?.addEventListener('click', closeMobileMenu);
+    document.querySelectorAll('.sidebar .main-nav a').forEach((link) => {
+        link.addEventListener('click', closeMobileMenu);
+    });
+    document.querySelectorAll('[data-search-nearby]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const form = button.closest('form');
+            const latitude = form?.querySelector('[data-nearby-latitude]');
+            const longitude = form?.querySelector('[data-nearby-longitude]');
+            const status = form?.querySelector('[data-nearby-status]');
+            if (!(latitude instanceof HTMLInputElement) || !(longitude instanceof HTMLInputElement)) return;
+            if (!navigator.geolocation) {
+                if (status) status.textContent = 'Browser ini tidak mendukung lokasi. Cari menggunakan nama atau alamat.';
+                return;
+            }
+            button.disabled = true;
+            if (status) status.textContent = 'Meminta izin lokasi...';
+            navigator.geolocation.getCurrentPosition((position) => {
+                latitude.value = String(position.coords.latitude);
+                longitude.value = String(position.coords.longitude);
+                if (status) status.textContent = 'Lokasi diterima. Menampilkan kos terdekat...';
+                form?.requestSubmit();
+            }, (error) => {
+                button.disabled = false;
+                if (status) status.textContent = error.code === error.PERMISSION_DENIED
+                    ? 'Izin lokasi ditolak. Anda tetap dapat mencari berdasarkan nama atau alamat.'
+                    : 'Lokasi tidak dapat dimuat. Coba lagi atau gunakan pencarian alamat.';
+            }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+        });
+    });
+    document.querySelectorAll('[data-share-url]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const url = new URL(button.dataset.shareUrl || location.href, location.href).href;
+            const title = button.dataset.shareTitle || document.title;
+            try {
+                if (navigator.share) await navigator.share({ title, url });
+                else if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(url);
+                    button.textContent = 'Tautan disalin';
+                    window.setTimeout(() => { button.textContent = 'Bagikan'; }, 1800);
+                } else {
+                    window.prompt('Salin tautan kos ini:', url);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') console.error('Property sharing failed:', error);
+            }
+        });
+    });
+    document.addEventListener('click', (event) => {
+        const link = event.target instanceof Element
+            ? event.target.closest('a[href*="page=payment_proof"]') : null;
+        if (!(link instanceof HTMLAnchorElement)) return;
+        event.preventDefault();
+        let dialog = document.getElementById('payment-proof-dialog');
+        if (!dialog) {
+            dialog = document.createElement('dialog');
+            dialog.id = 'payment-proof-dialog';
+            dialog.className = 'photo-lightbox payment-proof-dialog';
+            dialog.setAttribute('aria-label', 'Bukti pembayaran');
+            dialog.innerHTML = '<button class="photo-lightbox-close" type="button" data-proof-close aria-label="Tutup bukti">×</button><img alt="Bukti pembayaran">';
+            document.body.append(dialog);
+            dialog.addEventListener('click', (closeEvent) => {
+                if (closeEvent.target === dialog || closeEvent.target.closest('[data-proof-close]')) dialog.close();
+            });
+        }
+        const proofImage = dialog.querySelector('img');
+        if (proofImage) proofImage.src = link.href;
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else window.open(link.href, '_blank', 'noopener');
+    });
+    const selectMenuControls = new Map();
+    let selectDropdownCount = 0;
+    const initializeSelectDropdowns = (root = document) => {
+        const selects = root instanceof HTMLSelectElement
+            ? [root]
+            : Array.from(root.querySelectorAll('select'));
+        selects.forEach((select) => {
+            if (select.multiple || select.size > 1 || select.dataset.customSelectInitialized === 'true') return;
+            select.dataset.customSelectInitialized = 'true';
+
+            const wrapper = document.createElement('span');
+            wrapper.className = 'select-control';
+            select.parentNode.insertBefore(wrapper, select);
+            wrapper.append(select);
+            select.classList.add('visually-hidden', 'select-native');
+            select.tabIndex = -1;
+            select.setAttribute('aria-hidden', 'true');
+
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'select-trigger';
+            trigger.setAttribute('role', 'combobox');
+            trigger.setAttribute('aria-haspopup', 'listbox');
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.setAttribute('aria-autocomplete', 'none');
+
+            const label = select.labels?.[0];
+            const labelText = label?.querySelector('span')?.textContent?.trim()
+                || label?.textContent?.trim()
+                || select.getAttribute('aria-label')
+                || 'Pilih opsi';
+            trigger.setAttribute('aria-label', select.getAttribute('aria-label') || labelText);
+
+            const valueLabel = document.createElement('span');
+            valueLabel.className = 'select-trigger-value';
+            const chevron = document.createElement('span');
+            chevron.className = 'select-trigger-chevron';
+            chevron.setAttribute('aria-hidden', 'true');
+            trigger.append(valueLabel, chevron);
+
+            const errorMessage = document.createElement('span');
+            errorMessage.className = 'select-error-message';
+            errorMessage.setAttribute('role', 'alert');
+            errorMessage.hidden = true;
+            wrapper.append(trigger, errorMessage);
+
+            const menu = document.createElement('div');
+            menu.className = 'select-menu';
+            menu.id = `koskosan-select-menu-${++selectDropdownCount}`;
+            menu.setAttribute('role', 'listbox');
+            menu.setAttribute('aria-label', labelText);
+            menu.hidden = true;
+            document.body.append(menu);
+            trigger.setAttribute('aria-controls', menu.id);
+
+            const sync = () => {
+                const selectedOption = select.selectedOptions[0];
+                valueLabel.textContent = selectedOption?.label || 'Pilih opsi';
+                trigger.disabled = select.disabled;
+                trigger.setAttribute('aria-required', String(select.required));
+                menu.replaceChildren();
+                Array.from(select.options).forEach((option, index) => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'select-option';
+                    item.dataset.optionIndex = String(index);
+                    item.setAttribute('role', 'option');
+                    item.setAttribute('aria-selected', String(index === select.selectedIndex));
+                    item.tabIndex = -1;
+                    item.disabled = option.disabled || select.disabled;
+                    item.textContent = option.label;
+                    item.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (item.disabled) return;
+                        select.selectedIndex = index;
+                        select.dispatchEvent(new Event('input', { bubbles: true }));
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                        wrapper.classList.remove('has-error');
+                        trigger.removeAttribute('aria-invalid');
+                        errorMessage.hidden = true;
+                        closeMenu(true);
+                    });
+                    menu.append(item);
+                });
+                if (!menu.hidden) positionMenu();
+            };
+
+            const positionMenu = () => {
+                const bounds = trigger.getBoundingClientRect();
+                const availableBelow = window.innerHeight - bounds.bottom - 10;
+                const availableAbove = bounds.top - 10;
+                const openAbove = availableBelow < Math.min(menu.scrollHeight, 220)
+                    && availableAbove > availableBelow;
+                const menuWidth = Math.min(bounds.width, window.innerWidth - 16);
+                menu.style.left = `${Math.max(8, Math.min(bounds.left, window.innerWidth - menuWidth - 8))}px`;
+                menu.style.width = `${menuWidth}px`;
+                menu.style.maxHeight = `${Math.max(100, Math.min(260, openAbove ? availableAbove : availableBelow))}px`;
+                menu.style.top = openAbove
+                    ? `${Math.max(8, bounds.top - menu.offsetHeight - 6)}px`
+                    : `${Math.min(window.innerHeight - 8, bounds.bottom + 6)}px`;
+                menu.dataset.placement = openAbove ? 'top' : 'bottom';
+            };
+
+            const closeMenu = (returnFocus = false) => {
+                if (menu.hidden) return;
+                menu.hidden = true;
+                wrapper.classList.remove('is-open');
+                trigger.setAttribute('aria-expanded', 'false');
+                if (returnFocus) trigger.focus();
+            };
+
+            const openMenu = (focusSelected = true) => {
+                if (trigger.disabled) return;
+                document.querySelectorAll('.select-menu:not([hidden])').forEach((openMenuElement) => {
+                    if (openMenuElement !== menu) {
+                        const controls = selectMenuControls.get(openMenuElement);
+                        openMenuElement.hidden = true;
+                        controls?.wrapper.classList.remove('is-open');
+                        controls?.trigger.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                menu.hidden = false;
+                wrapper.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+                positionMenu();
+                const items = Array.from(menu.querySelectorAll('.select-option:not(:disabled)'));
+                const selected = items.find((item) => Number(item.dataset.optionIndex) === select.selectedIndex);
+                if (focusSelected) (selected || items[0])?.focus();
+            };
+            selectMenuControls.set(menu, { wrapper, trigger });
+
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (menu.hidden) openMenu();
+                else closeMenu();
+            });
+            trigger.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openMenu();
+                }
+            });
+            menu.addEventListener('keydown', (event) => {
+                const items = Array.from(menu.querySelectorAll('.select-option:not(:disabled)'));
+                const currentIndex = items.indexOf(document.activeElement);
+                let targetIndex = currentIndex;
+                if (event.key === 'ArrowDown') targetIndex = Math.min(items.length - 1, currentIndex + 1);
+                else if (event.key === 'ArrowUp') targetIndex = Math.max(0, currentIndex - 1);
+                else if (event.key === 'Home') targetIndex = 0;
+                else if (event.key === 'End') targetIndex = items.length - 1;
+                else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeMenu(true);
+                    return;
+                } else if (event.key === 'Tab') {
+                    closeMenu(true);
+                    return;
+                } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                    const match = items.find((item) => item.textContent.trim()
+                        .toLocaleLowerCase('id').startsWith(event.key.toLocaleLowerCase('id')));
+                    if (match) {
+                        event.preventDefault();
+                        match.focus();
+                    }
+                    return;
+                } else return;
+                event.preventDefault();
+                items[targetIndex]?.focus();
+            });
+            select.addEventListener('change', sync);
+            select.addEventListener('invalid', (event) => {
+                event.preventDefault();
+                wrapper.classList.add('has-error');
+                trigger.setAttribute('aria-invalid', 'true');
+                errorMessage.textContent = `Pilih ${labelText.toLocaleLowerCase('id')}.`;
+                errorMessage.hidden = false;
+                trigger.focus();
+                openMenu(false);
+            });
+            select.form?.addEventListener('reset', () => window.setTimeout(sync));
+            document.addEventListener('pointerdown', (event) => {
+                if (!wrapper.contains(event.target) && !menu.contains(event.target)) closeMenu();
+            });
+            window.addEventListener('resize', () => {
+                if (!menu.hidden) positionMenu();
+            });
+            document.addEventListener('scroll', () => {
+                if (!menu.hidden) positionMenu();
+            }, true);
+            const optionObserver = new MutationObserver(sync);
+            optionObserver.observe(select, { childList: true, subtree: true, characterData: true, attributes: true });
+            sync();
+        });
+    };
+
     const themeStorageKey = 'koskosan-theme';
     const themeSwitchers = document.querySelectorAll('[data-theme-switcher]');
     let savedTheme = 'light';
@@ -11,7 +337,9 @@ const initializeApp = () => {
     themeSwitchers.forEach((switcher) => {
         const syncThemeMenu = (theme) => {
             const label = switcher.querySelector('[data-theme-label]');
+            const icon = switcher.querySelector('[data-theme-current-icon]');
             if (label) label.textContent = theme === 'dark' ? 'Dark' : 'Light';
+            if (icon) icon.textContent = theme === 'dark' ? '☾' : '☀';
             switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
                 choice.setAttribute('aria-pressed', String(choice.dataset.themeChoice === theme));
             });
@@ -23,7 +351,9 @@ const initializeApp = () => {
                 document.documentElement.dataset.theme = selectedTheme;
                 themeSwitchers.forEach((otherSwitcher) => {
                     const label = otherSwitcher.querySelector('[data-theme-label]');
+                    const icon = otherSwitcher.querySelector('[data-theme-current-icon]');
                     if (label) label.textContent = selectedTheme === 'dark' ? 'Dark' : 'Light';
+                    if (icon) icon.textContent = selectedTheme === 'dark' ? '☾' : '☀';
                     otherSwitcher.querySelectorAll('[data-theme-choice]').forEach((otherChoice) => {
                         otherChoice.setAttribute('aria-pressed', String(otherChoice.dataset.themeChoice === selectedTheme));
                     });
@@ -155,8 +485,312 @@ const initializeApp = () => {
     };
     document.querySelectorAll('[data-region-picker]').forEach(initializeRegionPicker);
 
+    document.querySelectorAll('[data-building-gallery]').forEach((gallery) => {
+        const input = document.getElementById('building-gallery-input');
+        const grid = gallery.querySelector('[data-building-gallery-grid]');
+        const addButton = gallery.querySelector('[data-building-gallery-add]');
+        const status = gallery.querySelector('[data-building-gallery-status]');
+        const count = gallery.querySelector('[data-building-gallery-count]');
+        const form = document.getElementById('building-form');
+        if (!(input instanceof HTMLInputElement) || !grid || !(addButton instanceof HTMLButtonElement)
+            || !status || !count || !(form instanceof HTMLFormElement)) return;
+
+        let pendingFiles = [];
+        const syncInputFiles = () => {
+            const transfer = new DataTransfer();
+            pendingFiles.forEach(({ file }) => transfer.items.add(file));
+            input.files = transfer.files;
+        };
+        const renderPendingFiles = () => {
+            grid.querySelectorAll('[data-building-pending-photo]').forEach((photo) => photo.remove());
+            pendingFiles.forEach(({ file, previewUrl }, index) => {
+                const card = document.createElement('article');
+                card.dataset.buildingPendingPhoto = '';
+                card.className = 'building-pending-photo';
+                const image = document.createElement('img');
+                image.src = previewUrl;
+                image.alt = `Pratinjau ${file.name}`;
+                const details = document.createElement('div');
+                details.className = 'building-pending-photo-details';
+                const name = document.createElement('span');
+                name.textContent = file.name;
+                const size = document.createElement('small');
+                size.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB · Siap disimpan`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'text-button';
+                remove.textContent = 'Hapus pilihan';
+                remove.setAttribute('aria-label', `Hapus ${file.name} dari pilihan`);
+                remove.addEventListener('click', () => {
+                    URL.revokeObjectURL(pendingFiles[index].previewUrl);
+                    pendingFiles.splice(index, 1);
+                    syncInputFiles();
+                    renderPendingFiles();
+                    status.textContent = 'Foto yang dipilih akan tersimpan saat Anda menekan tombol simpan perubahan.';
+                });
+                details.append(name, size, remove);
+                card.append(image, details);
+                grid.append(card);
+            });
+
+            const savedCount = grid.querySelectorAll('article:not([data-building-pending-photo])').length;
+            count.textContent = pendingFiles.length
+                ? `${savedCount} foto tersimpan · ${pendingFiles.length} foto baru siap disimpan`
+                : `${savedCount} foto tersimpan`;
+            addButton.disabled = pendingFiles.length >= 4;
+        };
+
+        addButton.addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            const selectedFiles = Array.from(input.files || []);
+            const uniqueFiles = selectedFiles.filter((file) => !pendingFiles.some((pending) =>
+                pending.file.name === file.name && pending.file.size === file.size
+                    && pending.file.lastModified === file.lastModified
+            ));
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const allowedExtensions = /\.(jpe?g|png|webp)$/i;
+            const invalidFile = uniqueFiles.find((file) =>
+                file.size < 1 || file.size > 4 * 1024 * 1024
+                    || (!allowedTypes.includes(file.type)
+                        && !(file.type === '' && allowedExtensions.test(file.name)))
+            );
+            if (invalidFile) {
+                syncInputFiles();
+                status.textContent = `${invalidFile.name}: pilih gambar JPG, PNG, atau WebP maksimal 4 MB.`;
+                return;
+            }
+            if (pendingFiles.length + uniqueFiles.length > 4) {
+                syncInputFiles();
+                status.textContent = 'Maksimal 4 foto baru dapat ditambahkan setiap kali menyimpan.';
+                return;
+            }
+
+            uniqueFiles.forEach((file) => pendingFiles.push({
+                file,
+                previewUrl: URL.createObjectURL(file),
+            }));
+            syncInputFiles();
+            renderPendingFiles();
+            status.textContent = pendingFiles.length
+                ? `${pendingFiles.length} foto baru siap disimpan bersama perubahan gedung.`
+                : 'Pilih foto untuk menambahkannya ke galeri gedung.';
+        });
+        form.addEventListener('submit', () => {
+            if (!pendingFiles.length) return;
+            status.textContent = `Mengunggah ${pendingFiles.length} foto ke galeri gedung...`;
+            addButton.disabled = true;
+            form.querySelectorAll('button[type="submit"]').forEach((button) => {
+                button.disabled = true;
+            });
+            document.querySelectorAll('button[form="building-form"]').forEach((button) => {
+                button.disabled = true;
+            });
+        });
+        renderPendingFiles();
+    });
+
+    document.querySelectorAll('[data-building-card-list]').forEach((list) => {
+        const cards = Array.from(list.querySelectorAll('[data-building-card]'));
+        const search = list.querySelector('[data-building-card-search]');
+        const pageSizeSelect = list.querySelector('[data-building-card-page-size]');
+        const summary = list.querySelector('[data-building-card-summary]');
+        const previous = list.querySelector('[data-building-card-previous]');
+        const next = list.querySelector('[data-building-card-next]');
+        const empty = list.querySelector('[data-building-card-empty]');
+        if (!(search instanceof HTMLInputElement) || !(pageSizeSelect instanceof HTMLSelectElement)
+            || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
+            || !(empty instanceof HTMLElement) || !summary) return;
+
+        let currentPage = 1;
+        const render = () => {
+            const query = search.value.trim().toLocaleLowerCase('id');
+            const matches = cards.filter((card) => !query
+                || card.textContent.toLocaleLowerCase('id').includes(query));
+            const pageSize = pageSizeSelect.value === 'all'
+                ? Math.max(matches.length, 1) : Number(pageSizeSelect.value);
+            const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+            currentPage = Math.min(currentPage, pageCount);
+            const first = pageSizeSelect.value === 'all' ? 0 : (currentPage - 1) * pageSize;
+            const visibleCards = new Set(matches.slice(first, first + pageSize));
+            cards.forEach((card) => { card.hidden = !visibleCards.has(card); });
+            pageSizeSelect.closest('label')?.toggleAttribute('hidden', matches.length <= 5);
+            empty.hidden = matches.length > 0;
+            if (matches.length === 0) {
+                summary.textContent = cards.length ? 'Tidak ada hasil' : '0 gedung';
+            } else {
+                summary.textContent = `${first + 1}–${Math.min(first + pageSize, matches.length)} dari ${matches.length}`;
+            }
+            previous.disabled = currentPage <= 1;
+            next.disabled = currentPage >= pageCount;
+        };
+
+        search.addEventListener('input', () => {
+            currentPage = 1;
+            render();
+        });
+        pageSizeSelect.addEventListener('change', () => {
+            currentPage = 1;
+            render();
+        });
+        previous.addEventListener('click', () => {
+            currentPage -= 1;
+            render();
+        });
+        next.addEventListener('click', () => {
+            currentPage += 1;
+            render();
+        });
+        render();
+    });
+
+    document.querySelectorAll('[data-room-management]').forEach((management) => {
+        const table = management.querySelector('[data-room-table]');
+        const tableView = management.querySelector('[data-room-table-view]');
+        const cardView = management.querySelector('[data-room-card-view]');
+        const buildingFilter = management.querySelector('[data-room-building]');
+        const typeFilter = management.querySelector('select[data-room-type]');
+        const search = management.querySelector('[data-room-search]');
+        const viewPicker = management.querySelector('[data-room-view-switch]');
+        const viewButtons = new Map(Array.from(management.querySelectorAll('[data-room-view]'))
+            .map((button) => [button.dataset.roomView, button]));
+        const pagination = management.querySelector('[data-room-pagination]');
+        const pageSizeSelect = management.querySelector('[data-room-page-size]');
+        const summary = management.querySelector('[data-room-summary]');
+        const previous = management.querySelector('[data-room-previous]');
+        const next = management.querySelector('[data-room-next]');
+        const cardEmpty = management.querySelector('[data-room-card-empty]');
+        const storageKey = management.dataset.roomViewStorageKey || 'roomManagementView';
+        if (!(table instanceof HTMLTableElement) || !tableView || !cardView
+            || !(buildingFilter instanceof HTMLSelectElement) || !(typeFilter instanceof HTMLSelectElement)
+            || !(search instanceof HTMLInputElement) || !pagination
+            || !(pageSizeSelect instanceof HTMLSelectElement) || !summary
+            || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
+            || !cardEmpty || !(viewPicker instanceof HTMLDetailsElement) || !viewButtons.size) return;
+
+        const tbody = table.tBodies[0];
+        const rows = Array.from(tbody.querySelectorAll('[data-room-row]'));
+        const groups = Array.from(cardView.querySelectorAll('[data-room-group]')).map((group) => ({
+            element: group,
+            cards: Array.from(group.querySelectorAll('[data-room-card]')),
+        }));
+        let currentPage = 1;
+        let selectedView = 'table';
+        try {
+            const savedView = localStorage.getItem(storageKey);
+            if (savedView === 'table' || savedView === 'cards') selectedView = savedView;
+        } catch (error) {
+            console.error('Room view preference could not be read:', error);
+        }
+
+        const updateRoomTypes = () => {
+            const selectedBuilding = buildingFilter.value;
+            const roomTypes = Array.from(new Set(rows
+                .filter((row) => !selectedBuilding || row.dataset.buildingId === selectedBuilding)
+                .map((row) => row.dataset.roomType)
+                .filter(Boolean)))
+                .sort((first, second) => first.localeCompare(second, 'id'));
+            typeFilter.replaceChildren(new Option('Semua tipe', ''));
+            roomTypes.forEach((type) => typeFilter.add(new Option(type, type)));
+            typeFilter.disabled = !selectedBuilding || roomTypes.length === 0;
+            typeFilter.value = '';
+        };
+
+        const render = () => {
+            const selectedBuilding = buildingFilter.value;
+            const selectedType = typeFilter.value;
+            const query = search.value.trim().toLocaleLowerCase('id');
+            const matchingRows = rows.filter((row) => {
+                const matchesBuilding = !selectedBuilding || row.dataset.buildingId === selectedBuilding;
+                const matchesType = !selectedType || row.dataset.roomType === selectedType;
+                return matchesBuilding && matchesType
+                    && (!query || row.textContent.toLocaleLowerCase('id').includes(query));
+            });
+            pageSizeSelect.closest('label')?.toggleAttribute('hidden', matchingRows.length <= 5);
+            const matchingCards = [];
+            groups.forEach(({ element, cards }) => {
+                const matchesGroup = (!selectedBuilding || element.dataset.buildingId === selectedBuilding)
+                    && (!selectedType || element.dataset.roomType === selectedType);
+                const visibleCards = cards.filter((card) =>
+                    matchesGroup && (!query || card.textContent.toLocaleLowerCase('id').includes(query))
+                );
+                cards.forEach((card) => { card.hidden = !visibleCards.includes(card); });
+                element.hidden = visibleCards.length === 0;
+                matchingCards.push(...visibleCards);
+                const track = element.querySelector('.room-carousel-track');
+                if (track instanceof HTMLElement) track.scrollLeft = 0;
+            });
+            cardView.querySelectorAll('[data-room-building-group]').forEach((buildingGroup) => {
+                buildingGroup.hidden = !buildingGroup.querySelector('[data-room-group]:not([hidden])');
+            });
+            cardEmpty.hidden = matchingCards.length > 0;
+
+            const pageSize = pageSizeSelect.value === 'all'
+                ? matchingRows.length || 1 : Number(pageSizeSelect.value);
+            const pageCount = Math.max(1, Math.ceil(matchingRows.length / pageSize));
+            currentPage = Math.min(currentPage, pageCount);
+            const start = pageSizeSelect.value === 'all' ? 0 : (currentPage - 1) * pageSize;
+            const visibleRows = matchingRows.slice(start, start + pageSize);
+            const visibleRowSet = new Set(visibleRows);
+            rows.forEach((row) => { row.hidden = !visibleRowSet.has(row); });
+            let emptyRow = tbody.querySelector('[data-room-empty]');
+            if (!emptyRow) {
+                emptyRow = document.createElement('tr');
+                emptyRow.dataset.roomEmpty = '';
+                const cell = document.createElement('td');
+                cell.colSpan = 5;
+                cell.className = 'no-data';
+                cell.textContent = 'Tidak ada kamar yang cocok dengan pencarian atau filter.';
+                emptyRow.append(cell);
+                tbody.append(emptyRow);
+            }
+            emptyRow.hidden = matchingRows.length > 0;
+            const first = matchingRows.length ? start + 1 : 0;
+            const last = Math.min(start + visibleRows.length, matchingRows.length);
+            summary.textContent = `${first}–${last} dari ${matchingRows.length}`;
+            previous.disabled = currentPage <= 1 || pageSizeSelect.value === 'all';
+            next.disabled = currentPage >= pageCount || pageSizeSelect.value === 'all';
+            if (selectedView === 'cards') window.dispatchEvent(new Event('resize'));
+        };
+
+        const setView = (view) => {
+            selectedView = view;
+            tableView.hidden = view !== 'table';
+            cardView.hidden = view !== 'cards';
+            pagination.hidden = view !== 'table';
+            syncDataViewPicker(viewPicker, viewButtons, view);
+            try {
+                localStorage.setItem(storageKey, view);
+            } catch (error) {
+                console.error('Room view preference could not be saved:', error);
+            }
+            if (view === 'cards') window.dispatchEvent(new Event('resize'));
+        };
+
+        buildingFilter.addEventListener('change', () => {
+            updateRoomTypes();
+            currentPage = 1;
+            render();
+        });
+        typeFilter.addEventListener('change', () => { currentPage = 1; render(); });
+        search.addEventListener('input', () => { currentPage = 1; render(); });
+        pageSizeSelect.addEventListener('change', () => { currentPage = 1; render(); });
+        previous.addEventListener('click', () => { currentPage -= 1; render(); });
+        next.addEventListener('click', () => { currentPage += 1; render(); });
+        viewButtons.forEach((button, view) => {
+            button.addEventListener('click', () => {
+                setView(view);
+                viewPicker.open = false;
+            });
+        });
+
+        updateRoomTypes();
+        render();
+        setView(selectedView);
+    });
+
     document.querySelectorAll('.main-area .content table').forEach((table) => {
         if (!(table instanceof HTMLTableElement) || !table.tHead || !table.tBodies.length) return;
+        if (table.closest('[data-room-management]')) return;
         const tbody = table.tBodies[0];
         const rows = Array.from(tbody.rows).filter((row) =>
             !row.hasAttribute('data-table-group-heading') && !row.querySelector('.no-data')
@@ -233,8 +867,10 @@ const initializeApp = () => {
         pageSizeCaption.textContent = 'Tampilkan';
         const pageSizeSelect = document.createElement('select');
         pageSizeSelect.setAttribute('aria-label', 'Jumlah data yang ditampilkan');
+        pageSizeSelect.add(new Option('5', '5'));
         pageSizeSelect.add(new Option('10', '10'));
         pageSizeSelect.add(new Option('Semua', 'all'));
+        pageSizeSelect.value = '10';
         pageSizeLabel.append(pageSizeCaption, pageSizeSelect);
 
         const navigation = document.createElement('div');
@@ -253,10 +889,49 @@ const initializeApp = () => {
         navigation.append(summary, previous, next);
         const tableControls = document.createElement('div');
         tableControls.className = 'data-table-controls';
-        tableControls.append(navigation, pageSizeLabel);
+        const { picker: viewSwitch, buttons: viewButtons } = createDataViewPicker('Pilih tampilan data');
+        const tableKey = table.id || `${location.pathname}:${new URLSearchParams(location.search).get('page') || 'page'}:${Array.from(document.querySelectorAll('.main-area .content table')).indexOf(table)}`;
+        const storageKey = `koskosan-table-view:${tableKey}`;
+        let tableContainer = table.closest('.table-scroll');
+        if (!tableContainer) {
+            tableContainer = document.createElement('div');
+            tableContainer.className = 'table-scroll';
+            table.before(tableContainer);
+            tableContainer.append(table);
+        }
+        const applyView = (view) => {
+            const cardView = view === 'cards';
+            const selectedView = cardView ? 'cards' : 'table';
+            syncDataViewPicker(viewSwitch, viewButtons, selectedView);
+            tableContainer.classList.toggle('data-table-card-view', cardView);
+            try {
+                localStorage.setItem(storageKey, selectedView);
+            } catch (error) {
+                console.error('Table display preference could not be saved:', error);
+            }
+        };
+        rows.forEach((row) => {
+            Array.from(row.cells).forEach((cell, index) => {
+                const heading = table.tHead.rows[0]?.cells[index];
+                if (heading && !cell.hasAttribute('colspan')) cell.dataset.label = heading.textContent.trim();
+            });
+        });
+        let selectedTableView = 'table';
+        try {
+            selectedTableView = localStorage.getItem(storageKey) === 'cards' ? 'cards' : 'table';
+        } catch (error) {
+            console.error('Table display preference could not be read:', error);
+        }
+        viewButtons.forEach((button, view) => {
+            button.addEventListener('click', () => {
+                applyView(view);
+                viewSwitch.open = false;
+            });
+        });
+        tableControls.append(navigation, pageSizeLabel, viewSwitch);
         tools.append(tableControls);
-        const tableContainer = table.closest('.table-scroll') || table;
         tableContainer.before(tools);
+        applyView(selectedTableView);
 
         const emptyRow = document.createElement('tr');
         emptyRow.hidden = true;
@@ -283,7 +958,9 @@ const initializeApp = () => {
                 });
                 return matchesSearch && matchesBuilding && matchesRegions;
             });
-            const pageSize = pageSizeSelect.value === 'all' ? matchingRows.length || 1 : 10;
+            const pageSize = pageSizeSelect.value === 'all'
+                ? matchingRows.length || 1 : Number(pageSizeSelect.value);
+            pageSizeLabel.hidden = matchingRows.length <= 5;
             const pageCount = Math.max(1, Math.ceil(matchingRows.length / pageSize));
             currentPage = Math.min(currentPage, pageCount);
             const start = pageSizeSelect.value === 'all' ? 0 : (currentPage - 1) * pageSize;
@@ -307,7 +984,7 @@ const initializeApp = () => {
 
             const first = matchingRows.length ? start + 1 : 0;
             const last = Math.min(start + visibleRows.length, matchingRows.length);
-            summary.textContent = `Menampilkan ${first}–${last} dari ${matchingRows.length} data`;
+            summary.textContent = `${first}–${last} dari ${matchingRows.length}`;
             previous.disabled = currentPage <= 1 || pageSizeSelect.value === 'all';
             next.disabled = currentPage >= pageCount || pageSizeSelect.value === 'all';
         };
@@ -318,6 +995,122 @@ const initializeApp = () => {
         previous.addEventListener('click', () => { currentPage -= 1; render(); });
         next.addEventListener('click', () => { currentPage += 1; render(); });
         render();
+    });
+
+    document.querySelectorAll('[data-photo-upload]').forEach((uploader) => {
+        const input = uploader.querySelector('[data-photo-upload-input]');
+        const trigger = uploader.querySelector('[data-photo-upload-trigger]');
+        const count = uploader.querySelector('[data-photo-upload-count]');
+        const status = uploader.querySelector('[data-photo-upload-status]');
+        const grid = uploader.querySelector('[data-photo-upload-grid]');
+        if (!(input instanceof HTMLInputElement) || !(trigger instanceof HTMLButtonElement)
+            || !count || !status || !grid) return;
+
+        input.setAttribute('aria-hidden', 'true');
+        input.tabIndex = -1;
+        const limit = Number(uploader.dataset.photoUploadLimit);
+        const savedCount = Number(uploader.dataset.photoUploadSaved) || 0;
+        const idleLabel = uploader.dataset.photoUploadIdleLabel
+            || (savedCount ? `${savedCount} foto tersimpan` : 'Belum ada foto yang dipilih');
+        if (!Number.isInteger(limit) || limit < 1) return;
+        let pendingFiles = [];
+        const syncInputFiles = () => {
+            const transfer = new DataTransfer();
+            pendingFiles.forEach(({ file }) => transfer.items.add(file));
+            input.files = transfer.files;
+        };
+        const renderPendingFiles = () => {
+            grid.replaceChildren();
+            pendingFiles.forEach(({ file, previewUrl }, index) => {
+                const card = document.createElement('article');
+                card.className = 'building-pending-photo photo-upload-pending';
+                const image = document.createElement('img');
+                image.src = previewUrl;
+                image.alt = `Pratinjau ${file.name}`;
+                const details = document.createElement('div');
+                details.className = 'building-pending-photo-details';
+                const name = document.createElement('span');
+                name.textContent = file.name;
+                const size = document.createElement('small');
+                size.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB · Siap disimpan`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'text-button';
+                remove.textContent = 'Hapus pilihan';
+                remove.setAttribute('aria-label', `Hapus ${file.name} dari pilihan`);
+                remove.addEventListener('click', () => {
+                    URL.revokeObjectURL(pendingFiles[index].previewUrl);
+                    pendingFiles.splice(index, 1);
+                    syncInputFiles();
+                    renderPendingFiles();
+                    status.textContent = pendingFiles.length
+                        ? `${pendingFiles.length} foto baru siap disimpan.`
+                        : 'Pilih foto untuk menambahkannya.';
+                });
+                details.append(name, size, remove);
+                card.append(image, details);
+                grid.append(card);
+            });
+
+            count.textContent = pendingFiles.length
+                ? `${savedCount} foto tersimpan · ${pendingFiles.length} foto baru siap disimpan`
+                : idleLabel;
+            const emptyState = uploader.parentElement?.querySelector('[data-photo-upload-empty]');
+            if (emptyState instanceof HTMLElement) emptyState.hidden = savedCount > 0 || pendingFiles.length > 0;
+            trigger.disabled = pendingFiles.length >= limit;
+        };
+
+        trigger.addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            const selectedFiles = Array.from(input.files || []);
+            if (!selectedFiles.length) return;
+            const uniqueFiles = selectedFiles.filter((file) => !pendingFiles.some((pending) =>
+                pending.file.name === file.name && pending.file.size === file.size
+                    && pending.file.lastModified === file.lastModified
+            ));
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const allowedExtensions = /\.(jpe?g|png|webp)$/i;
+            const invalidFile = uniqueFiles.find((file) =>
+                file.size < 1 || file.size > 4 * 1024 * 1024
+                    || (!allowedTypes.includes(file.type)
+                        && !(file.type === '' && allowedExtensions.test(file.name)))
+            );
+            if (invalidFile) {
+                syncInputFiles();
+                status.textContent = `${invalidFile.name}: pilih gambar JPG, PNG, atau WebP maksimal 4 MB.`;
+                return;
+            }
+            if (pendingFiles.length + uniqueFiles.length > limit) {
+                syncInputFiles();
+                status.textContent = `Maksimal ${limit} foto baru dapat ditambahkan.`;
+                return;
+            }
+
+            uniqueFiles.forEach((file) => pendingFiles.push({
+                file,
+                previewUrl: URL.createObjectURL(file),
+            }));
+            syncInputFiles();
+            renderPendingFiles();
+            status.textContent = pendingFiles.length
+                ? `${pendingFiles.length} foto baru siap disimpan bersama perubahan.`
+                : 'Pilih foto untuk menambahkannya.';
+        });
+        input.form?.addEventListener('submit', () => {
+            if (!pendingFiles.length) return;
+            status.textContent = `Mengunggah ${pendingFiles.length} foto...`;
+            trigger.disabled = true;
+            document.querySelectorAll('button[type="submit"]').forEach((button) => {
+                if (button.form !== input.form) return;
+                button.disabled = true;
+            });
+        });
+        input.form?.querySelector('[name="remove_profile_photo"]')?.addEventListener('click', () => {
+            pendingFiles.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+            pendingFiles = [];
+            input.value = '';
+            renderPendingFiles();
+        });
     });
 
     document.querySelectorAll('input[type="password"]').forEach((input) => {
@@ -429,7 +1222,8 @@ const initializeApp = () => {
         };
         button.addEventListener('click', () => {
             const direction = button.dataset.carouselDirection === 'left' ? -1 : 1;
-            track.scrollBy({ left: direction * Math.max(track.clientWidth * 0.8, 220), behavior: 'smooth' });
+            const pageWidth = track.clientWidth * (track.classList.contains('room-carousel-track') ? 1 : 0.8);
+            track.scrollBy({ left: direction * Math.max(pageWidth, 220), behavior: 'smooth' });
         });
         track.addEventListener('scroll', updateArrows, { passive: true });
         window.addEventListener('resize', updateArrows);
@@ -480,6 +1274,16 @@ const initializeApp = () => {
             photoPreview.alt = '';
         });
     }
+
+    initializeSelectDropdowns();
+    const addedSelectObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node instanceof Element) initializeSelectDropdowns(node);
+            });
+        });
+    });
+    addedSelectObserver.observe(document.body, { childList: true, subtree: true });
 
     const accountMenu = document.querySelector('.account-menu');
     if (accountMenu) {

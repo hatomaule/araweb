@@ -333,7 +333,8 @@ if ($action === 'save_operator_payment') {
                 } else {
                     $existingAccountQuery = $pdo->prepare(
                         "SELECT id,name,email,phone,gender,status
-                         FROM users WHERE id=:id AND role='seeker' AND status='active' FOR UPDATE"
+                         FROM users WHERE id=:id AND role='seeker' AND status='active'
+                           AND self_deactivated_at IS NULL FOR UPDATE"
                     );
                     $existingAccountQuery->execute(['id' => (int) post_value('existing_user_id')]);
                     $existingAccount = $existingAccountQuery->fetch();

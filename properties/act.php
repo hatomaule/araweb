@@ -3,6 +3,123 @@ declare(strict_types=1);
 
 function handle_property_action(PDO $pdo, array $user, string $action): void
 {
+if ($action === 'submit_property_verification') {
+    $buildingId = (int) post_value('building_id');
+    $requestedTier = post_value('requested_tier');
+    $note = post_value('operator_note');
+    if ($user['role'] !== 'operator' || !in_array($requestedTier, ['premium', 'exclusive'], true)
+        || strlen($note) > 2000 || !can_manage_building($pdo, $user, $buildingId)) {
+        set_flash('error', 'Pengajuan verifikasi properti tidak valid.');
+        redirect('buildings');
+    }
+    $building = one(
+        $pdo,
+        'SELECT id,profile_photo_path,address,description,latitude,longitude,verification_status
+         FROM kos_buildings WHERE id=:id',
+        ['id' => $buildingId]
+    );
+    $roomCount = (int) one($pdo, 'SELECT COUNT(*) AS count FROM rooms WHERE building_id=:id', ['id' => $buildingId])['count'];
+    $photoCount = (int) one(
+        $pdo,
+        "SELECT
+            (SELECT COUNT(*) FROM property_photos WHERE building_id=:building_id) +
+            (SELECT COUNT(*) FROM room_type_gallery_photos WHERE building_id=:building_id_2) AS count",
+        ['building_id' => $buildingId, 'building_id_2' => $buildingId]
+    )['count'];
+    $pendingRequest = one(
+        $pdo,
+        "SELECT id FROM property_verification_requests WHERE building_id=:id AND status='pending' LIMIT 1",
+        ['id' => $buildingId]
+    );
+    if (!$building || !$building['profile_photo_path'] || !$building['address']
+        || !$building['description'] || $building['latitude'] === null
+        || $building['longitude'] === null || $roomCount < 1 || $photoCount < 3
+        || $building['verification_status'] === 'verified' || $pendingRequest) {
+        set_flash('error', 'Lengkapi alamat, deskripsi, titik lokasi, minimal satu kamar, dan sedikitnya tiga foto. Pastikan tidak ada pengajuan yang sedang diproses.');
+        redirect('building_form&id=' . $buildingId);
+    }
+    $pdo->prepare(
+        "INSERT INTO property_verification_requests
+            (building_id,operator_user_id,requested_tier,status,operator_note)
+         VALUES (:building_id,:operator_user_id,:requested_tier,'pending',:operator_note)"
+    )->execute([
+        'building_id' => $buildingId, 'operator_user_id' => $user['id'],
+        'requested_tier' => $requestedTier, 'operator_note' => $note !== '' ? $note : null,
+    ]);
+    $pdo->prepare("UPDATE kos_buildings SET verification_status='pending' WHERE id=:id")
+        ->execute(['id' => $buildingId]);
+    set_flash('success', 'Pengajuan verifikasi dikirim kepada admin.');
+    redirect('buildings');
+}
+
+if ($action === 'review_property_verification') {
+    $requestId = (int) post_value('request_id');
+    $decision = post_value('decision');
+    $adminNote = post_value('admin_note');
+    if ($user['role'] !== 'admin' || $requestId < 1
+        || !in_array($decision, ['approved', 'rejected'], true) || strlen($adminNote) > 2000) {
+        set_flash('error', 'Keputusan verifikasi tidak valid.');
+        redirect('platform_property_verification');
+    }
+    $pdo->beginTransaction();
+    try {
+        $request = one(
+            $pdo,
+            "SELECT id,building_id,requested_tier FROM property_verification_requests
+             WHERE id=:id AND status='pending' FOR UPDATE",
+            ['id' => $requestId]
+        );
+        if (!$request) {
+            throw new RuntimeException('Pengajuan verifikasi tidak ditemukan atau sudah diproses.');
+        }
+        $pdo->prepare(
+            'UPDATE property_verification_requests
+             SET status=:status,admin_note=:admin_note,reviewed_by=:reviewed_by,reviewed_at=NOW()
+             WHERE id=:id AND status=\'pending\''
+        )->execute([
+            'status' => $decision, 'admin_note' => $adminNote !== '' ? $adminNote : null,
+            'reviewed_by' => $user['id'], 'id' => $requestId,
+        ]);
+        if ($decision === 'approved') {
+            $pdo->prepare(
+                "UPDATE kos_buildings SET verification_status='verified',verification_tier=:tier
+                 WHERE id=:id"
+            )->execute(['tier' => $request['requested_tier'], 'id' => $request['building_id']]);
+        } else {
+            $pdo->prepare(
+                "UPDATE kos_buildings SET verification_status='rejected' WHERE id=:id"
+            )->execute(['id' => $request['building_id']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $exception;
+    }
+    set_flash('success', $decision === 'approved' ? 'Properti berhasil diverifikasi.' : 'Pengajuan verifikasi ditolak.');
+    redirect('platform_property_verification');
+}
+
+if ($action === 'review_property_report') {
+    $reportId = (int) post_value('report_id');
+    $status = post_value('report_status');
+    if ($user['role'] !== 'admin' || $reportId < 1
+        || !in_array($status, ['reviewed', 'resolved', 'dismissed'], true)) {
+        set_flash('error', 'Status laporan properti tidak valid.');
+        redirect('platform_property_verification');
+    }
+    if (!one($pdo, "SELECT id FROM property_user_actions WHERE id=:id AND action_type='reported'", ['id' => $reportId])) {
+        set_flash('error', 'Laporan properti tidak ditemukan.');
+        redirect('platform_property_verification');
+    }
+    $statement = $pdo->prepare(
+        "UPDATE property_user_actions SET status=:status
+         WHERE id=:id AND action_type='reported'"
+    );
+    $statement->execute(['status' => $status, 'id' => $reportId]);
+    set_flash('success', 'Status laporan diperbarui.');
+    redirect('platform_property_verification');
+}
+
 if ($action === 'upload_room_type_gallery_photos') {
             if (!in_array($user['role'], ['admin', 'operator'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengelola galeri foto.');
@@ -33,13 +150,23 @@ if ($action === 'upload_room_type_gallery_photos') {
                 set_flash('error', 'Pilih minimal satu foto untuk diunggah.');
                 redirect($returnToGallery);
             }
+            $roomTargetId = (int) ($_POST['gallery_room_ids']['room'] ?? 0);
+            if (isset($categoryUploads['room']) && $roomTargetId > 0
+                && !one($pdo, 'SELECT id FROM rooms WHERE id=:id AND building_id=:building_id AND room_type=:room_type', [
+                    'id' => $roomTargetId,
+                    'building_id' => $buildingId,
+                    'room_type' => $roomType,
+                ])) {
+                set_flash('error', 'Pilih kamar yang termasuk gedung dan tipe kamar pada galeri.');
+                redirect($returnToGallery);
+            }
             $movedFiles = [];
             $uploadedCount = 0;
             $pdo->beginTransaction();
             try {
                 $insert = $pdo->prepare(
-                    'INSERT INTO room_type_gallery_photos (building_id,room_type,category,photo_path)
-                     VALUES (:building_id,:room_type,:category,:photo_path)'
+                    'INSERT INTO room_type_gallery_photos (building_id,room_type,category,photo_path,room_id)
+                     VALUES (:building_id,:room_type,:category,:photo_path,:room_id)'
                 );
                 foreach ($categoryUploads as $category => $uploads) {
                     $uploadSubdirectory = $category === 'building' ? 'properties' : 'rooms';
@@ -62,6 +189,7 @@ if ($action === 'upload_room_type_gallery_photos') {
                             'room_type' => $roomType,
                             'category' => $category,
                             'photo_path' => 'uploads/' . $uploadSubdirectory . '/' . $filename,
+                            'room_id' => $category === 'room' && $roomTargetId > 0 ? $roomTargetId : null,
                         ]);
                         $uploadedCount++;
                     }
@@ -142,6 +270,10 @@ if ($action === 'upload_room_type_gallery_photos') {
             $photoId = (int) post_value('photo_id');
             $roomType = post_value('room_type');
             $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
+            if (post_value('confirm_delete_photo') !== 'yes') {
+                set_flash('error', 'Centang konfirmasi sebelum menghapus foto galeri.');
+                redirect($returnToGallery);
+            }
             if (!can_manage_building($pdo, $user, $buildingId)) {
                 set_flash('error', 'Anda tidak dapat mengelola galeri gedung tersebut.');
                 redirect('gallery');
@@ -430,32 +562,49 @@ if ($action === 'save_building') {
                       :longitude, :description, :gender_policy, :general_facilities, :house_rules, :status, 'approved')"
                 );
             }
-            $building->execute($values);
-            if ($id === 0) {
-                $id = (int) $pdo->lastInsertId();
-            }
-            foreach ($photos as $photo) {
-                $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'properties';
-                if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
-                    throw new RuntimeException('Folder foto properti tidak dapat dibuat.');
+            $movedPhotoPaths = [];
+            $pdo->beginTransaction();
+            try {
+                $building->execute($values);
+                if ($id === 0) {
+                    $id = (int) $pdo->lastInsertId();
                 }
-                $filename = bin2hex(random_bytes(16)) . '.' . $photo['extension'];
-                if (!move_uploaded_file($photo['tmp_name'], $directory . DIRECTORY_SEPARATOR . $filename)) {
-                    throw new RuntimeException('Foto properti gagal disimpan.');
+                foreach ($photos as $photo) {
+                    $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'properties';
+                    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+                        throw new RuntimeException('Folder foto properti tidak dapat dibuat.');
+                    }
+                    $filename = bin2hex(random_bytes(16)) . '.' . $photo['extension'];
+                    $filePath = $directory . DIRECTORY_SEPARATOR . $filename;
+                    if (!move_uploaded_file($photo['tmp_name'], $filePath)) {
+                        throw new RuntimeException('Foto properti gagal disimpan. Periksa izin folder uploads/properties.');
+                    }
+                    $movedPhotoPaths[] = $filePath;
+                    $pdo->prepare(
+                        'INSERT INTO property_photos (building_id, photo_path, display_order)
+                         VALUES (:building_id, :photo_path,
+                           (SELECT COALESCE(MAX(photo_order), -1) + 1 FROM
+                             (SELECT display_order AS photo_order FROM property_photos WHERE building_id=:building_id_2) p))'
+                    )->execute([
+                        'building_id' => $id, 'photo_path' => 'uploads/properties/' . $filename,
+                        'building_id_2' => $id,
+                    ]);
                 }
-                $pdo->prepare(
-                    'INSERT INTO property_photos (building_id, photo_path, display_order)
-                     VALUES (:building_id, :photo_path,
-                       (SELECT COALESCE(MAX(photo_order), -1) + 1 FROM
-                         (SELECT display_order AS photo_order FROM property_photos WHERE building_id=:building_id_2) p))'
-                )->execute([
-                    'building_id' => $id, 'photo_path' => 'uploads/properties/' . $filename,
-                    'building_id_2' => $id,
-                ]);
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                foreach ($movedPhotoPaths as $movedPhotoPath) {
+                    if (is_file($movedPhotoPath) && !unlink($movedPhotoPath)) {
+                        error_log('Unable to remove uncommitted property photo: ' . $movedPhotoPath);
+                    }
+                }
+                throw $exception;
             }
-            set_flash('success', $user['role'] === 'operator'
-                ? 'Data kos disimpan dan dikirim untuk persetujuan admin platform.'
-                : 'Data gedung kos berhasil disimpan.');
+            set_flash('success', $photos
+                ? count($photos) . ' foto galeri berhasil disimpan bersama perubahan gedung.'
+                : 'Data gedung berhasil disimpan.');
             redirect('buildings');
         }
 
@@ -735,6 +884,10 @@ if ($action === 'save_building') {
         if ($action === 'delete_room_photo') {
             $roomId = (int) post_value('room_id');
             $photoId = (int) post_value('photo_id');
+            if (post_value('confirm_delete_photo') !== 'yes') {
+                set_flash('error', 'Centang konfirmasi sebelum menghapus foto kamar.');
+                redirect('room_form&id=' . $roomId);
+            }
             if (!can_manage_room($pdo, $user, $roomId)) {
                 set_flash('error', 'Anda tidak dapat mengelola foto kamar tersebut.');
                 redirect('rooms');

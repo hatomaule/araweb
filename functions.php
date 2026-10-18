@@ -9,7 +9,7 @@ function e($value): string
 function theme_switcher(): string
 {
     return '<details class="theme-switcher" data-theme-switcher>'
-        . '<summary aria-label="Pilih tema tampilan"><span data-theme-label>Light</span><span class="theme-switcher-chevron" aria-hidden="true">⌄</span></summary>'
+        . '<summary aria-label="Pilih tema tampilan"><span class="theme-choice-icon" data-theme-current-icon aria-hidden="true">☀</span><span data-theme-label>Light</span><span class="theme-switcher-chevron" aria-hidden="true">⌄</span></summary>'
         . '<div class="theme-switcher-menu" role="group" aria-label="Tema tampilan">'
         . '<button type="button" aria-pressed="true" data-theme-choice="light"><span class="theme-choice-icon" aria-hidden="true">☀</span>Light<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
         . '<button type="button" aria-pressed="false" data-theme-choice="dark"><span class="theme-choice-icon" aria-hidden="true">☾</span>Dark<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
@@ -242,7 +242,9 @@ function current_user(): ?array
     }
 
     $statement = db()->prepare(
-        "SELECT id, name, email, phone, address, gender, profile_photo_path, avatar_key, role
+        "SELECT id, name, email, phone, address, gender, profile_photo_path, avatar_key, role,
+                hide_phone_public,hide_profile_photo_public,self_deactivated_at,
+                deletion_requested_at,deletion_due_at
          FROM users WHERE id = :id AND status = 'active' LIMIT 1"
     );
     $statement->execute(['id' => (int) $_SESSION['user_id']]);

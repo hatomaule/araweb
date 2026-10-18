@@ -218,6 +218,10 @@ if ($action === 'setup') {
                 redirect('login');
             }
 
+            $pdo->prepare(
+                'UPDATE users SET self_deactivated_at=NULL,deletion_requested_at=NULL,deletion_due_at=NULL
+                 WHERE id=:id AND deletion_due_at IS NOT NULL AND deletion_due_at>NOW()'
+            )->execute(['id' => $account['id']]);
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) $account['id'];
             $loggedInUser = current_user();

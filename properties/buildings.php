@@ -1,21 +1,72 @@
 <?php
-                $buildings = rows($pdo, "SELECT b.*,
-                    (SELECT COUNT(*) FROM rooms rm WHERE rm.building_id=b.id) AS room_count
-                    FROM kos_buildings b
-                    WHERE (:is_admin=1 OR b.owner_user_id=:owner_id)
-                    ORDER BY b.status='active' DESC, b.name", [
-                        'is_admin' => $user['role'] === 'admin' ? 1 : 0,
-                        'owner_id' => $user['id'],
-                    ]);
-            ?>
-                <div class="page-actions"><p>Kelola gedung, alamat, serta koordinat peta tiap lokasi kos.</p><a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a></div>
-                <div class="panel"><div class="table-scroll"><table><thead><tr><th>Gedung kos</th><th>Alamat</th><th>Koordinat</th><th>Kamar</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
-                    <?php foreach ($buildings as $building):
-                        $buildingInitial = iconv_substr((string) $building['name'], 0, 1, 'UTF-8');
-                        if ($buildingInitial === false) {
-                            $buildingInitial = substr((string) $building['name'], 0, 1);
-                        }
-                    ?><tr><td><a class="building-name-link" href="index.php?page=property&amp;id=<?= (int) $building['id'] ?>"><span class="building-profile-circle" aria-hidden="true"><?= e($buildingInitial) ?></span><strong><?= e($building['name']) ?></strong></a></td><td><?= e($building['address']) ?></td><td><?php if ($building['latitude'] !== null && $building['longitude'] !== null): ?><a class="text-link" href="https://www.openstreetmap.org/?mlat=<?= e($building['latitude']) ?>&amp;mlon=<?= e($building['longitude']) ?>#map=17/<?= e($building['latitude']) ?>/<?= e($building['longitude']) ?>" target="_blank" rel="noopener noreferrer"><?= e($building['latitude']) ?>, <?= e($building['longitude']) ?> ↗</a><?php else: ?><span class="badge rejected">Lokasi belum diatur</span><?php endif; ?></td><td><?= (int) $building['room_count'] ?></td><td><span class="badge <?= e($building['status']) ?>"><?= e(status_label($building['status'])) ?></span></td><td class="actions"><a class="button secondary compact-button property-row-action" href="index.php?page=building_form&amp;id=<?= (int) $building['id'] ?>">Edit</a><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="building_status"><input type="hidden" name="id" value="<?= (int) $building['id'] ?>"><input type="hidden" name="status" value="<?= $building['status'] === 'active' ? 'inactive' : 'active' ?>"><button class="button <?= $building['status'] === 'active' ? 'danger' : 'secondary' ?> compact-button property-row-action" type="submit"><?= $building['status'] === 'active' ? 'Nonaktifkan' : 'Aktifkan' ?></button></form></td></tr><?php endforeach; ?>
-                    <?php if (!$buildings): ?><tr><td colspan="6" class="no-data">Belum ada gedung kos. Tambahkan gedung sebelum mencatat kamar.</td></tr><?php endif; ?>
-                </tbody></table></div></div>
-            
+$buildings = rows($pdo, "SELECT b.*,
+    (SELECT COUNT(*) FROM rooms rm WHERE rm.building_id=b.id) AS room_count,
+    COALESCE(b.profile_photo_path,
+        (SELECT pp.photo_path FROM property_photos pp
+         WHERE pp.building_id=b.id ORDER BY pp.display_order,pp.id LIMIT 1)
+    ) AS cover_photo
+    FROM kos_buildings b
+    WHERE (:is_admin=1 OR b.owner_user_id=:owner_id)
+    ORDER BY b.status='active' DESC, b.name", [
+        'is_admin' => $user['role'] === 'admin' ? 1 : 0,
+        'owner_id' => $user['id'],
+    ]);
+?>
+<div class="page-actions building-list-heading">
+    <div><h2><?= $user['role'] === 'admin' ? 'Gedung kos' : 'Gedung kos saya' ?></h2><p>Kelola informasi, galeri foto, lokasi, kamar, dan status setiap gedung.</p></div>
+    <a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a>
+</div>
+<section class="building-list" data-building-card-list>
+    <div class="building-list-tools">
+        <label class="building-list-search"><span>Cari gedung</span><input type="search" data-building-card-search placeholder="Nama atau alamat gedung..." aria-label="Cari gedung berdasarkan nama atau alamat"></label>
+        <label class="building-list-page-size"><span>Tampilkan</span><select data-building-card-page-size aria-label="Jumlah gedung yang ditampilkan"><option value="5">5</option><option value="10" selected>10</option><option value="all">Semua</option></select></label>
+        <div class="building-list-navigation">
+            <span data-building-card-summary aria-live="polite"></span>
+            <button class="button secondary compact-button" type="button" data-building-card-previous>Sebelumnya</button>
+            <button class="button secondary compact-button" type="button" data-building-card-next>Berikutnya</button>
+        </div>
+    </div>
+    <div class="building-card-grid" data-building-card-grid>
+        <?php foreach ($buildings as $building):
+            $buildingInitial = iconv_substr((string) $building['name'], 0, 1, 'UTF-8');
+            if ($buildingInitial === false) {
+                $buildingInitial = substr((string) $building['name'], 0, 1);
+            }
+            $isActive = $building['status'] === 'active';
+        ?>
+            <article class="building-card" data-building-card>
+                <a class="building-card-cover" href="index.php?page=property&amp;id=<?= (int) $building['id'] ?>" aria-label="Lihat halaman publik <?= e($building['name']) ?>">
+                    <?php if (!empty($building['cover_photo'])): ?>
+                        <img src="<?= e($building['cover_photo']) ?>" alt="Foto <?= e($building['name']) ?>" loading="lazy">
+                    <?php else: ?>
+                        <span class="building-card-placeholder" aria-hidden="true">⌂</span>
+                    <?php endif; ?>
+                    <span class="building-card-location-tag"><?= e($building['gender_policy'] === 'male' ? 'Kos Putra' : ($building['gender_policy'] === 'female' ? 'Kos Putri' : 'Kos Campur')) ?></span>
+                    <span class="badge <?= e($building['status']) ?>"><?= e(status_label($building['status'])) ?></span>
+                </a>
+                <div class="building-card-body">
+                    <div class="building-card-heading">
+                        <span class="building-card-initial" aria-hidden="true"><?= e($buildingInitial) ?></span>
+                        <div>
+                            <h3><a href="index.php?page=property&amp;id=<?= (int) $building['id'] ?>"><?= e($building['name']) ?></a></h3>
+                        </div>
+                    </div>
+                    <p class="building-card-address"><?= e($building['address']) ?></p>
+                    <div class="building-card-facts">
+                        <span><strong><?= (int) $building['room_count'] ?></strong> kamar</span>
+                        <?php if ($building['latitude'] !== null && $building['longitude'] !== null): ?>
+                            <a class="building-card-location" href="https://www.openstreetmap.org/?mlat=<?= e($building['latitude']) ?>&amp;mlon=<?= e($building['longitude']) ?>#map=17/<?= e($building['latitude']) ?>/<?= e($building['longitude']) ?>" target="_blank" rel="noopener noreferrer">Lihat lokasi peta ↗</a>
+                        <?php else: ?>
+                            <span class="building-card-no-location">Lokasi belum diatur</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="building-card-actions">
+                        <a class="button secondary building-card-edit" href="index.php?page=building_form&amp;id=<?= (int) $building['id'] ?>">Edit gedung</a>
+                        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="building_status"><input type="hidden" name="id" value="<?= (int) $building['id'] ?>"><input type="hidden" name="status" value="<?= $isActive ? 'inactive' : 'active' ?>"><button class="button <?= $isActive ? 'danger' : 'primary' ?> building-card-toggle" type="submit"><?= $isActive ? 'Nonaktifkan' : 'Aktifkan' ?></button></form>
+                    </div>
+                </div>
+            </article>
+        <?php endforeach; ?>
+    </div>
+    <p class="building-list-empty" data-building-card-empty <?= $buildings ? 'hidden' : '' ?>><?= $buildings ? 'Tidak ada gedung yang cocok dengan pencarian.' : 'Belum ada gedung kos. Tambahkan gedung sebelum mencatat kamar.' ?></p>
+</section>

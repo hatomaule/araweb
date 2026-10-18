@@ -19,9 +19,11 @@ function handle_operator_action(PDO $pdo, array $user, string $action): bool
     }
     $booking = one(
         $pdo,
-        "SELECT r.id, r.status, r.booking_status, i.id AS invoice_id
+        "SELECT r.id, r.status, r.booking_status, i.id AS invoice_id,t.user_id,
+                b.owner_user_id,b.name AS building_name
          FROM rentals r JOIN rooms rm ON rm.id=r.room_id
          JOIN kos_buildings b ON b.id=rm.building_id
+         JOIN tenants t ON t.id=r.tenant_id
          LEFT JOIN invoices i ON i.rental_id=r.id
          WHERE r.id=:rental_id AND r.booking_status='pending'
            AND r.status='upcoming'
@@ -57,6 +59,19 @@ function handle_operator_action(PDO $pdo, array $user, string $action): bool
         }
         throw $exception;
     }
+    try {
+        notification_create(
+            $pdo,
+            (int) $booking['user_id'],
+            'booking.' . $decision,
+            $decision === 'approved' ? 'Booking disetujui' : 'Booking ditolak',
+            'Pengelola telah ' . ($decision === 'approved' ? 'menyetujui' : 'menolak')
+                . ' booking Anda di ' . $booking['building_name'] . '.',
+            'index.php?page=my_bookings'
+        );
+    } catch (PDOException $exception) {
+        error_log('Booking notification could not be stored: ' . $exception->getMessage());
+    }
     set_flash('success', $decision === 'approved'
         ? 'Booking disetujui. User dapat menyelesaikan pembayaran dalam 24 jam.'
         : 'Booking ditolak dan tagihan dibatalkan.');
@@ -69,6 +84,10 @@ if ($action === 'create_customer_booking') {
             if ($user['role'] !== 'seeker') {
                 set_flash('error', 'Hanya akun pelanggan yang dapat melakukan booking kamar.');
                 redirect('dashboard');
+            }
+            if (!empty($user['self_deactivated_at'])) {
+                set_flash('error', 'Akun yang dinonaktifkan tidak dapat mengajukan booking.');
+                redirect('home');
             }
             $tenant = one($pdo, "SELECT id FROM tenants WHERE user_id=:user_id AND status='active'", ['user_id' => $user['id']]);
             $roomId = (int) post_value('room_id');
@@ -83,7 +102,8 @@ if ($action === 'create_customer_booking') {
             $pdo->beginTransaction();
             try {
                 $roomCheck = $pdo->prepare(
-                    "SELECT rm.* FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
+                    "SELECT rm.*,b.owner_user_id,b.name AS building_name FROM rooms rm
+                     JOIN kos_buildings b ON b.id=rm.building_id
                      WHERE rm.id=:id AND rm.status='available' AND b.status='active' FOR UPDATE"
                 );
                 $roomCheck->execute(['id' => $roomId]);
@@ -168,6 +188,18 @@ if ($action === 'create_customer_booking') {
                     $pdo->rollBack();
                 }
                 throw $exception;
+            }
+            try {
+                notification_create(
+                    $pdo,
+                    (int) $room['owner_user_id'],
+                    'booking.new',
+                    'Permintaan booking baru',
+                    $user['name'] . ' mengajukan booking kamar di ' . $room['building_name'] . '.',
+                    'index.php?page=operator_bookings'
+                );
+            } catch (PDOException $exception) {
+                error_log('Booking notification could not be stored: ' . $exception->getMessage());
             }
             set_flash('success', 'Permintaan booking dikirim. Pemilik kos akan meninjau permintaan sebelum pembayaran.');
             redirect('my_bookings');

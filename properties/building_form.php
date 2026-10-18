@@ -17,12 +17,20 @@
                             <div><strong>Foto profil kos</strong><small>Foto ini tampil di samping peta pada halaman kos dan menjadi sampul kos di halaman depan.</small></div>
                             <?php if (!empty($building['profile_photo_path'])): ?><img class="profile-image-editor-preview" src="<?= e($building['profile_photo_path']) ?>" alt="Foto profil kos <?= e($building['name']) ?>"><?php elseif ($buildingPhotos): ?><img class="profile-image-editor-preview" src="<?= e($buildingPhotos[0]['photo_path']) ?>" alt="Foto galeri sampul <?= e($building['name']) ?>"><small class="field-help">Foto galeri pertama saat ini digunakan sebagai sampul. Unggah foto untuk menetapkan foto profil khusus.</small><?php else: ?><div class="profile-image-editor-empty">Belum ada foto profil kos</div><?php endif; ?>
                             <form method="post" enctype="multipart/form-data" class="profile-image-editor-form"><?= csrf_field() ?><input type="hidden" name="action" value="update_building_profile_photo"><input type="hidden" name="building_id" value="<?= $buildingId ?>">
-                                <label class="field"><span>Unggah atau ganti foto profil</span><input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp"><small class="field-help">JPG, PNG, atau WebP; maksimal 4 MB.</small></label>
+                                <div class="photo-upload-control" data-photo-upload data-photo-upload-saved="<?= !empty($building['profile_photo_path']) ? 1 : 0 ?>" data-photo-upload-limit="1">
+                                    <input class="visually-hidden" type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp" data-photo-upload-input>
+                                    <div class="building-gallery-actions">
+                                        <button class="button secondary" type="button" data-photo-upload-trigger>＋ Upload foto</button>
+                                        <span class="field-help" data-photo-upload-count><?= !empty($building['profile_photo_path']) ? '1 foto tersimpan' : 'Belum ada foto yang dipilih' ?></span>
+                                    </div>
+                                    <small class="field-help" data-photo-upload-status>Pilih satu foto profil kos. Format JPG, PNG, atau WebP; maksimal 4 MB.</small>
+                                    <div class="photo-upload-preview-grid" data-photo-upload-grid></div>
+                                </div>
                                 <div class="profile-image-editor-actions"><button class="button primary" type="submit">Simpan foto profil</button><?php if (!empty($building['profile_photo_path'])): ?><button class="button secondary" type="submit" name="remove_profile_photo" value="yes" formnovalidate onclick="this.form.querySelector('[name=profile_photo]').value='';">Hapus foto profil</button><?php endif; ?></div>
                             </form>
                         </section>
                     <?php endif; ?>
-                    <form method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="save_building"><input type="hidden" name="id" value="<?= $buildingId ?>"><input type="hidden" name="map_address" id="map-address" value="<?= isset($building['latitude'], $building['longitude']) && $building['latitude'] !== null && $building['longitude'] !== null ? e($building['address'] ?? '') : '' ?>">
+                    <form id="building-form" method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="save_building"><input type="hidden" name="id" value="<?= $buildingId ?>"><input type="hidden" name="map_address" id="map-address" value="<?= isset($building['latitude'], $building['longitude']) && $building['latitude'] !== null && $building['longitude'] !== null ? e($building['address'] ?? '') : '' ?>"><input id="building-gallery-input" class="visually-hidden" type="file" name="property_photos[]" accept="image/jpeg,image/png,image/webp" multiple aria-label="Pilih foto galeri gedung" aria-hidden="true" tabindex="-1">
                         <?php field('Nama kos / gedung *', 'name', $building['name'] ?? '', 'text', ['required' => 'required', 'maxlength' => '150', 'placeholder' => 'Contoh: Tiara Kos - Gedung Melati']); ?>
                         <label class="field"><span>Status gedung</span><select name="status"><option value="active" <?= ($building['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Aktif</option><option value="inactive" <?= ($building['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Nonaktif</option></select><small class="field-help">Gedung nonaktif tidak tampil pada peta dan tidak dapat dipilih untuk kamar baru.</small></label>
                         <?= indonesia_region_fields($pdo, [
@@ -59,10 +67,24 @@
                         <label class="field full-span"><span>Deskripsi kos</span><textarea name="description" rows="4" maxlength="10000"><?= e($building['description'] ?? '') ?></textarea></label>
                         <label class="field full-span"><span>Fasilitas umum (pisahkan dengan koma atau baris baru)</span><textarea name="general_facilities" rows="3" maxlength="5000"><?= e($building['general_facilities'] ?? '') ?></textarea></label>
                         <label class="field full-span"><span>Peraturan kos</span><textarea name="house_rules" rows="3" maxlength="5000"><?= e($building['house_rules'] ?? '') ?></textarea></label>
-                        <label class="field full-span"><span>Foto galeri kos (JPG, PNG, WebP; maks. 4 MB/foto)</span><input type="file" name="property_photos[]" accept="image/jpeg,image/png,image/webp" multiple><small class="field-help">Foto galeri ditampilkan sebagai foto tambahan. Unggah hingga 4 foto setiap kali menyimpan.</small></label>
-                        <?php if ($buildingPhotos): ?><div class="property-photo-manager full-span"><strong>Foto yang sudah diunggah</strong><div class="property-photo-manager-grid"><?php foreach ($buildingPhotos as $photo): ?><article><img src="<?= e($photo['photo_path']) ?>" alt="Foto kos"><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="delete_property_photo"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>"><button class="text-button" type="submit">Hapus foto</button></form></article><?php endforeach; ?></div></div><?php endif; ?>
-                        <div class="form-actions full-span"><a class="button secondary" href="index.php?page=buildings">Batal</a><button class="button primary" type="submit"><?= $building ? 'Simpan perubahan terbaru' : 'Simpan gedung' ?></button></div>
                     </form>
+                    <section class="property-photo-manager full-span building-gallery-manager" data-building-gallery>
+                        <strong>Galeri foto gedung</strong>
+                        <p class="field-help" data-building-gallery-status aria-live="polite">Tekan Upload foto untuk memilih foto. Foto baru akan tersimpan saat Anda menekan tombol simpan perubahan.</p>
+                        <div class="property-photo-manager-grid" data-building-gallery-grid>
+                            <?php foreach ($buildingPhotos as $photo): ?>
+                                <article>
+                                    <img src="<?= e($photo['photo_path']) ?>" alt="Foto galeri kos">
+                                    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="delete_property_photo"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>"><button class="text-button" type="submit">Hapus foto</button></form>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="building-gallery-actions">
+                            <button class="button secondary" type="button" data-building-gallery-add>＋ Upload foto</button>
+                            <span class="field-help" data-building-gallery-count><?= count($buildingPhotos) ?> foto tersimpan</span>
+                        </div>
+                    </section>
+                    <div class="form-actions full-span"><a class="button secondary" href="index.php?page=buildings">Batal</a><button class="button primary" type="submit" form="building-form"><?= $building ? 'Simpan perubahan terbaru' : 'Simpan gedung' ?></button></div>
                 </div>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

@@ -3,6 +3,118 @@ declare(strict_types=1);
 
 function handle_account_action(PDO $pdo, array $user, string $action): void
 {
+    if ($action === 'save_account_settings') {
+        $email = strtolower(trim(post_value('email')));
+        $phone = trim(post_value('phone'));
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            set_flash('error', 'Format email tidak valid.');
+            redirect('account_settings');
+        }
+        if ($phone !== '' && !preg_match('/^[0-9+().\s-]{7,30}$/', $phone)) {
+            set_flash('error', 'Nomor telepon tidak valid.');
+            redirect('account_settings');
+        }
+        if ($email === '' && $phone === '') {
+            set_flash('error', 'Pertahankan minimal satu kontak berupa email atau nomor telepon.');
+            redirect('account_settings');
+        }
+        if ($email !== '' && one(
+            $pdo,
+            'SELECT id FROM users WHERE email=:email AND id<>:id LIMIT 1',
+            ['email' => $email, 'id' => $user['id']]
+        )) {
+            set_flash('error', 'Email tersebut sudah digunakan akun lain.');
+            redirect('account_settings');
+        }
+        if ($phone !== '' && one(
+            $pdo,
+            'SELECT id FROM users WHERE phone=:phone AND id<>:id LIMIT 1',
+            ['phone' => $phone, 'id' => $user['id']]
+        )) {
+            set_flash('error', 'Nomor telepon tersebut sudah digunakan akun lain.');
+            redirect('account_settings');
+        }
+        $pdo->beginTransaction();
+        try {
+            $update = $pdo->prepare(
+                'UPDATE users SET email=:email,phone=:phone,
+                    hide_phone_public=:hide_phone,hide_profile_photo_public=:hide_photo
+                 WHERE id=:id'
+            );
+            $update->execute([
+                'email' => $email !== '' ? $email : null,
+                'phone' => $phone !== '' ? $phone : null,
+                'hide_phone' => post_value('hide_phone_public') === '1' ? 1 : 0,
+                'hide_photo' => post_value('hide_profile_photo_public') === '1' ? 1 : 0,
+                'id' => $user['id'],
+            ]);
+            $pdo->prepare(
+                'UPDATE tenants SET email=:email,phone=:phone
+                 WHERE user_id=:user_id'
+            )->execute([
+                'email' => $email !== '' ? $email : null,
+                'phone' => $phone !== '' ? $phone : null,
+                'user_id' => $user['id'],
+            ]);
+            notification_set_preference($pdo, post_value('hide_notifications') !== '1');
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+        set_flash('success', 'Pengaturan akun berhasil disimpan.');
+        redirect('account_settings');
+    }
+
+    if (in_array($action, ['request_account_deactivation', 'request_account_deletion'], true)) {
+        if ($user['role'] !== 'seeker') {
+            set_flash('error', 'Pengaturan ini hanya tersedia untuk akun User.');
+            redirect('account_settings');
+        }
+        if (post_value('confirm_account_lifecycle') !== 'yes') {
+            set_flash('error', 'Centang konfirmasi sebelum melanjutkan.');
+            redirect('account_settings');
+        }
+        $activeRental = one(
+            $pdo,
+            "SELECT r.id FROM rentals r JOIN tenants t ON t.id=r.tenant_id
+             WHERE t.user_id=:user_id AND r.status='active'
+               AND r.start_date<=CURDATE() AND (r.end_date IS NULL OR r.end_date>=CURDATE())
+             LIMIT 1",
+            ['user_id' => $user['id']]
+        );
+        if ($activeRental) {
+            set_flash('error', 'Akun belum dapat dinonaktifkan selama masa hunian masih aktif.');
+            redirect('account_settings');
+        }
+        if ($action === 'request_account_deactivation') {
+            $pdo->prepare(
+                'UPDATE users SET self_deactivated_at=COALESCE(self_deactivated_at,NOW())
+                 WHERE id=:id'
+            )->execute(['id' => $user['id']]);
+            set_flash('success', 'Akun dinonaktifkan dari pencarian dan booking. Anda tetap dapat masuk kembali.');
+        } else {
+            $pdo->prepare(
+                'UPDATE users SET self_deactivated_at=NOW(),
+                    deletion_requested_at=NOW(),deletion_due_at=DATE_ADD(NOW(),INTERVAL 7 DAY)
+                 WHERE id=:id'
+            )->execute(['id' => $user['id']]);
+            set_flash('success', 'Permintaan penghapusan dijadwalkan 7 hari lagi. Masuk kembali sebelum batas waktu untuk membatalkannya.');
+        }
+        redirect('account_settings');
+    }
+
+    if ($action === 'cancel_account_deactivation') {
+        $pdo->prepare(
+            'UPDATE users SET self_deactivated_at=NULL,deletion_requested_at=NULL,deletion_due_at=NULL
+             WHERE id=:id'
+        )->execute(['id' => $user['id']]);
+        set_flash('success', 'Penonaktifan atau permintaan penghapusan akun dibatalkan.');
+        redirect('account_settings');
+    }
+
     if ($action === 'change_password') {
         $currentPassword = post_value('current_password');
         $newPassword = post_value('new_password');

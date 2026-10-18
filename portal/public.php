@@ -6,7 +6,9 @@ if ($page === 'room') {
         "SELECT rm.*,b.id AS property_id,b.name AS building_name,b.address AS building_address,
                 b.description AS building_description,b.gender_policy,b.general_facilities,
                 b.house_rules,b.latitude,b.longitude,b.owner_user_id,
-                u.name AS owner_name,u.phone AS owner_phone,u.profile_photo_path AS owner_photo,
+                u.name AS owner_name,
+                CASE WHEN u.hide_phone_public=1 AND :admin_view=0 THEN NULL ELSE u.phone END AS owner_phone,
+                CASE WHEN u.hide_profile_photo_public=1 AND :admin_view_photo=0 THEN NULL ELSE u.profile_photo_path END AS owner_photo,
                 u.gender AS owner_gender,u.avatar_key AS owner_avatar,
                 CASE WHEN rm.status='available' AND NOT EXISTS (
                     SELECT 1 FROM rentals r
@@ -21,8 +23,16 @@ if ($page === 'room') {
                 ) THEN 1 ELSE 0 END AS is_available
          FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
          LEFT JOIN users u ON u.id=b.owner_user_id
-         WHERE rm.id=:id AND b.status='active'",
-        ['id' => $roomId]
+         WHERE rm.id=:id AND b.status='active'
+           AND (b.owner_user_id IS NULL OR EXISTS (
+               SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
+                 AND owner.status='active' AND owner.self_deactivated_at IS NULL
+           ))",
+        [
+            'id' => $roomId,
+            'admin_view' => $user && $user['role'] === 'admin' ? 1 : 0,
+            'admin_view_photo' => $user && $user['role'] === 'admin' ? 1 : 0,
+        ]
     );
     if (!$room) {
         http_response_code(404);
@@ -43,8 +53,9 @@ if ($page === 'room') {
         $pdo,
         'SELECT id,category,photo_path FROM room_type_gallery_photos
          WHERE building_id=:building_id AND room_type=:room_type
-         ORDER BY id',
-        ['building_id' => $room['property_id'], 'room_type' => $room['room_type']]
+           AND (room_id IS NULL OR room_id=:room_id)
+         ORDER BY (room_id IS NOT NULL) DESC,id',
+        ['building_id' => $room['property_id'], 'room_type' => $room['room_type'], 'room_id' => $roomId]
     );
     $roomGalleryPhotos = [];
     if (!empty($room['profile_photo_path'])) {
@@ -83,11 +94,12 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-6">
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261018-10">
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page property-page"><header class="public-header" id="top"><nav class="public-nav">
         <a class="tiara-brand koskosan-brand" href="index.php" aria-label="KosKosan, beranda"><span class="tiara-brand-icon">K</span><span>KosKosan<small>HUNIAN NYAMAN</small></span></a>
+        <?php if ($user): ?><a class="notification-bell" href="index.php?page=notifications" aria-label="Notifikasi">♧</a><?php endif; ?>
         <?= theme_switcher() ?>
         <a class="public-nav-cta" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat informasi kos ↗</a>
     </nav></header>
@@ -145,7 +157,7 @@ if ($page === 'room') {
                 </div><?php endif; ?>
                 <?php if ($room['house_rules']): ?><h3>Peraturan kos</h3><p><?= nl2br(e($room['house_rules'])) ?></p><?php endif; ?></section>
             <section class="property-section"><h2>Informasi kos</h2><p><?= e($room['building_name']) ?></p><p><?= e($room['building_address']) ?></p><a class="text-link" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat profil kos dan kamar lainnya ↗</a></section>
-            <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small><?php if ($room['owner_phone']): ?><a href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>">Hubungi pengelola ↗</a><?php endif; ?></div></div></section><?php endif; ?>
+            <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="room-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($room['owner_phone']): ?><a class="button secondary compact-button" href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></div></section><?php endif; ?>
         </div><aside class="property-booking-card room-booking-card"><span><?= $roomAvailable ? 'Kamar tersedia' : 'Kamar sedang tidak tersedia' ?></span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong><p>Tarif bulanan kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</p><?php if ($roomAvailable): ?><a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&id=' . $roomId : 'index.php?page=register&role=seeker&next=booking&id=' . $roomId ?>">Ajukan booking kamar</a><?php else: ?><span class="room-unavailable-note">Booking belum dapat dilakukan untuk kamar ini.</span><?php endif; ?></aside></div>
     </main><footer class="public-footer room-detail-footer">
         <div class="public-footer-inner room-detail-footer-inner">
@@ -165,6 +177,7 @@ if ($page === 'room') {
             </div>
         </div>
     </footer>
+    <?php if ($user && $user['role'] === 'seeker'): ?><dialog class="action-dialog" id="room-chat-dialog"><form method="post" class="action-dialog-form"><?= csrf_field() ?><input type="hidden" name="action" value="start_chat_conversation"><input type="hidden" name="building_id" value="<?= (int) $room['property_id'] ?>"><input type="hidden" name="room_id" value="<?= $roomId ?>"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">CHAT SISTEM</span><h2>Hubungi pengelola</h2><p>Percakapan ini hanya dapat dibaca oleh Anda dan pengelola gedung.</p><label class="field"><span>Pesan</span><textarea name="message" rows="4" maxlength="4000" required>Halo, saya tertarik dengan Kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</textarea></label><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button primary" type="submit">Mulai chat</button></div></form></dialog><?php endif; ?>
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>
         const roomMap = L.map('room-detail-map', {scrollWheelZoom: false, zoomControl: false}).setView([<?= json_encode((float) $room['latitude']) ?>, <?= json_encode((float) $room['longitude']) ?>], 15);
@@ -173,7 +186,7 @@ if ($page === 'room') {
         setTimeout(() => roomMap.invalidateSize(), 100);
         document.getElementById('room-detail-map').addEventListener('click', () => roomMap.scrollWheelZoom.enable());
     </script><?php endif; ?>
-    <script src="app.js?v=koskosan-ui-20261016-5"></script></body></html>
+    <script src="app.js?v=koskosan-ui-20261018-10"></script></body></html>
     <?php
     exit;
 }
@@ -182,11 +195,21 @@ if ($page === 'property') {
     $buildingId = max(0, (int) ($_GET['id'] ?? 0));
     $property = one(
         $pdo,
-        "SELECT b.*,u.name AS owner_name,u.phone AS owner_phone,u.profile_photo_path AS owner_photo,
+        "SELECT b.*,u.name AS owner_name,
+                CASE WHEN u.hide_phone_public=1 AND :admin_view=0 THEN NULL ELSE u.phone END AS owner_phone,
+                CASE WHEN u.hide_profile_photo_public=1 AND :admin_view_photo=0 THEN NULL ELSE u.profile_photo_path END AS owner_photo,
                 u.gender AS owner_gender,u.avatar_key AS owner_avatar
          FROM kos_buildings b LEFT JOIN users u ON u.id=b.owner_user_id
-         WHERE b.id=:id AND b.status='active'",
-        ['id' => $buildingId]
+         WHERE b.id=:id AND b.status='active'
+           AND (b.owner_user_id IS NULL OR EXISTS (
+               SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
+                 AND owner.status='active' AND owner.self_deactivated_at IS NULL
+           ))",
+        [
+            'id' => $buildingId,
+            'admin_view' => $user && $user['role'] === 'admin' ? 1 : 0,
+            'admin_view_photo' => $user && $user['role'] === 'admin' ? 1 : 0,
+        ]
     );
     if (!$property) {
         http_response_code(404);
@@ -200,6 +223,22 @@ if ($page === 'property') {
         'user_id' => $user['id'] ?? null,
         'visitor_key' => analytics_visitor_key(),
     ]);
+    $missingPropertyPhotos = [];
+    $isPropertyPhotoAvailable = static function (string $photoPath) use (&$missingPropertyPhotos): bool {
+        if (preg_match('~^https?://~i', $photoPath) === 1 || !str_starts_with($photoPath, 'uploads/')) {
+            return true;
+        }
+        $filePath = dirname(__DIR__) . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $photoPath);
+        if (is_file($filePath)) {
+            return true;
+        }
+        if (!isset($missingPropertyPhotos[$photoPath])) {
+            error_log('Property gallery references a missing uploaded photo: ' . $photoPath);
+            $missingPropertyPhotos[$photoPath] = true;
+        }
+        return false;
+    };
     $propertyPhotos = rows(
         $pdo,
         'SELECT id,photo_path FROM property_photos WHERE building_id=:id ORDER BY display_order,id',
@@ -212,30 +251,129 @@ if ($page === 'property') {
         ['id' => $buildingId]
     );
     $propertyGalleryPhotos = [];
-    if (!empty($property['profile_photo_path'])) {
+    if (!empty($property['profile_photo_path'])
+        && $isPropertyPhotoAvailable($property['profile_photo_path'])) {
         $propertyGalleryPhotos[] = $property['profile_photo_path'];
     }
     foreach ($propertyPhotos as $photo) {
-        if (!in_array($photo['photo_path'], $propertyGalleryPhotos, true)) {
+        if ($isPropertyPhotoAvailable($photo['photo_path'])
+            && !in_array($photo['photo_path'], $propertyGalleryPhotos, true)) {
             $propertyGalleryPhotos[] = $photo['photo_path'];
         }
     }
     foreach ($galleryBuildingPhotos as $photo) {
-        if (!in_array($photo['photo_path'], $propertyGalleryPhotos, true)) {
+        if ($isPropertyPhotoAvailable($photo['photo_path'])
+            && !in_array($photo['photo_path'], $propertyGalleryPhotos, true)) {
             $propertyGalleryPhotos[] = $photo['photo_path'];
         }
     }
     $propertyRooms = rows(
         $pdo,
-        "SELECT rm.* FROM rooms rm WHERE rm.building_id=:id AND rm.status='available'
-         AND NOT EXISTS (SELECT 1 FROM rentals r WHERE r.room_id=rm.id
-           AND r.status IN ('active','upcoming') AND (r.end_date IS NULL OR r.end_date>=CURDATE())
-           AND (r.booking_expires_at IS NULL OR r.booking_expires_at>NOW()
-             OR EXISTS (SELECT 1 FROM invoices i JOIN payments p ON p.invoice_id=i.id
-               WHERE i.rental_id=r.id AND p.status='pending')))
+        "SELECT rm.*,
+                CASE WHEN rm.status='available' AND NOT EXISTS (
+                    SELECT 1 FROM rentals r WHERE r.room_id=rm.id AND (
+                        (r.status='active' AND r.start_date<=CURDATE()
+                            AND (r.end_date IS NULL OR r.end_date>=CURDATE()))
+                        OR (r.status='upcoming' AND (r.end_date IS NULL OR r.end_date>=CURDATE())
+                            AND (r.booking_expires_at IS NULL OR r.booking_expires_at>NOW()
+                                OR EXISTS (SELECT 1 FROM invoices i JOIN payments p ON p.invoice_id=i.id
+                                    WHERE i.rental_id=r.id AND p.status='pending')))
+                    )
+                ) THEN 1 ELSE 0 END AS is_available
+         FROM rooms rm WHERE rm.building_id=:id
          ORDER BY rm.monthly_rate,rm.room_number",
         ['id' => $buildingId]
     );
+    $roomPhotosById = [];
+    if ($propertyRooms) {
+        $roomIds = array_map(static fn(array $room): int => (int) $room['id'], $propertyRooms);
+        $roomPlaceholders = implode(',', array_fill(0, count($roomIds), '?'));
+        $roomPhotoStatement = $pdo->prepare(
+            "SELECT room_id,category,photo_path FROM room_photos
+             WHERE room_id IN ({$roomPlaceholders}) ORDER BY id"
+        );
+        $roomPhotoStatement->execute($roomIds);
+        foreach ($roomPhotoStatement->fetchAll() as $photo) {
+            if ($isPropertyPhotoAvailable($photo['photo_path'])) {
+                $roomPhotosById[(int) $photo['room_id']][] = $photo;
+            }
+        }
+    }
+    $roomTypeGalleryPhotos = rows(
+        $pdo,
+        "SELECT room_id,room_type,category,photo_path FROM room_type_gallery_photos
+         WHERE building_id=:id AND category IN ('room','room_facility','general_facility')
+         ORDER BY id",
+        ['id' => $buildingId]
+    );
+    $roomGalleryPhotosByType = [];
+    $roomGalleryPhotosByRoom = [];
+    $roomFacilityPhotosByType = [];
+    $generalFacilityPhotos = [];
+    foreach ($roomTypeGalleryPhotos as $photo) {
+        if (!$isPropertyPhotoAvailable($photo['photo_path'])) {
+            continue;
+        }
+        if ($photo['category'] === 'room') {
+            if ($photo['room_id'] !== null) {
+                $roomGalleryPhotosByRoom[(int) $photo['room_id']][] = $photo['photo_path'];
+            } else {
+                $roomGalleryPhotosByType[$photo['room_type']][] = $photo['photo_path'];
+            }
+        } elseif ($photo['category'] === 'room_facility') {
+            $roomFacilityPhotosByType[$photo['room_type']][] = $photo['photo_path'];
+        } else {
+            $generalFacilityPhotos[] = $photo['photo_path'];
+        }
+    }
+    $propertyRoomGroups = [];
+    foreach ($propertyRooms as $room) {
+        $roomType = $room['room_type'];
+        $roomId = (int) $room['id'];
+        $room['cover_photo'] = !empty($room['profile_photo_path'])
+            && $isPropertyPhotoAvailable($room['profile_photo_path'])
+            ? $room['profile_photo_path'] : null;
+        foreach ($roomPhotosById[$roomId] ?? [] as $photo) {
+            if ($photo['category'] === 'room' && $room['cover_photo'] === null) {
+                $room['cover_photo'] = $photo['photo_path'];
+            } elseif ($photo['category'] === 'facility') {
+                $roomFacilityPhotosByType[$roomType][] = $photo['photo_path'];
+            }
+        }
+        if ($room['cover_photo'] === null && !empty($roomGalleryPhotosByRoom[$roomId])) {
+            $room['cover_photo'] = $roomGalleryPhotosByRoom[$roomId][0];
+        }
+        if ($room['cover_photo'] === null && !empty($roomGalleryPhotosByType[$roomType])) {
+            $room['cover_photo'] = $roomGalleryPhotosByType[$roomType][0];
+        }
+        $propertyRoomGroups[$roomType][] = $room;
+    }
+    foreach ($roomFacilityPhotosByType as $roomType => $photoPaths) {
+        $roomFacilityPhotosByType[$roomType] = array_values(array_unique($photoPaths));
+    }
+    $generalFacilityPhotos = array_values(array_unique($generalFacilityPhotos));
+    $roomTypeOrder = static function (string $roomType): int {
+        $normalized = strtolower($roomType);
+        if (str_contains($normalized, 'stand')) {
+            return 0;
+        }
+        if (str_contains($normalized, 'premium')) {
+            return 1;
+        }
+        if (str_contains($normalized, 'eksekutif')
+            || str_contains($normalized, 'eksklusif')
+            || str_contains($normalized, 'executive')) {
+            return 2;
+        }
+        return 3;
+    };
+    uksort($propertyRoomGroups, static fn(string $first, string $second): int =>
+        $roomTypeOrder($first) <=> $roomTypeOrder($second) ?: strnatcasecmp($first, $second)
+    );
+    $availablePropertyRooms = array_values(array_filter(
+        $propertyRooms,
+        static fn(array $room): bool => (bool) $room['is_available']
+    ));
     $reviewReplyColumn = $pdo->query(
         "SHOW COLUMNS FROM property_reviews LIKE 'operator_reply'"
     )->fetch();
@@ -245,38 +383,36 @@ if ($page === 'property') {
     $propertyReviews = rows(
         $pdo,
         "SELECT pr.rating,pr.review_text,pr.created_at,{$reviewReplyFields},
-                u.name AS reviewer_name
-         FROM property_reviews pr JOIN tenants t ON t.id=pr.tenant_id
+                COALESCE(reviewer.name,u.name) AS reviewer_name
+         FROM property_reviews pr LEFT JOIN tenants t ON t.id=pr.tenant_id
          LEFT JOIN users u ON u.id=t.user_id
+         LEFT JOIN users reviewer ON reviewer.id=pr.reviewer_user_id
          WHERE pr.building_id=:id AND pr.status='published'
          ORDER BY pr.created_at DESC LIMIT 30",
         ['id' => $buildingId]
     );
     $averageRating = $propertyReviews
         ? array_sum(array_column($propertyReviews, 'rating')) / count($propertyReviews) : null;
-    $canReview = false;
-    if ($user && $user['role'] === 'seeker') {
-        $canReview = (bool) one(
-            $pdo,
-            "SELECT r.id FROM rentals r JOIN tenants t ON t.id=r.tenant_id
-             JOIN rooms rm ON rm.id=r.room_id
-             WHERE t.user_id=:user_id AND rm.building_id=:building_id AND r.status='ended'
-               AND (r.end_date IS NULL OR r.end_date<CURDATE()) LIMIT 1",
-            ['user_id' => $user['id'], 'building_id' => $buildingId]
-        );
-    }
+    $canReview = $user && $user['role'] === 'seeker';
     $genderLabel = ['mixed' => 'Campur', 'male' => 'Putra', 'female' => 'Putri'][$property['gender_policy']];
     $canManageProperty = $user && can_manage_building($pdo, $user, $buildingId);
+    $propertySaved = $user && $user['role'] === 'seeker' && (bool) one(
+        $pdo,
+        "SELECT id FROM property_user_actions
+         WHERE building_id=:building_id AND user_id=:user_id AND action_type='saved' LIMIT 1",
+        ['building_id' => $buildingId, 'user_id' => $user['id']]
+    );
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="description" content="<?= e($property['name']) ?> — foto, kamar, fasilitas, lokasi, ulasan dan informasi pemilik kos.">
-    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-6">
+    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261018-10">
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head><body class="public-page property-page">
-    <header class="public-header"><nav class="public-nav"><a class="tiara-brand koskosan-brand" href="index.php" aria-label="KosKosan, beranda"><span class="tiara-brand-icon">K</span><span>KosKosan<small>HUNIAN NYAMAN</small></span></a><?= theme_switcher() ?><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar</a><?php endif; ?></nav>
+    <header class="public-header"><nav class="public-nav"><a class="tiara-brand koskosan-brand" href="index.php" aria-label="KosKosan, beranda"><span class="tiara-brand-icon">K</span><span>KosKosan<small>HUNIAN NYAMAN</small></span></a><?php if ($user): ?><a class="notification-bell" href="index.php?page=notifications" aria-label="Notifikasi">♧</a><?php endif; ?><?= theme_switcher() ?><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar</a><?php endif; ?></nav>
     <nav class="property-tabs"><a href="#foto">Foto properti</a><a href="#fasilitas-kamar">Fasilitas kamar</a><a href="#fasilitas-umum">Fasilitas umum</a><a href="#lokasi">Lokasi</a><a href="#review">Review</a><a href="#pemilik">Pemilik kos</a></nav></header>
     <main class="property-detail-main">
         <a class="text-link" href="index.php?page=home">← Kembali ke pencarian</a>
+        <?php if (!$user): ?><div class="property-user-actions"><a class="button secondary compact-button" href="index.php?page=login">Masuk untuk menyimpan atau melaporkan kos</a></div><?php endif; ?>
         <section id="foto" class="property-gallery property-banner">
             <div class="property-gallery-main property-profile-photo">
                 <?php if ($propertyGalleryPhotos): ?>
@@ -313,17 +449,98 @@ if ($page === 'property') {
             </div>
         </section>
         <div class="property-detail-layout"><div class="property-detail-content">
-            <section class="property-intro"><span class="badge active"><?= e($genderLabel) ?></span><h1><?= e($property['name']) ?></h1><p><?= e($property['address']) ?></p><?php if ($averageRating !== null): ?><strong class="property-rating">★ <?= number_format($averageRating,1) ?> <small>(<?= count($propertyReviews) ?> ulasan)</small></strong><?php else: ?><span class="muted">Belum ada review</span><?php endif; ?><?php if ($property['description']): ?><p><?= nl2br(e($property['description'])) ?></p><?php endif; ?></section>
-            <section class="property-section" id="fasilitas-kamar"><h2>Fasilitas kamar</h2><p class="muted">Fasilitas ditampilkan untuk setiap kamar agar informasi dan tarifnya jelas.</p><div class="property-room-list"><?php foreach ($propertyRooms as $room): ?><article><div><strong><?= e($room['room_type']) ?> · Kamar <?= e($room['room_number']) ?></strong><small><?= e($room['floor'] ? 'Lantai ' . $room['floor'] . ' · ' : '') ?><?= e($room['facilities'] ?: 'Tanyakan fasilitas kepada pemilik') ?></small></div><div><strong><?= e(money($room['monthly_rate'])) ?>/bln</strong><a class="button primary" href="<?= $user && $user['role']==='seeker' ? 'index.php?page=booking_form&id='.(int)$room['id'] : 'index.php?page=register&role=seeker&next=booking&id='.(int)$room['id'] ?>">Booking</a></div></article><?php endforeach; ?><?php if (!$propertyRooms): ?><p class="muted">Saat ini belum ada kamar tersedia.</p><?php endif; ?></div></section>
-            <section class="property-section" id="fasilitas-umum"><h2>Fasilitas umum</h2><div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $property['general_facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$property['general_facilities']): ?><span>Informasi fasilitas umum belum ditambahkan.</span><?php endif; ?></div><?php if ($property['house_rules']): ?><h3>Peraturan kos</h3><p><?= nl2br(e($property['house_rules'])) ?></p><?php endif; ?></section>
+            <section class="property-intro"><span class="badge active"><?= e($genderLabel) ?></span><span class="verification-badge tier-<?= e($property['verification_tier']) ?>"><?= e($property['verification_status'] === 'verified' ? ucfirst($property['verification_tier']) . ' · Terverifikasi' : 'Basic · Belum terverifikasi') ?></span><h1><?= e($property['name']) ?></h1><p><?= e($property['address']) ?></p><?php if ($averageRating !== null): ?><strong class="property-rating">★ <?= number_format($averageRating,1) ?> <small>(<?= count($propertyReviews) ?> ulasan)</small></strong><?php else: ?><span class="muted">Belum ada review</span><?php endif; ?><?php if ($property['description']): ?><p><?= nl2br(e($property['description'])) ?></p><?php endif; ?><div class="property-user-actions"><?php if ($user && $user['role'] === 'seeker'): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="toggle_saved_property"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button class="button secondary compact-button" type="submit"><?= $propertySaved ? '♥ Tersimpan' : '♡ Simpan kos' ?></button></form><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><button class="button secondary compact-button" type="button" data-dialog-open="report-property-dialog">Laporkan</button><?php else: ?><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><?php endif; ?><?php if ($user && $user['role'] === 'operator' && $canManageProperty && $property['verification_status'] !== 'verified'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-verification-dialog">Ajukan verifikasi</button><?php endif; ?></div></section>
+            <section class="property-section property-room-types" id="fasilitas-kamar">
+                <h2>Kamar dan fasilitas</h2>
+                <p class="muted">Informasi kamar dan foto fasilitas mengikuti data yang dikelola untuk gedung ini.</p>
+                <?php if ($propertyRoomGroups): ?>
+                    <div class="property-room-type-list">
+                        <?php $propertyRoomGroupIndex = 0; foreach ($propertyRoomGroups as $roomType => $typeRooms):
+                            $typeId = 'property-room-type-' . $propertyRoomGroupIndex;
+                            $typeFacilityPhotos = $roomFacilityPhotosByType[$roomType] ?? [];
+                            $availableTypeRooms = array_values(array_filter(
+                                $typeRooms,
+                                static fn(array $room): bool => (bool) $room['is_available']
+                            ));
+                        ?>
+                            <section class="property-room-type">
+                                <div class="property-room-type-heading">
+                                    <div><span>Tipe kamar</span><h3><?= e($roomType) ?></h3></div>
+                                    <small><?= count($typeRooms) ?> kamar · <?= count($availableTypeRooms) ?> tersedia</small>
+                                </div>
+                                <?php if ($typeFacilityPhotos): ?>
+                                    <div class="property-room-type-facilities">
+                                        <span>Foto fasilitas tipe <?= e($roomType) ?></span>
+                                        <div>
+                                            <?php foreach ($typeFacilityPhotos as $photoPath): ?>
+                                                <button class="property-facility-thumbnail" type="button" data-photo-preview="<?= e($photoPath) ?>" data-photo-alt="<?= e('Foto fasilitas ' . $roomType) ?>" aria-label="Lihat foto fasilitas <?= e($roomType) ?>">
+                                                    <img src="<?= e($photoPath) ?>" alt="Fasilitas <?= e($roomType) ?>" loading="lazy">
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="property-room-carousel">
+                                    <div class="property-carousel-controls property-room-type-controls">
+                                        <button type="button" class="property-carousel-arrow" data-carousel-target="<?= e($typeId) ?>" data-carousel-direction="left" aria-label="Kamar <?= e($roomType) ?> sebelumnya" disabled>‹</button>
+                                        <button type="button" class="property-carousel-arrow" data-carousel-target="<?= e($typeId) ?>" data-carousel-direction="right" aria-label="Kamar <?= e($roomType) ?> berikutnya">›</button>
+                                    </div>
+                                    <div class="property-carousel-track property-room-type-track" id="<?= e($typeId) ?>" tabindex="0" aria-label="Daftar kamar <?= e($roomType) ?>">
+                                        <?php foreach ($typeRooms as $room): ?>
+                                            <article class="property-room-vcard">
+                                                <a class="property-room-vcard-photo" href="index.php?page=room&amp;id=<?= (int) $room['id'] ?>" aria-label="Lihat detail kamar <?= e($room['room_number']) ?>">
+                                                    <?php if (!empty($room['cover_photo'])): ?><img src="<?= e($room['cover_photo']) ?>" alt="Foto kamar <?= e($room['room_number']) ?>" loading="lazy"><?php else: ?><span aria-hidden="true">⌂</span><?php endif; ?>
+                                                    <span class="property-room-availability <?= $room['is_available'] ? 'available' : 'unavailable' ?>"><i aria-hidden="true"></i><?= $room['is_available'] ? 'Tersedia' : 'Tidak tersedia' ?></span>
+                                                </a>
+                                                <div class="property-room-vcard-body">
+                                                    <small>Kamar <?= e($room['room_number']) ?><?= $room['floor'] ? ' · Lantai ' . e($room['floor']) : '' ?></small>
+                                                    <h4><a href="index.php?page=room&amp;id=<?= (int) $room['id'] ?>">Kamar <?= e($room['room_number']) ?></a></h4>
+                                                    <p><?= e($room['facilities'] ?: 'Informasi fasilitas kamar belum ditambahkan.') ?></p>
+                                                    <strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong>
+                                                    <?php if ($room['is_available']): ?>
+                                                        <a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&amp;id=' . (int) $room['id'] : 'index.php?page=register&amp;role=seeker&amp;next=booking&amp;id=' . (int) $room['id'] ?>">Booking kamar</a>
+                                                    <?php else: ?>
+                                                        <span class="property-room-unavailable">Kamar tidak dapat dibooking saat ini</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </article>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </section>
+                        <?php $propertyRoomGroupIndex++; endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <p class="muted">Informasi kamar belum ditambahkan untuk gedung ini.</p>
+                <?php endif; ?>
+            </section>
+            <section class="property-section" id="fasilitas-umum">
+                <h2>Fasilitas umum</h2>
+                <div class="property-feature-list"><?php foreach (array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $property['general_facilities']))) as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?><?php if (!$property['general_facilities']): ?><span>Informasi fasilitas umum belum ditambahkan.</span><?php endif; ?></div>
+                <?php if ($generalFacilityPhotos): ?>
+                    <div class="property-general-facility-photos" aria-label="Foto fasilitas umum">
+                        <?php foreach ($generalFacilityPhotos as $photoPath): ?>
+                            <button class="property-facility-thumbnail" type="button" data-photo-preview="<?= e($photoPath) ?>" data-photo-alt="Foto fasilitas umum kos" aria-label="Lihat foto fasilitas umum">
+                                <img src="<?= e($photoPath) ?>" alt="Fasilitas umum kos" loading="lazy">
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($property['house_rules']): ?><h3>Peraturan kos</h3><p><?= nl2br(e($property['house_rules'])) ?></p><?php endif; ?>
+            </section>
             <section class="property-section"><h2>Alamat kos</h2><p><?= e($property['address']) ?></p></section>
-            <section class="property-section" id="review"><h2>Review penyewa</h2><?php if ($propertyReviews): ?><div class="property-review-list"><?php foreach ($propertyReviews as $review): ?><article><strong><?= e($review['reviewer_name'] ?: 'Penyewa') ?> · <?= str_repeat('★',(int)$review['rating']) ?></strong><small><?= e(date_id($review['created_at'])) ?></small><p><?= nl2br(e($review['review_text'])) ?></p><?php if ($review['operator_reply']): ?><div class="property-review-reply"><strong>Balasan pengelola</strong><?php if ($review['operator_replied_at']): ?><small><?= e(date_id($review['operator_replied_at'])) ?></small><?php endif; ?><p><?= nl2br(e($review['operator_reply'])) ?></p></div><?php endif; ?></article><?php endforeach; ?></div><?php else: ?><p class="muted">Kos ini belum memiliki review dari penyewa.</p><?php endif; ?><?php if ($canReview): ?><form method="post" class="property-review-form"><?= csrf_field() ?><input type="hidden" name="action" value="submit_review"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><label class="field"><span>Rating</span><select name="rating" required><?php for($star=5;$star>=1;$star--): ?><option value="<?= $star ?>"><?= $star ?> bintang</option><?php endfor; ?></select></label><label class="field"><span>Ceritakan pengalaman Anda</span><textarea name="review_text" rows="4" maxlength="3000" required></textarea></label><button class="button primary">Kirim review</button></form><?php endif; ?></section>
-            <section class="property-section" id="pemilik"><h2>Pemilik kos</h2><article class="property-owner-card"><?= avatar_markup(['name' => $property['owner_name'] ?: 'Pengelola kos', 'gender' => $property['owner_gender'], 'profile_photo_path' => $property['owner_photo'], 'avatar_key' => $property['owner_avatar']]) ?><div><strong><?= e($property['owner_name'] ?: 'Pengelola kos') ?></strong><small>Operator kos</small><?php if ($property['owner_phone']): ?><a href="https://wa.me/<?= e(preg_replace('/\D+/', '', $property['owner_phone'])) ?>" target="_blank" rel="noopener noreferrer">Hubungi melalui WhatsApp</a><?php endif; ?></div></article></section>
-        </div><aside class="property-booking-card"><span>Mulai dari</span><strong><?= e($propertyRooms ? money(min(array_column($propertyRooms, 'monthly_rate'))) : '—') ?><small>/ bulan</small></strong><a class="button primary full" href="#fasilitas-kamar">Pilih kamar tersedia</a><p>Login diperlukan untuk mengirim permintaan booking. Pemilik kos akan meninjau permintaan Anda.</p></aside></div>
+            <section class="property-section" id="review"><h2>Ulasan pengguna</h2><?php if ($propertyReviews): ?><div class="property-review-list"><?php foreach ($propertyReviews as $review): ?><article><strong><?= e($review['reviewer_name'] ?: 'Pengguna') ?> · <?= str_repeat('★',(int)$review['rating']) ?></strong><small><?= e(date_id($review['created_at'])) ?></small><p><?= nl2br(e($review['review_text'])) ?></p><?php if ($review['operator_reply']): ?><div class="property-review-reply"><strong>Balasan pengelola</strong><?php if ($review['operator_replied_at']): ?><small><?= e(date_id($review['operator_replied_at'])) ?></small><?php endif; ?><p><?= nl2br(e($review['operator_reply'])) ?></p></div><?php endif; ?></article><?php endforeach; ?></div><?php else: ?><p class="muted">Kos ini belum memiliki ulasan.</p><?php endif; ?><?php if ($canReview): ?><form method="post" class="property-review-form"><?= csrf_field() ?><input type="hidden" name="action" value="submit_review"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><fieldset class="review-star-field"><legend>Rating Anda</legend><div class="review-stars"><?php for($star=1;$star<=5;$star++): ?><label><input type="radio" name="rating" value="<?= $star ?>" required><span aria-label="<?= $star ?> bintang">★</span></label><?php endfor; ?></div></fieldset><label class="field"><span>Ceritakan pengalaman Anda</span><textarea name="review_text" rows="4" maxlength="3000" required></textarea></label><button class="button primary" type="submit">Kirim ulasan</button></form><?php elseif (!$user): ?><p class="muted">Silakan <a class="text-link" href="index.php?page=login">masuk</a> sebagai User untuk memberikan ulasan.</p><?php endif; ?></section>
+            <section class="property-section" id="pemilik"><h2>Pemilik kos</h2><article class="property-owner-card"><?= avatar_markup(['name' => $property['owner_name'] ?: 'Pengelola kos', 'gender' => $property['owner_gender'], 'profile_photo_path' => $property['owner_photo'], 'avatar_key' => $property['owner_avatar']]) ?><div><strong><?= e($property['owner_name'] ?: 'Pengelola kos') ?></strong><small>Operator kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($property['owner_phone']): ?><a class="button secondary compact-button" href="https://wa.me/<?= e(preg_replace('/\D+/', '', $property['owner_phone'])) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></article></section>
+        </div><aside class="property-booking-card"><span>Mulai dari</span><strong><?= e($availablePropertyRooms ? money(min(array_column($availablePropertyRooms, 'monthly_rate'))) : '—') ?><small>/ bulan</small></strong><a class="button primary full" href="#fasilitas-kamar">Pilih kamar tersedia</a><p>Login diperlukan untuk mengirim permintaan booking. Pemilik kos akan meninjau permintaan Anda.</p></aside></div>
     </main>
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>const propertyMap=L.map('property-map',{scrollWheelZoom:false,zoomControl:false}).setView([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(propertyMap);L.marker([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>]).addTo(propertyMap).bindPopup(<?= json_encode($property['name'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);setTimeout(()=>propertyMap.invalidateSize(),100);document.getElementById('property-map').addEventListener('click',()=>propertyMap.scrollWheelZoom.enable());</script><?php endif; ?>
+    <?php if ($user && $user['role'] === 'seeker'): ?>
+        <dialog class="action-dialog" id="property-chat-dialog"><form method="post" class="action-dialog-form"><?= csrf_field() ?><input type="hidden" name="action" value="start_chat_conversation"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">CHAT SISTEM</span><h2>Hubungi pengelola</h2><p>Pesan hanya dapat dibaca oleh Anda dan pengelola gedung.</p><label class="field"><span>Pesan</span><textarea name="message" rows="4" maxlength="4000" required>Halo, saya tertarik dengan <?= e($property['name']) ?>.</textarea></label><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button primary" type="submit">Mulai chat</button></div></form></dialog>
+        <dialog class="action-dialog" id="report-property-dialog"><form method="post" class="action-dialog-form"><?= csrf_field() ?><input type="hidden" name="action" value="report_property"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">LAPORKAN PROPERTI</span><h2>Laporkan informasi kos</h2><label class="field"><span>Alasan laporan</span><select name="report_reason" required><option value="">Pilih alasan</option><option value="misleading">Informasi tidak sesuai</option><option value="fake">Properti tidak ditemukan</option><option value="inappropriate">Foto atau konten tidak pantas</option><option value="other">Lainnya</option></select></label><label class="field"><span>Detail tambahan</span><textarea name="report_details" rows="3" maxlength="2000"></textarea></label><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Kirim laporan</button></div></form></dialog>
+    <?php endif; ?>
+    <?php if ($user && $user['role'] === 'operator' && $canManageProperty && $property['verification_status'] !== 'verified'): ?><dialog class="action-dialog" id="property-verification-dialog"><form method="post" class="action-dialog-form"><?= csrf_field() ?><input type="hidden" name="action" value="submit_property_verification"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button><span class="dialog-eyebrow">VERIFIKASI PROPERTI</span><h2>Ajukan verifikasi kos</h2><p>Pengajuan memerlukan data gedung lengkap, alamat dan pin lokasi, minimal satu kamar, serta tiga foto yang jelas. Klasifikasi menunjukkan tingkat verifikasi, bukan kemewahan.</p><label class="field"><span>Ajukan klasifikasi</span><select name="requested_tier" required><option value="premium">Premium</option><option value="exclusive">Eksklusif</option></select></label><label class="field"><span>Catatan untuk admin (opsional)</span><textarea name="operator_note" rows="3" maxlength="2000"></textarea></label><div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button primary" type="submit">Kirim pengajuan</button></div></form></dialog><?php endif; ?>
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
-    <script src="app.js?v=koskosan-ui-20261016-5"></script>
+    <script src="app.js?v=koskosan-ui-20261018-10"></script>
     </body></html><?php
     exit;
 }
@@ -333,10 +550,39 @@ if (in_array($page, ['home', 'search'], true)) {
     if (strlen($searchTerm) > 255) {
         $searchTerm = substr($searchTerm, 0, 255);
     }
+    $genderPolicy = isset($_GET['gender_policy']) && is_string($_GET['gender_policy'])
+        && in_array($_GET['gender_policy'], ['male', 'female', 'mixed'], true)
+        ? $_GET['gender_policy'] : '';
+    $searchGender = $genderPolicy !== '' ? '' : (
+        str_contains(strtolower($searchTerm), 'putri') ? 'female'
+        : (str_contains(strtolower($searchTerm), 'putra') ? 'male' : '')
+    );
+    $nearbyLatitude = filter_var($_GET['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
+    $nearbyLongitude = filter_var($_GET['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
+    $hasNearbyLocation = $nearbyLatitude !== false && $nearbyLongitude !== false
+        && $nearbyLatitude !== null && $nearbyLongitude !== null
+        && $nearbyLatitude >= -90 && $nearbyLatitude <= 90
+        && $nearbyLongitude >= -180 && $nearbyLongitude <= 180;
+    $regionSearchSql = "OR EXISTS (
+        SELECT 1 FROM indonesia_regions ir
+        WHERE ir.code IN (b.province_code,b.regency_code,b.district_code,b.village_code)
+          AND ir.name LIKE :region_like
+    )";
+    $genderSearchSql = $searchGender !== '' ? ' OR b.gender_policy=:gender_search' : '';
+    $genderFilterSql = $genderPolicy !== '' ? ' AND b.gender_policy=:gender_filter' : '';
+    $nearbyOrderSql = $hasNearbyLocation
+        ? " ORDER BY (b.latitude IS NULL OR b.longitude IS NULL),
+                (6371 * ACOS(LEAST(1,GREATEST(-1,
+                COS(RADIANS(:order_latitude)) * COS(RADIANS(b.latitude))
+                * COS(RADIANS(b.longitude) - RADIANS(:order_longitude))
+                + SIN(RADIANS(:order_latitude_2)) * SIN(RADIANS(b.latitude))
+            )))), rm.monthly_rate, b.name, rm.room_number"
+        : ' ORDER BY rm.monthly_rate, b.name, rm.room_number';
     $publicRooms = rows(
         $pdo,
         "SELECT rm.*, b.name AS building_name, b.address AS building_address,
                 b.description AS building_description, b.gender_policy,
+                b.verification_tier,b.verification_status,
                 b.latitude AS building_latitude, b.longitude AS building_longitude,
                 b.profile_photo_path AS building_profile_photo_path,
                 CASE WHEN rm.status='available' AND NOT EXISTS (
@@ -352,13 +598,24 @@ if (in_array($page, ['home', 'search'], true)) {
                 ) THEN 1 ELSE 0 END AS is_available
          FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
          WHERE b.status='active'
-         AND (:search_name='' OR b.name LIKE :name_like OR b.address LIKE :address_like)
-         ORDER BY rm.monthly_rate, b.name, rm.room_number",
-        [
+         AND (b.owner_user_id IS NULL OR EXISTS (
+             SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
+               AND owner.status='active' AND owner.self_deactivated_at IS NULL
+         ))
+         AND (:search_name='' OR b.name LIKE :name_like OR b.address LIKE :address_like
+              {$regionSearchSql}{$genderSearchSql})
+         {$genderFilterSql}{$nearbyOrderSql}",
+        array_merge([
             'search_name' => $searchTerm,
             'name_like' => '%' . $searchTerm . '%',
             'address_like' => '%' . $searchTerm . '%',
-        ]
+            'region_like' => '%' . $searchTerm . '%',
+        ], $searchGender !== '' ? ['gender_search' => $searchGender] : [],
+            $genderPolicy !== '' ? ['gender_filter' => $genderPolicy] : [],
+            $hasNearbyLocation ? [
+                'order_latitude' => $nearbyLatitude, 'order_latitude_2' => $nearbyLatitude,
+                'order_longitude' => $nearbyLongitude,
+            ] : [])
     );
     $availableRooms = array_values(array_filter(
         $publicRooms,
@@ -443,6 +700,8 @@ if (in_array($page, ['home', 'search'], true)) {
                 'id' => $buildingId,
                 'name' => $room['building_name'],
                 'address' => $room['building_address'],
+                'verification_tier' => $room['verification_tier'],
+                'verification_status' => $room['verification_status'],
                 'latitude' => $room['building_latitude'],
                 'longitude' => $room['building_longitude'],
                 'rooms' => [],
@@ -592,11 +851,12 @@ if (in_array($page, ['home', 'search'], true)) {
     $homeReviews = rows(
         $pdo,
         "SELECT pr.building_id,pr.rating,pr.review_text,pr.created_at,{$reviewReplyFields},
-                b.name AS building_name,u.name AS reviewer_name
+                b.name AS building_name,COALESCE(reviewer.name,u.name) AS reviewer_name
          FROM property_reviews pr
          JOIN kos_buildings b ON b.id=pr.building_id
-         JOIN tenants t ON t.id=pr.tenant_id
+         LEFT JOIN tenants t ON t.id=pr.tenant_id
          LEFT JOIN users u ON u.id=t.user_id
+         LEFT JOIN users reviewer ON reviewer.id=pr.reviewer_user_id
          WHERE pr.status='published' AND b.status='active'
          ORDER BY pr.created_at DESC,pr.id DESC LIMIT 6"
     );
@@ -609,7 +869,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="theme-color" content="#fff9df">
         <meta name="description" content="Temukan kos dan kamar nyaman di KosKosan. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>KosKosan — Hunian nyaman, hati tenang</title>
-        <link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-6">
+        <link rel="stylesheet" href="style.css?v=koskosan-ui-20261018-10">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -621,8 +881,18 @@ if (in_array($page, ['home', 'search'], true)) {
                 </a>
                 <form class="public-search" action="index.php" method="get">
                     <input type="hidden" name="page" value="home">
+                    <input type="hidden" name="latitude" value="<?= $hasNearbyLocation ? e((string) $nearbyLatitude) : '' ?>" data-nearby-latitude>
+                    <input type="hidden" name="longitude" value="<?= $hasNearbyLocation ? e((string) $nearbyLongitude) : '' ?>" data-nearby-longitude>
                     <input name="q" value="<?= e($searchTerm) ?>" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat">
+                    <select name="gender_policy" aria-label="Filter kos putra atau putri">
+                        <option value="">Semua jenis kos</option>
+                        <option value="male" <?= $genderPolicy === 'male' ? 'selected' : '' ?>>Kos putra</option>
+                        <option value="female" <?= $genderPolicy === 'female' ? 'selected' : '' ?>>Kos putri</option>
+                        <option value="mixed" <?= $genderPolicy === 'mixed' ? 'selected' : '' ?>>Kos campur</option>
+                    </select>
+                    <button class="button secondary" type="button" data-search-nearby>Terdekat</button>
                     <button class="button primary" type="submit">Cari</button>
+                    <small class="search-nearby-status" data-nearby-status aria-live="polite"><?= $hasNearbyLocation ? 'Hasil diurutkan berdasarkan lokasi Anda.' : '' ?></small>
                 </form>
                 <div class="public-nav-links">
                     <a class="nav-current" href="index.php" aria-current="page">Beranda</a>
@@ -631,6 +901,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a href="#kontak">Kontak</a>
                     <?php if (!$user): ?><a href="index.php?page=register&amp;role=operator">Daftarkan kos</a><?php endif; ?>
                 </div>
+                <?php if ($user): ?><a class="notification-bell" href="index.php?page=notifications" aria-label="Notifikasi">♧</a><?php endif; ?>
                 <?= theme_switcher() ?>
                 <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel pemilik kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><a class="public-nav-cta" href="index.php?page=login">Masuk / Daftar<span aria-hidden="true">↗</span></a><?php endif; ?>
                 <button class="public-menu-toggle" type="button" aria-label="Buka navigasi" aria-expanded="false">☰</button>
@@ -694,11 +965,11 @@ if (in_array($page, ['home', 'search'], true)) {
                                 <article class="property-result-card">
                                     <a class="property-result-visual" href="index.php?page=property&amp;id=<?= (int) $listing['id'] ?>">
                                         <?php if ($listing['cover_photo']): ?><img src="<?= e($listing['cover_photo']) ?>" alt="Foto kos <?= e($listing['name']) ?>" loading="lazy"><?php else: ?><span class="listing-house-art" aria-hidden="true">⌂</span><small>Foto kos dapat ditambahkan pemilik</small><?php endif; ?>
+                                        <span class="property-card-location-tag"><?= e($listing['address']) ?></span>
                                         <span class="availability-pill"><i></i> <?= (int) $listing['available_count'] ?> kamar tersedia</span>
                                     </a>
                                     <div class="property-result-body">
-                                        <div class="property-result-heading"><div><span class="section-eyebrow">KOS DI SEKITARMU</span><h3><?= e($listing['name']) ?></h3></div><span class="listing-type-count"><?= count($listingTypes) ?> tipe</span></div>
-                                        <p class="property-result-address">⌖ <?= e($listing['address']) ?></p>
+                                        <div class="property-result-heading"><div><span class="section-eyebrow">KOS DI SEKITARMU</span><h3><?= e($listing['name']) ?></h3><span class="verification-badge tier-<?= e($listing['verification_tier']) ?>"><?= e($listing['verification_status'] === 'verified' ? ucfirst($listing['verification_tier']) . ' · Terverifikasi' : 'Basic') ?></span></div><span class="listing-type-count"><?= count($listingTypes) ?> tipe</span></div>
                                         <div class="listing-type-chips"><?php foreach ($listingTypes as $listingType): ?><span><?= e($listingType) ?></span><?php endforeach; ?></div>
                                         <?php if ($listingFacilities): ?><div class="listing-facility-chips"><?php foreach ($listingFacilities as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?></div><?php endif; ?>
                                         <div class="property-result-footer"><div><small>Mulai dari</small><strong><?= e(money($listing['minimum_rate'])) ?><small> / bulan</small></strong></div><a class="room-cta" href="index.php?page=property&amp;id=<?= (int) $listing['id'] ?>">Lihat kos <span>↗</span></a></div>
@@ -732,12 +1003,13 @@ if (in_array($page, ['home', 'search'], true)) {
                                         <a class="property-carousel-card" href="index.php?page=property&amp;id=<?= (int) $listing['id'] ?>">
                                             <div class="property-carousel-visual">
                                                 <?php if ($listing['cover_photo']): ?><img src="<?= e($listing['cover_photo']) ?>" alt="Foto kos <?= e($listing['name']) ?>" loading="lazy"><?php else: ?><span class="listing-house-art" aria-hidden="true">⌂</span><small>Foto kos dapat ditambahkan pemilik</small><?php endif; ?>
+                                                <span class="property-card-location-tag"><?= e($listing['address']) ?></span>
                                                 <span class="availability-pill"><i></i> <?= (int) $listing['available_count'] ?> kamar tersedia</span>
                                                 <?php if ($propertyRow['id'] === 'favorite-kost'): ?><span class="property-carousel-badge">♥ Favorit</span><?php endif; ?>
                                             </div>
                                             <div class="property-carousel-card-body">
-                                                <span class="property-carousel-address">⌖ <?= e($listing['address']) ?></span>
                                                 <h4><?= e($listing['name']) ?></h4>
+                                                <span class="verification-badge tier-<?= e($listing['verification_tier']) ?>"><?= e($listing['verification_status'] === 'verified' ? ucfirst($listing['verification_tier']) . ' · Terverifikasi' : 'Basic') ?></span>
                                                 <?php if ($listing['average_rating'] !== null): ?><p class="property-carousel-rating">★ <?= number_format($listing['average_rating'], 1) ?><span>(<?= (int) $listing['review_count'] ?> ulasan)</span></p><?php elseif ($propertyRow['id'] === 'favorite-kost'): ?><p class="property-carousel-rating"><span><?= (int) $listing['view_count'] ?> kali dilihat</span></p><?php else: ?><p class="property-carousel-rating"><span><?= (int) $listing['available_count'] ?> kamar tersedia</span></p><?php endif; ?>
                                                 <div class="property-carousel-price"><span>Mulai dari</span><strong><?= e(money($listing['minimum_rate'])) ?><small> / bulan</small></strong></div>
                                             </div>
@@ -760,10 +1032,10 @@ if (in_array($page, ['home', 'search'], true)) {
                                         <a class="property-carousel-card" href="index.php?page=room&amp;id=<?= (int) $room['id'] ?>">
                                             <div class="property-carousel-visual">
                                                 <?php if ($room['cover_photo']): ?><img src="<?= e($room['cover_photo']) ?>" alt="Foto <?= e($room['room_type'] ?: 'kamar ' . $room['room_number']) ?>" loading="lazy"><?php else: ?><span class="listing-house-art" aria-hidden="true">⌂</span><small>Foto kamar dapat ditambahkan pengelola</small><?php endif; ?>
+                                                <span class="property-card-location-tag"><?= e($room['building_name']) ?></span>
                                                 <span class="availability-pill <?= $room['is_available'] ? '' : 'unavailable' ?>"><i></i> <?= $room['is_available'] ? 'Tersedia' : 'Tidak tersedia' ?></span>
                                             </div>
                                             <div class="property-carousel-card-body">
-                                                <span class="property-carousel-address">⌖ <?= e($room['building_name']) ?> · <?= e($room['building_address']) ?></span>
                                                 <h4><?= e(($room['room_type'] ?: 'Kamar') . ' · ' . $room['room_number']) ?></h4>
                                                 <p class="property-carousel-rating"><span><?= e($room['floor'] ? 'Lantai ' . $room['floor'] : 'Detail kamar dan fasilitas') ?></span></p>
                                                 <div class="property-carousel-price"><span>Harga sewa</span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong></div>
@@ -904,7 +1176,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 map.fitBounds(mapBounds, {padding: [36, 36], maxZoom: 14});
             }
         </script><?php endif; ?>
-        <script src="app.js?v=koskosan-ui-20261016-5"></script>
+        <script src="app.js?v=koskosan-ui-20261018-10"></script>
     </body>
     </html>
     <?php

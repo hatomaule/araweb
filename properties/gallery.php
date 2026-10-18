@@ -38,9 +38,11 @@ if ($roomTypes && !in_array($selectedRoomType, $roomTypes, true)) {
 $galleryPhotos = $selectedRoomType
     ? rows(
         $pdo,
-        'SELECT id,category,photo_path,created_at FROM room_type_gallery_photos
-         WHERE building_id=:building_id AND room_type=:room_type
-         ORDER BY FIELD(category,\'building\',\'room\',\'room_facility\',\'general_facility\'),id',
+        'SELECT g.id,g.category,g.photo_path,g.created_at,rm.room_number
+         FROM room_type_gallery_photos g
+         LEFT JOIN rooms rm ON rm.id=g.room_id
+         WHERE g.building_id=:building_id AND g.room_type=:room_type
+         ORDER BY FIELD(g.category,\'building\',\'room\',\'room_facility\',\'general_facility\'),g.id',
         ['building_id' => $buildingId, 'room_type' => $selectedRoomType]
     )
     : [];
@@ -80,7 +82,7 @@ foreach ($galleryPhotos as $galleryPhoto) {
 }
 ?>
 <div class="welcome-row gallery-welcome">
-    <div><h2>Galeri foto</h2><p>Kelola foto gedung, kamar, dan fasilitas per tipe kamar. Foto kamar dan fasilitas akan digunakan bersama oleh kamar bertipe sama.</p></div>
+    <div><h2>Galeri foto</h2><p>Kelola foto gedung, kamar, dan fasilitas per tipe kamar. Setiap foto kamar baru bisa ditautkan ke kamar tertentu.</p></div>
 </div>
 <div class="panel gallery-filter-panel">
     <form method="get" class="gallery-filter-form">
@@ -113,43 +115,65 @@ foreach ($galleryPhotos as $galleryPhoto) {
     </div>
     <?php foreach ($galleryCategories as $category => $categoryInfo): ?>
         <section class="panel gallery-category-panel">
-            <div class="gallery-category-heading">
-                <span class="gallery-category-icon <?= e($category) ?>"><?= e($categoryInfo['icon']) ?></span>
-                <div><h2><?= e($categoryInfo['title']) ?></h2><p><?= e($categoryInfo['description']) ?></p></div>
-                <span class="gallery-photo-count"><?= count($photosByCategory[$category]) ?> foto</span>
+            <div class="gallery-category-layout">
+                <div class="gallery-category-heading">
+                    <span class="gallery-category-icon <?= e($category) ?>"><?= e($categoryInfo['icon']) ?></span>
+                    <div><h2><?= e($categoryInfo['title']) ?></h2><p><?= e($categoryInfo['description']) ?></p></div>
+                    <span class="gallery-photo-count"><?= count($photosByCategory[$category]) ?> foto</span>
+                </div>
             </div>
-            <label class="field gallery-upload-field"><span>Tambah <?= e($categoryInfo['title']) ?></span><input form="gallery-upload-form" type="file" name="gallery_photos_<?= e($category) ?>[]" accept="image/jpeg,image/png,image/webp" multiple><small class="field-help">Pilih hingga 4 foto sekaligus. Format JPG, PNG, atau WebP; maksimal 4 MB per foto.</small></label>
-            <?php if ($photosByCategory[$category]): ?>
-                <div class="gallery-photo-grid">
+            <div class="gallery-photo-grid">
+                <?php if ($photosByCategory[$category]): ?>
                     <?php foreach ($photosByCategory[$category] as $photo): ?>
                         <article class="gallery-photo-card">
                             <img src="<?= e($photo['photo_path']) ?>" alt="<?= e($categoryInfo['title'] . ' ' . $selectedRoomType) ?>" loading="lazy">
-                            <?php if ($category === 'room'): ?>
-                                <form method="post" class="gallery-photo-assign">
+                            <?php if ($category === 'room' && !empty($photo['room_number'])): ?><small class="gallery-photo-room-label">Khusus Kamar <?= e($photo['room_number']) ?></small><?php endif; ?>
+                            <?php if ($category === 'room' && $matchingRooms): ?>
+                                <form method="post" class="gallery-profile-select">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="select_room_gallery_photo">
                                     <input type="hidden" name="building_id" value="<?= $buildingId ?>">
                                     <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
                                     <input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>">
-                                    <label class="field"><span>Gunakan sebagai foto profil</span><select name="room_id" required><option value="">Pilih kamar</option><?php foreach ($matchingRooms as $matchingRoom): ?><option value="<?= (int) $matchingRoom['id'] ?>"><?= e($matchingRoom['room_number']) ?><?= $matchingRoom['profile_photo_path'] === $photo['photo_path'] ? ' · Foto saat ini' : '' ?></option><?php endforeach; ?></select></label>
-                                    <button class="button secondary compact-button" type="submit">Terapkan ke kamar</button>
+                                    <label class="field"><span>Jadikan foto profil untuk</span><select name="room_id" required><option value="">Pilih kamar</option><?php foreach ($matchingRooms as $matchingRoom): ?><option value="<?= (int) $matchingRoom['id'] ?>">Kamar <?= e($matchingRoom['room_number']) ?><?= ($matchingRoom['profile_photo_path'] ?? null) === $photo['photo_path'] ? ' · Foto profil saat ini' : '' ?></option><?php endforeach; ?></select></label>
+                                    <button class="button secondary compact-button" type="submit"><span aria-hidden="true">☆</span> Jadikan foto profil</button>
                                 </form>
                             <?php endif; ?>
-                            <form method="post" class="gallery-photo-delete" onsubmit="return confirm('Hapus foto dari galeri tipe kamar ini?')">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="delete_room_type_gallery_photo">
-                                <input type="hidden" name="building_id" value="<?= $buildingId ?>">
-                                <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
-                                <input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>">
-                                <button class="text-button" type="submit">Hapus foto</button>
-                            </form>
+                            <div class="gallery-photo-delete"><button class="text-button" type="button" data-dialog-open="delete-gallery-photo-<?= (int) $photo['id'] ?>">Hapus foto</button></div>
+                            <dialog class="action-dialog" id="delete-gallery-photo-<?= (int) $photo['id'] ?>">
+                                <form method="post" class="action-dialog-form">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="delete_room_type_gallery_photo">
+                                    <input type="hidden" name="building_id" value="<?= $buildingId ?>">
+                                    <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
+                                    <input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>">
+                                    <button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button>
+                                    <span class="dialog-eyebrow">KEAMANAN GALERI</span><h2>Hapus foto?</h2>
+                                    <p>Foto ini akan dihapus dari galeri <?= e($categoryInfo['title']) ?>. Tindakan ini tidak dapat dibatalkan.</p>
+                                    <label class="confirmation-check"><input type="checkbox" name="confirm_delete_photo" value="yes" required><span>Saya memahami foto ini akan dihapus dari galeri.</span></label>
+                                    <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Hapus foto</button></div>
+                                </form>
+                            </dialog>
                         </article>
                     <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="gallery-empty-state" data-photo-upload-empty><span>▧</span><strong>Galeri <?= e($categoryInfo['title']) ?> masih kosong</strong><small>Foto yang diunggah akan langsung tersedia pada halaman terkait.</small></div>
+                <?php endif; ?>
+                <div class="photo-upload-control gallery-upload-field" data-photo-upload data-photo-upload-saved="<?= count($photosByCategory[$category]) ?>" data-photo-upload-limit="4">
+                    <input class="visually-hidden" form="gallery-upload-form" type="file" name="gallery_photos_<?= e($category) ?>[]" accept="image/jpeg,image/png,image/webp" multiple data-photo-upload-input>
+                    <span class="gallery-upload-icon" aria-hidden="true">＋</span>
+                    <strong>Tambah foto</strong>
+                    <small class="field-help">JPG, PNG, atau WebP · Maks. 4 MB per foto</small>
+                    <button class="button secondary" type="button" data-photo-upload-trigger>Upload foto</button>
+                    <span class="field-help" data-photo-upload-count><?= count($photosByCategory[$category]) ?> foto tersimpan</span>
+                    <small class="field-help" data-photo-upload-status>Pilih hingga 4 foto sekaligus.</small>
+                    <div class="photo-upload-preview-grid" data-photo-upload-grid></div>
                 </div>
-            <?php else: ?>
-                <div class="gallery-empty-state"><span>▧</span><strong>Galeri <?= e($categoryInfo['title']) ?> masih kosong</strong><small>Foto yang diunggah akan langsung tersedia pada halaman terkait.</small></div>
+            </div>
+            <?php if ($category === 'room'): ?>
+                <label class="field gallery-room-target"><span>Simpan foto baru untuk kamar</span><select form="gallery-upload-form" name="gallery_room_ids[room]"><option value="">Galeri bersama tipe kamar</option><?php foreach ($matchingRooms as $matchingRoom): ?><option value="<?= (int) $matchingRoom['id'] ?>">Kamar <?= e($matchingRoom['room_number']) ?></option><?php endforeach; ?></select><small class="field-help">Foto profil kamar yang sudah ada dapat diganti dari kartu foto dengan memilih kamar tujuan.</small></label>
             <?php endif; ?>
         </section>
     <?php endforeach; ?>
-    <div class="gallery-save-bottom"><button class="button primary gallery-save-button" type="submit" form="gallery-upload-form">Simpan foto</button></div>
+    <div class="gallery-save-bottom"><button class="button primary gallery-save-button" type="submit" form="gallery-upload-form">Simpan</button></div>
 <?php endif; ?>

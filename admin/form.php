@@ -12,6 +12,7 @@ $adminForms = [
     'platform_user_profile' => __DIR__ . '/operator_profile.php',
     'platform_user_payments' => __DIR__ . '/user_payments.php',
     'platform_listings' => __DIR__ . '/datakost/form.php',
+    'platform_property_verification' => __DIR__ . '/property_verification.php',
 ];
 
 if ($page === 'platform_dashboard' && $user['role'] === 'admin') {

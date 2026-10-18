@@ -36,8 +36,10 @@ migrasi hanya untuk melihat hasilnya.
 - Di lingkungan WSL saat ini, proyek berada di
   `/home/alan_hatomaule/projects/ekosan`. Lingkungan yang diperiksa memakai
   PHP CLI dan MariaDB; Apache tidak terpasang. Untuk pengembangan lokal,
-  jalankan `php -S 127.0.0.1:8000 -t .` dari direktori proyek dan buka
-  `http://localhost:8000/` melalui browser Windows/WSL.
+  jalankan `php -d upload_max_filesize=4M -d post_max_size=20M -S 127.0.0.1:8000 -t .`
+  dari direktori proyek dan buka `http://localhost:8000/` melalui browser
+  Windows/WSL. Batas ini diperlukan agar upload sesuai batas aplikasi
+  (maksimal 4 MB per foto, hingga empat foto galeri per kiriman).
 - PHP development server hanya untuk pengembangan lokal dan tidak menerapkan
   aturan `.htaccess`; jangan menganggapnya sebagai konfigurasi deployment.
 - Tidak ada framework aplikasi atau sistem build frontend yang menjadi bagian
@@ -89,6 +91,8 @@ properti, booking, dan pembayaran; tidak ada modul operator tersendiri.
 | `bookings/` | Form/list booking user dan daftar/keputusan booking operator |
 | `payments/` | Tagihan, pembayaran, bukti, histori, dan konfirmasi operator |
 | `reports/` | Laporan platform, operator, dan user |
+| `chat/` | Percakapan privat antara User dan operator |
+| `notifications/` | Feed, badge, dan preferensi notifikasi akun |
 | `style.css`, `app.js` | Tampilan dan interaksi frontend |
 | `uploads/` | Foto properti/kamar/profil dan bukti pembayaran; perlakukan sebagai data |
 | `migration_*.sql` | Perubahan skema bertahap; bukan skrip yang aman dijalankan ulang |
@@ -99,9 +103,57 @@ gedung, foto kamar, fasilitas kamar, dan fasilitas umum. Perubahan skema
 memerlukan `migration_room_type_gallery.sql` satu kali; lihat urutan migrasi di
 README sebelum memperbarui database target.
 Pemilih galeri hanya mencantumkan tipe kamar yang benar-benar tersedia pada
-gedung terpilih. Pilih foto pada satu atau beberapa kategori dan kirim semuanya
-dengan tombol **Simpan foto** atas/bawah; handler membaca
+gedung terpilih. Pilih foto pada satu atau beberapa kategori, tautkan foto
+kamar yang baru diunggah ke unit tertentu jika diperlukan, lalu kirim semuanya
+dengan tombol **Simpan**; handler membaca
 `gallery_photos_{category}` dan memvalidasi maksimal empat foto per kategori.
+Foto galeri kategori kamar dapat langsung dijadikan foto profil dari kartu
+galeri dengan memilih unit tujuan; halaman Edit Kamar menyediakan aksi yang
+sama pada foto bersama. Penghapusan foto harus melalui dialog konfirmasi
+keamanan dengan checkbox, dan handler POST juga memverifikasi checkbox tersebut.
+Pemilih berkas galeri dan Edit Kamar disembunyikan; gunakan tombol **Upload
+foto** dan pratinjau terpilih, jangan mengembalikan input `Choose File` native.
+Form edit gedung menampilkan pratinjau foto galeri segera setelah dipilih;
+input file disembunyikan dan tombol **Upload foto** membuka pemilih untuk menambahkan pilihan,
+dan tombol simpan gedung mengirim semua foto baru bersama perubahan data.
+Perubahan gedung dan catatan galeri disimpan dalam satu transaksi database;
+berkas baru dibersihkan bila penyimpanan gagal.
+Daftar gedung operator memakai kartu responsif berisi sampul foto, alamat,
+jumlah kamar, status, tautan lokasi, dan aksi edit/nonaktifkan. Pencarian dan
+paginasi kartu berada di `app.js`; pertahankan fungsi tersebut saat mengubah
+tampilan daftar.
+Admin mengakses pengelolaan Gedung, Kamar, Galeri, dan Penghuni dari grup
+sidebar **Managemen Properti** di bawah Manajemen akun. `rooms.php` memiliki
+dropdown tampilan Tabel/Kartu yang mengingat pilihan per browser; filter tipe
+kamar mengikuti gedung yang dipilih, sedangkan tampilan kartu dikelompokkan
+per gedung dan tipe dalam carousel. Tipe kamar ditata dua kolom pada desktop
+dan satu kolom pada ponsel; dropdown tampilan berada di sisi kanan kontrol.
+Carousel kamar menampilkan tepat dua kartu pada satu waktu; panah berpindah satu
+lebar track. Kartu antar tipe memakai ukuran seragam; jarak antar tipe dibuat
+lega. Tipe Eksklusif membentang selebar baris dengan track rata kiri dan lebar
+penuh, tidak dipusatkan; tidak ada bingkai pemisah tipe berwarna.
+Kartu kos dan kamar publik, kos tersimpan, daftar gedung, dan kartu kamar
+operator mengikuti pola foto besar di atas, ringkasan di bawah, label konteks
+di atas foto, serta bayangan halus untuk membedakan kartu dari latar. Pertahankan
+perilaku tautan/aksi, keterbacaan tema gelap, dan susunan satu kolom pada ponsel
+saat menyesuaikan tampilan kartu tersebut.
+Semua elemen `<select>` satu pilihan pada halaman panel dan publik ditingkatkan
+menjadi dropdown aksesibel bertema; elemen native tetap menyimpan nilai form,
+sementara daftar opsi menyesuaikan tema, mendukung keyboard, dan menutup saat
+klik di luar. Select multiple/listbox tetap native.
+
+Profil kos publik pada `portal/public.php` membaca seluruh kamar beserta status
+ketersediaannya, lalu menampilkan carousel terpisah untuk setiap tipe (urut
+Standart, Premium, Eksklusif bila ada). Foto profil kamar atau foto kamar galeri
+menjadi sampul; foto fasilitas galeri ditampilkan mengikuti tipe kamar dan foto
+fasilitas umum mengikuti data galeri gedung. Foto profil/galeri kos, alamat, dan
+koordinat lokasi tetap bersumber dari data gedung yang tersimpan. Halaman ini
+dipakai baik pengunjung publik maupun operator/admin yang membuka profil kos.
+
+Form galeri tipe kamar dan foto profil kos menggunakan tombol **Upload foto**
+dengan pratinjau, nama/ukuran, dan opsi membuang pilihan sebelum simpan. Validasi
+browser mengikuti batas server: JPG/PNG/WebP maksimal 4 MB per foto; galeri
+menerima hingga empat foto baru per kategori per kiriman.
 
 Tabel pada halaman manajemen menggunakan kontrol bersama di `app.js` untuk
 pencarian per tabel, 10 baris per halaman atau semua baris, serta navigasi
@@ -309,6 +361,86 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   `payments/my_history.php`
 - Laporan: `reports/operator.php`, `reports/user.php`, `reports/platform.php`
 - Setup dan gambaran fitur: `README.md`
+
+## Integrasi fitur dan sumber kebenaran
+
+- Sistem tetap memakai satu database `manajemen_kos`. `properties` adalah
+  sumber kebenaran gedung/kamar/foto; `accounts` mengelola preferensi dan
+  siklus akun; `portal` mengelola ulasan serta aksi simpan/lapor; folder domain
+  `chat/` dan `notifications/` hanya memiliki tanggung jawab percakapan dan
+  pemberitahuan, tanpa menyimpan salinan data gedung/kamar/akun.
+- Migrasi fitur lanjutan terpisah dari implementasi kode:
+  `migration_integrated_property_account_features.sql`,
+  `migration_notifications.sql`, lalu `migration_chat.sql`. Jalankan sekali
+  setelah backup yang dapat dipulihkan dan hanya dengan akun database berhak
+  DDL. Saat pekerjaan ini diverifikasi, akun aplikasi lokal tidak memiliki hak
+  `ALTER`; migrasi tersebut **belum diterapkan**. Jangan menganggap fitur
+  barunya siap digunakan terhadap database yang belum dimigrasi. Entry point
+  memeriksa kolom/tabel fitur sebelum menjalankan route; bila migrasi belum
+  lengkap, tampilkan status 503 beserta panduan migrasi agar kegagalan skema
+  tidak tersembunyi sebagai error query umum.
+- Ketergantungan skema utama: privasi/siklus akun berada di kolom `users`;
+  permintaan klasifikasi berada di `property_verification_requests`, sedangkan
+  klasifikasi yang ditampilkan berada di `kos_buildings`;
+  `property_user_actions` menyimpan simpan/laporan; `property_reviews`
+  menerima `reviewer_user_id`; foto galeri kamar opsional memiliki `room_id`;
+  percakapan tersimpan di `chat_conversations`/`chat_messages`; notifikasi
+  tersimpan di `notifications` dengan preferensi tunggal per User di
+  `notification_preferences`.
+- Hapus akun memulai masa tunggu tujuh hari; request aplikasi berikutnya
+  memproses identitas yang jatuh tempo, menghapus provider login, dan
+  menganonimkan data kontak tenant tanpa menghapus relasi histori transaksi.
+  Foto profil akun dianonimkan dengan aman. Jika aplikasi berjalan tanpa
+  trafik, gunakan scheduler operasional yang memicu endpoint/maintenance task;
+  jangan membuat scheduler kedua tanpa memperhitungkan handler ini.
+- Foto galeri kamar baru dapat diarahkan ke unit tertentu pada saat unggah;
+  `room_type_gallery_photos.room_id IS NULL` tetap berarti foto bersama per tipe
+  untuk kompatibilitas foto lama.
+- Pengulas adalah akun role `seeker` yang masuk. Admin/operator tidak dapat
+  mengirim ulasan. Data review lama dihubungkan lewat tenant bila tersedia.
+- Status penghuni publik hanya menyatakan tersedia/tidak tersedia; jangan
+  menambahkan nama, foto, atau detail tenant ke query/markup portal.
+- Pencarian **Terdekat** memakai izin browser secara eksplisit dan mengurutkan
+  semua hasil berkoordinat dari yang terdekat tanpa batas radius; jika izin
+  tidak ada atau ditolak, pencarian nama/alamat tetap bekerja. Jangan menyimpan
+  koordinat pengguna ke riwayat pencarian.
+- Basic/Premium/Eksklusif menandai tingkat verifikasi admin, bukan kemewahan.
+  Operator hanya dapat mengajukan setelah kelengkapan properti dan jumlah foto
+  minimum dipenuhi; admin menjadi satu-satunya pihak yang mengesahkan tier.
+- Link Android tidak dibuat sampai pemilik memberikan URL resmi.
+
+## Standar interaksi tampilan lanjutan
+
+- Drawer sidebar ponsel menampilkan ikon dan label, dapat di-scroll, menutup
+  melalui backdrop, dan menyediakan target sentuh nyaman. Jangan kembali ke
+  sidebar ikon-only/tooltip sebagai satu-satunya navigasi ponsel.
+- Tabel manajemen umum menyediakan dropdown pilihan Tabel/Kartu dengan ikon dan
+  label pada trigger maupun daftar pilihan, jumlah 5/10/Semua,
+  pencarian/filter, dan ringkasan `1–10 dari N`; pilihan tampilan disimpan per
+  tabel. Dropdown pilihan diletakkan setelah jumlah data di ujung kanan kontrol.
+  Pemilih jumlah data disembunyikan bila hasil filter berjumlah lima atau
+  kurang; gedung dan kamar
+  mengikuti aturan yang sama. Kartu memakai data-label dari header sehingga
+  tetap punya label aksesibel; aksi/form existing harus tetap di node tabel yang
+  sama.
+- Dropdown tema Light/Dark menampilkan ikon dan label pada nilai terpilih
+  maupun setiap pilihan; dropdown Tabel/Kartu mengikuti pola yang sama.
+- Form galerinya satu aksi **Simpan**. Target kamar dikirim bersama upload
+  memakai form id yang sama; jangan mengembalikan tombol “Terapkan ke kamar”.
+- Bukti pembayaran ditampilkan melalui `<dialog>` yang bisa ditutup; endpoint
+  `payments/proof.php` tetap memeriksa kepemilikan dan tidak boleh dilewati.
+- Tombol Simpan, Bagikan, dan Laporkan hanya memberi aksi stateful kepada
+  pengguna login yang berhak. Tautan WhatsApp publik wajib mematuhi pengaturan
+  sembunyikan nomor; chat sistem tetap tersedia untuk User dan operator.
+- Semua halaman tetap memakai dropdown bertema dan kontrol tombol/interaksi
+  yang sudah distandardisasi; jangan menambah pola kontrol baru tanpa
+  menyelaraskannya pada tema gelap, keyboard, fokus, sentuh, dan layar ponsel.
+- Tampilan tema berada di ujung kanan sebelum menu profil/panel. Ikon notifikasi
+  membuka feed dan preferensi notifikasi harus mematikan baik jumlah badge
+  maupun item feed untuk akun tersebut.
+- Switch **Sembunyikan notifikasi** bernilai aktif berarti notifikasi in-app
+  dimatikan; simpan preferensinya sebagai `in_app_enabled = 0` (nilai database
+  adalah kebalikan langsung dari switch tersebut).
 
 Saat dokumentasi dan kode tampak berbeda, catat perbedaan tersebut dan
 verifikasi dampaknya sebelum mengubah perilaku. Perbarui panduan ini bila
