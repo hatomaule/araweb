@@ -139,8 +139,8 @@ function handle_account_action(PDO $pdo, array $user, string $action): void
 
     if ($action === 'operator_remove_tenant_from_building') {
         $tenantId = (int) post_value('tenant_id');
-        if ($user['role'] !== 'operator' || $tenantId < 1) {
-            set_flash('error', 'Hanya operator yang dapat mengeluarkan penghuni dari kos miliknya.');
+        if ($user['role'] !== 'owner' || $tenantId < 1) {
+            set_flash('error', 'Hanya Owner yang dapat mengeluarkan penghuni dari kos miliknya.');
             redirect('tenants');
         }
         if (post_value('confirm_remove') !== 'yes') {
@@ -209,7 +209,7 @@ function handle_account_action(PDO $pdo, array $user, string $action): void
     if ($action === 'operator_move_tenant_room') {
         $tenantId = (int) post_value('tenant_id');
         $targetRoomId = (int) post_value('target_room_id');
-        if ($user['role'] !== 'operator' || $tenantId < 1 || $targetRoomId < 1
+        if ($user['role'] !== 'owner' || $tenantId < 1 || $targetRoomId < 1
             || post_value('confirm_move') !== 'yes') {
             set_flash('error', 'Pilih kamar tujuan dan konfirmasi pemindahan penghuni.');
             redirect('rooms');
@@ -290,21 +290,25 @@ function handle_account_action(PDO $pdo, array $user, string $action): void
     }
 
 if ($action === 'operator_add_tenant_account') {
-            if ($user['role'] !== 'operator') {
-                set_flash('error', 'Hanya operator yang dapat menambahkan penghuni ke kos miliknya.');
+            if ($user['role'] !== 'owner') {
+                set_flash('error', 'Hanya Owner yang dapat menambahkan penghuni ke kos miliknya.');
                 redirect('dashboard');
             }
             $name = post_value('full_name');
+            $username = normalize_username(post_value('username'));
             $email = strtolower(post_value('email'));
             $phone = post_value('phone');
             $gender = post_value('gender');
             $password = post_value('password');
             $roomId = (int) post_value('room_id');
-            if ($name === '' || strlen($name) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL)
+            if ($name === '' || strlen($name) > 100
+                || ($username !== '' && (!username_is_valid($username)
+                    || !username_is_available($pdo, $username)))
+                || !filter_var($email, FILTER_VALIDATE_EMAIL)
                 || strlen($email) > 255 || $phone === '' || strlen($phone) > 30
                 || !in_array($gender, ['male', 'female'], true)
                 || strlen($password) < 8 || strlen($password) > 72 || $roomId < 1) {
-                set_flash('error', 'Lengkapi nama, email, telepon, jenis kelamin, kamar, dan password minimal 8 karakter.');
+                set_flash('error', 'Lengkapi nama, email, telepon, jenis kelamin, kamar, password minimal 8 karakter, dan gunakan username unik berhuruf saja jika diisi.');
                 redirect('tenant_form');
             }
 
@@ -328,12 +332,14 @@ if ($action === 'operator_add_tenant_account') {
                     set_flash('error', 'Kamar tidak tersedia atau bukan milik kos Anda.');
                     redirect('tenant_form');
                 }
+                $username = $username !== '' ? $username : generate_unique_username($pdo, $name);
                 $account = $pdo->prepare(
-                    "INSERT INTO users (name,email,phone,gender,profile_photo_path,password_hash,role,status)
-                     VALUES (:name,:email,:phone,:gender,:photo,:password,'seeker','active')"
+                    "INSERT INTO users (name,username,email,phone,gender,profile_photo_path,password_hash,role,status)
+                     VALUES (:name,:username,:email,:phone,:gender,:photo,:password,'seeker','active')"
                 );
                 $account->execute([
-                    'name' => $name, 'email' => $email, 'phone' => $phone,
+                    'name' => $name, 'username' => $username,
+                    'email' => $email, 'phone' => $phone,
                     'gender' => $gender, 'photo' => $profilePath,
                     'password' => password_hash($password, PASSWORD_DEFAULT),
                 ]);
@@ -351,7 +357,7 @@ if ($action === 'operator_add_tenant_account') {
                      (tenant_id,room_id,start_date,monthly_rate,deposit_amount,billing_day,
                       status,notes,created_by,booking_status)
                      VALUES (:tenant_id,:room_id,CURDATE(),:rate,0,1,'active',
-                      'Penghuni ditambahkan oleh operator.',:operator_id,'not_applicable')"
+                      'Penghuni ditambahkan oleh Owner.',:operator_id,'not_applicable')"
                 );
                 $rental->execute([
                     'tenant_id' => $tenantId, 'room_id' => $roomId,
@@ -369,7 +375,7 @@ if ($action === 'operator_add_tenant_account') {
                 }
                 throw $exception;
             }
-            set_flash('success', 'Akun pengguna berhasil dibuat dan ditautkan ke kamar kos Anda.');
+            set_flash('success', 'Akun pengguna berhasil dibuat dan ditautkan ke kamar kos Anda. Username login: @' . $username);
             redirect('tenants');
         }
 
@@ -380,7 +386,7 @@ if ($action === 'operator_add_tenant_account') {
                 set_flash('error', 'Konfirmasi reset password wajib diberikan.');
                 redirect('tenants');
             }
-            if ($user['role'] !== 'operator' || $tenantId < 1
+            if ($user['role'] !== 'owner' || $tenantId < 1
                 || !can_manage_tenant($pdo, $user, $tenantId)) {
                 set_flash('error', 'Anda hanya dapat mengubah password penghuni kos milik Anda.');
                 redirect('tenants');
@@ -408,6 +414,7 @@ if ($action === 'operator_add_tenant_account') {
 
 if ($action === 'save_profile') {
             $name = post_value('name');
+            $username = normalize_username(post_value('username'));
             $phone = post_value('phone');
     $regions = resolve_indonesia_regions($pdo);
     $street = post_value('street_name');
@@ -417,24 +424,29 @@ if ($action === 'save_profile') {
     $address = format_indonesia_address($regions, $street, $rt, $rw, $detailAddress);
     $email = strtolower(post_value('email'));
     $gender = post_value('gender');
-    if ($name === '' || strlen($name) > 100 || strlen($phone) > 30 || strlen($street) > 1000
+    if ($name === '' || strlen($name) > 100 || !username_is_valid($username)
+        || !username_is_available($pdo, $username, (int) $user['id'])
+        || strlen($phone) > 30 || strlen($street) > 1000
         || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
         || ($rw !== '' && !ctype_digit($rw)) || strlen($detailAddress) > 50
         || strlen($address ?? '') > 1000
         || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255
         || ($gender !== '' && !in_array($gender, ['male', 'female'], true))
         || ($user['role'] !== 'admin' && !in_array($gender, ['male', 'female'], true))) {
-        set_flash('error', 'Periksa nama, email, nomor WhatsApp, alamat, dan jenis kelamin.');
+        set_flash('error', 'Periksa nama, username unik (huruf A-Z saja), email, nomor WhatsApp, alamat, dan jenis kelamin.');
         redirect('profile');
     }
     $profilePath = store_profile_photo_upload();
+    if ($profilePath === null && post_value('remove_profile_photo') !== '1') {
+        $profilePath = $user['profile_photo_path'] ?? null;
+    }
     $profile = $pdo->prepare(
-        'UPDATE users SET name=:name, email=:email, phone=:phone, address=:address,
+        'UPDATE users SET name=:name, username=:username, email=:email, phone=:phone, address=:address,
          province_code=:province_code, regency_code=:regency_code,
          district_code=:district_code, village_code=:village_code,
          street_name=:street_name, address_rt=:address_rt, address_rw=:address_rw,
          address_block=:address_block, gender=:gender,
-         profile_photo_path=COALESCE(:photo, profile_photo_path)
+         profile_photo_path=:photo
          WHERE id=:id'
     );
     $regionValues = [
@@ -444,7 +456,7 @@ if ($action === 'save_profile') {
         'village_code' => $regions['village_code'] ?? null,
     ];
     $profile->execute([
-        'name' => $name, 'email' => $email, 'phone' => $phone ?: null,
+        'name' => $name, 'username' => $username, 'email' => $email, 'phone' => $phone ?: null,
         'address' => $address,
         'street_name' => $street !== '' ? $street : null,
         'address_rt' => $rt !== '' ? $rt : null,

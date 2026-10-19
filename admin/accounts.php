@@ -2,7 +2,7 @@
 $isUnhousedAccountList = $page === 'platform_unhoused_users';
 $accountRole = in_array($page, ['platform_seeker_accounts', 'platform_unhoused_users'], true)
     ? 'seeker'
-    : 'operator';
+    : 'owner';
 $unhousedAccountFilter = $isUnhousedAccountList
     ? "AND NOT EXISTS (
         SELECT 1
@@ -52,13 +52,13 @@ $accounts = rows(
      ORDER BY b.name IS NULL,b.name,u.name,u.id",
     ['role' => $accountRole]
 );
-if ($accountRole === 'operator') {
+if ($accountRole === 'owner') {
     $operatorRegions = [];
     $buildingRegions = rows(
         $pdo,
         "SELECT owner_user_id,province_code,regency_code,district_code,village_code
          FROM kos_buildings
-         WHERE owner_user_id IN (SELECT id FROM users WHERE role='operator')"
+         WHERE owner_user_id IN (SELECT id FROM users WHERE role='owner')"
     );
     foreach ($buildingRegions as $buildingRegion) {
         $operatorId = (int) $buildingRegion['owner_user_id'];
@@ -87,13 +87,13 @@ foreach ($accounts as $account) {
     $accountGroups[$groupKey]['building_name'] = $account['current_building_name'] ?? null;
     $accountGroups[$groupKey]['accounts'][] = $account;
 }
-$heading = $accountRole === 'operator' ? 'Akun operator'
+$heading = $accountRole === 'owner' ? 'Akun Owner'
     : ($isUnhousedAccountList ? 'User pengguna tanpa hunian' : 'Akun User');
-$roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
+$roleLabel = $accountRole === 'owner' ? 'Owner' : 'User';
 ?>
 <div class="page-actions"><p><?= $isUnhousedAccountList
     ? 'Kelola akun User yang tidak memiliki sewa atau booking aktif saat ini. Akun dapat kembali menghuni kos melalui booking atau penambahan penghuni.'
-    : 'Kelola akun ' . ($accountRole === 'operator' ? 'operator' : 'User') . '. Riwayat sewa dan pembayaran dipertahankan saat akun dihapus.' ?></p></div>
+    : 'Kelola akun ' . ($accountRole === 'owner' ? 'owner' : 'User') . '. Riwayat sewa dan pembayaran dipertahankan saat akun dihapus.' ?></p></div>
 <div class="panel account-management-panel">
     <div class="panel-heading"><div><h2><?= e($heading) ?></h2><p><?= count($accounts) ?> akun terdaftar</p></div></div>
     <?php if ($accountGroups): ?>
@@ -114,7 +114,7 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
             <?= $accountRole === 'seeker' && !$isUnhousedAccountList
             ? 'data-building-filter="' . e((string) ($account['current_building_id'] ?? '__none')) . '" data-building-label="' . e($account['current_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') . '" data-table-group-key="' . e((string) ($account['current_building_id'] ?? 'unassigned')) . '"'
             : ($accountRole === 'seeker' ? 'data-table-group-key="' . e((string) $groupKey) . '"' : '') ?>>
-            <td><div class="account-person"><a class="account-profile-avatar" href="index.php?page=<?= $accountRole === 'operator' ? 'platform_operator_profile' : 'platform_user_profile' ?>&amp;id=<?= (int) $account['id'] ?>" aria-label="Buka profil <?= e($account['name']) ?>" title="Buka profil"><?= avatar_markup($account, 'profile-avatar small') ?></a><div><strong><?= e($account['name']) ?></strong><small class="subline"><?= e($account['email'] ?: 'Email belum diisi') ?></small><small class="subline"><?= e($account['phone'] ?: 'Nomor telepon belum diisi') ?></small></div></div></td>
+            <td><div class="account-person"><a class="account-profile-avatar" href="index.php?page=<?= $accountRole === 'owner' ? 'platform_operator_profile' : 'platform_user_profile' ?>&amp;id=<?= (int) $account['id'] ?>" aria-label="Buka profil <?= e($account['name']) ?>" title="Buka profil"><?= avatar_markup($account, 'profile-avatar small') ?></a><div><strong><?= e($account['name']) ?></strong><small class="subline"><?= e($account['email'] ?: 'Email belum diisi') ?></small><small class="subline"><?= e($account['phone'] ?: 'Nomor telepon belum diisi') ?></small></div></div></td>
             <td>ID-<?= str_pad((string) $account['id'], 6, '0', STR_PAD_LEFT) ?></td>
             <td><?= e($roleLabel) ?></td>
             <td><span class="badge <?= e($account['status']) ?>"><?= e(status_label($account['status'])) ?></span></td>
@@ -129,7 +129,7 @@ $roleLabel = $accountRole === 'operator' ? 'Operator' : 'User';
     <?php endforeach; ?>
     </tbody></table></div>
     <?php endif; ?>
-    <?php if (!$accounts): ?><div class="table-scroll"><table><tbody><tr><td class="no-data">Belum ada <?= $accountRole === 'operator' ? 'akun operator' : 'akun User' ?>.</td></tr></tbody></table></div><?php endif; ?>
+    <?php if (!$accounts): ?><div class="table-scroll"><table><tbody><tr><td class="no-data">Belum ada <?= $accountRole === 'owner' ? 'akun Owner' : 'akun User' ?>.</td></tr></tbody></table></div><?php endif; ?>
     <?php foreach ($accounts as $account):
         $id = (int) $account['id'];
     ?>

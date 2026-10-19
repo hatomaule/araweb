@@ -13,8 +13,8 @@ $listings = rows(
      ORDER BY b.created_at DESC,b.id DESC"
 );
 ?>
-<section class="page-heading"><div><span class="eyebrow">PROPERTI TERDAFTAR</span><h2>Daftar kos</h2><p>Properti yang dikelola operator. Listing aktif dapat langsung ditemukan pengguna.</p></div></section>
-<div class="panel"><div class="table-scroll"><table data-region-filter><thead><tr><th>Nama kos / alamat</th><th>Operator</th><th>Telepon</th><th>Status</th><th>Terdaftar</th></tr></thead><tbody>
+<section class="page-heading"><div><span class="eyebrow">PROPERTI TERDAFTAR</span><h2>Daftar kos</h2><p>Properti yang dikelola Owner. Listing aktif dapat langsung ditemukan pengguna.</p></div></section>
+<div class="panel"><div class="table-scroll"><table data-region-filter><thead><tr><th>Nama kos / alamat</th><th>Owner</th><th>Telepon</th><th>Status</th><th>Terdaftar</th></tr></thead><tbody>
 <?php foreach ($listings as $listing):
     $propertyUrl = 'index.php?page=property&amp;id=' . (int) $listing['id'];
     $propertyPhoto = $listing['profile_photo_path']

@@ -1,12 +1,12 @@
 <?php
                 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-                if ($user['role'] === 'operator' && $id > 0) {
-                    set_flash('error', 'Operator dapat menambahkan penghuni dan mengganti password, tetapi tidak mengedit atau menonaktifkan akun.');
+                if ($user['role'] === 'owner' && $id > 0) {
+                    set_flash('error', 'Owner dapat menambahkan penghuni dan mengganti password, tetapi tidak mengedit atau menonaktifkan akun.');
                     redirect('tenants');
                 }
                 $record = $id ? one($pdo, 'SELECT * FROM tenants WHERE id=:id', ['id' => $id]) : null;
                 if ($id && !$record) { set_flash('error', 'Pelanggan tidak ditemukan.'); redirect('tenants'); }
-                $availableRooms = $user['role'] === 'operator'
+                $availableRooms = $user['role'] === 'owner'
                     ? rows(
                         $pdo,
                         "SELECT rm.id,rm.room_number,rm.monthly_rate,b.name AS building_name
@@ -17,11 +17,12 @@
                     )
                     : [];
             ?>
-                <div class="form-panel"><div class="panel-heading"><div><h2><?= $user['role'] === 'operator' ? 'Tambah akun penghuni' : ($record ? 'Edit pelanggan' : 'Tambah pelanggan') ?></h2><p><?= $user['role'] === 'operator' ? 'Buat akun pengguna dan tautkan langsung ke kamar kos Anda yang tersedia.' : 'Lengkapi detail pelanggan kos.' ?></p></div><a class="text-link" href="index.php?page=tenants">← Kembali</a></div>
-                <?php if ($user['role'] === 'operator'): ?>
+                <div class="form-panel"><div class="panel-heading"><div><h2><?= $user['role'] === 'owner' ? 'Tambah akun penghuni' : ($record ? 'Edit pelanggan' : 'Tambah pelanggan') ?></h2><p><?= $user['role'] === 'owner' ? 'Buat akun pengguna dan tautkan langsung ke kamar kos Anda yang tersedia.' : 'Lengkapi detail pelanggan kos.' ?></p></div><a class="text-link" href="index.php?page=tenants">← Kembali</a></div>
+                <?php if ($user['role'] === 'owner'): ?>
                     <?php if (!$availableRooms): ?><div class="alert info">Belum ada kamar tersedia di kos Anda. Tambahkan atau kosongkan kamar sebelum mendaftarkan penghuni.</div><?php else: ?>
                     <form method="post" enctype="multipart/form-data" class="form-grid"><?= csrf_field() ?><input type="hidden" name="action" value="operator_add_tenant_account">
-                        <?php field('Nama lengkap *', 'full_name', '', 'text', ['required' => 'required', 'maxlength' => '100']); field('Email untuk login *', 'email', '', 'email', ['required' => 'required', 'maxlength' => '255', 'autocomplete' => 'email']); field('Nomor telepon *', 'phone', '', 'tel', ['required' => 'required', 'maxlength' => '30']); field('Password awal *', 'password', '', 'password', ['required' => 'required', 'minlength' => '8', 'maxlength' => '72', 'autocomplete' => 'new-password']); ?>
+                        <?php field('Nama lengkap *', 'full_name', '', 'text', ['required' => 'required', 'maxlength' => '100']); field('Username (opsional)', 'username', '', 'text', ['maxlength' => '32', 'pattern' => '[A-Za-z]{1,32}', 'autocomplete' => 'username']); field('Email untuk login *', 'email', '', 'email', ['required' => 'required', 'maxlength' => '255', 'autocomplete' => 'email']); field('Nomor telepon *', 'phone', '', 'tel', ['required' => 'required', 'maxlength' => '30']); field('Password awal *', 'password', '', 'password', ['required' => 'required', 'minlength' => '8', 'maxlength' => '72', 'autocomplete' => 'new-password']); ?>
+                        <small class="field-help full-span">Username hanya boleh memakai huruf A-Z. Jika dikosongkan, sistem membuat username otomatis.</small>
                         <label class="field"><span>Jenis kelamin *</span><select name="gender" required><option value="">Pilih jenis kelamin</option><option value="male">Pria</option><option value="female">Wanita</option></select></label>
                         <label class="field"><span>Foto profil (opsional)</span><input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp"><small class="field-help">Jika tidak diunggah, avatar mengikuti jenis kelamin.</small></label>
                         <label class="field full-span"><span>Kamar tersedia *</span><select name="room_id" required><option value="">Pilih kamar untuk penghuni</option><?php foreach ($availableRooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= e($room['building_name']) ?> · Kamar <?= e($room['room_number']) ?> · <?= e(money($room['monthly_rate'])) ?>/bulan</option><?php endforeach; ?></select><small class="field-help">Penyimpanan akan membuat masa sewa aktif mulai hari ini dan menandai kamar terisi.</small></label>

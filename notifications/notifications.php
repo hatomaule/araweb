@@ -90,9 +90,6 @@ function notification_create(
     $preference->bindValue(':user_id', $recipientUserId, PDO::PARAM_INT);
     $preference->execute();
     $inAppEnabled = $preference->fetchColumn();
-    if ($inAppEnabled !== false && (int) $inAppEnabled !== 1) {
-        return null;
-    }
 
     $statement = $pdo->prepare(
         'INSERT INTO notifications (user_id,type,title,body,link)
@@ -106,16 +103,23 @@ function notification_create(
         'link' => $link,
     ]);
 
-    return (int) $pdo->lastInsertId();
+    $notificationId = (int) $pdo->lastInsertId();
+    if ($inAppEnabled === false || (int) $inAppEnabled === 1) {
+        web_push_notify_user($pdo, $recipientUserId, [
+            'title' => $title,
+            'body' => $body,
+            'url' => 'index.php?page=notifications',
+            'id' => $notificationId,
+        ]);
+    }
+
+    return $notificationId;
 }
 
 function notification_list(PDO $pdo, int $limit = 20, int $offset = 0): array
 {
     if ($limit < 1 || $limit > 100 || $offset < 0) {
         throw new InvalidArgumentException('Notification pagination is out of range.');
-    }
-    if (!notification_get_preference($pdo)) {
-        return [];
     }
     $userId = notification_authenticated_user_id($pdo);
     $statement = $pdo->prepare(
@@ -135,9 +139,6 @@ function notification_list(PDO $pdo, int $limit = 20, int $offset = 0): array
 
 function notification_unread_count(PDO $pdo): int
 {
-    if (!notification_get_preference($pdo)) {
-        return 0;
-    }
     $userId = notification_authenticated_user_id($pdo);
     $statement = $pdo->prepare(
         'SELECT COUNT(*) FROM notifications WHERE user_id=:user_id AND read_at IS NULL'
@@ -146,6 +147,52 @@ function notification_unread_count(PDO $pdo): int
     $statement->execute();
 
     return (int) $statement->fetchColumn();
+}
+
+function notification_bell_markup(int $unreadCount, ?PDO $pdo = null): string
+{
+    $notifications = $pdo ? notification_list($pdo, 5) : [];
+    $badge = $unreadCount > 0
+        ? '<span>' . e($unreadCount > 99 ? '99+' : $unreadCount) . '</span>'
+        : '';
+    $label = 'Notifikasi' . ($unreadCount > 0 ? ', ' . $unreadCount . ' belum dibaca' : '');
+
+    $items = '';
+    foreach ($notifications as $notification) {
+        $items .= '<a class="notification-preview-item" href="index.php?page=notifications">'
+            . '<strong>' . e($notification['title']) . '</strong><small>'
+            . e($notification['body']) . '</small></a>';
+    }
+    if (!$notifications) {
+        $items = '<p class="notification-preview-empty">Belum ada notifikasi.</p>';
+    }
+
+    return '<details class="notification-menu" data-notification-menu><summary class="notification-bell" aria-label="' . e($label) . '">'
+        . '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+        . '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"></path>'
+        . '<path d="M10 21h4"></path></svg>' . $badge . '</summary>'
+        . '<section class="notification-preview" aria-label="Notifikasi terbaru"><header><strong>Notifikasi</strong></header>'
+        . '<div class="notification-preview-list">' . $items . '</div>'
+        . '<footer><a href="index.php?page=notifications">Buka Notifikasi</a></footer></section></details>';
+}
+
+function message_menu_markup(string $role): string
+{
+    if (!in_array($role, ['admin', 'owner', 'seeker'], true)) {
+        return '';
+    }
+    $chatPage = $role === 'admin' ? 'admin_chat' : 'chat';
+
+    return '<details class="message-menu" data-message-menu><summary aria-label="Pesan">'
+        . '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+        . '<rect x="3" y="5" width="18" height="14" rx="2"></rect>'
+        . '<path d="m4 7 8 6 8-6"></path></svg></summary>'
+        . '<nav aria-label="Menu pesan"><a href="index.php?page=' . e($chatPage) . '">Chat</a>'
+        . '<a href="index.php?page=reviews">Ulasan</a>'
+        . (in_array($role, ['owner', 'seeker'], true)
+            ? '<a href="index.php?page=chat&amp;support=1">Pusat Bantuan</a>'
+            : '')
+        . '</nav></details>';
 }
 
 function notification_mark_read(PDO $pdo, int $notificationId): void

@@ -33,11 +33,18 @@ $activeAccountRental = (bool) one(
         <?= csrf_field() ?><input type="hidden" name="action" value="save_account_settings">
         <label class="field"><span>Email</span><input type="email" name="email" maxlength="255" value="<?= e($accountSettings['email'] ?? '') ?>" autocomplete="email"></label>
         <label class="field"><span>Nomor HP</span><input type="tel" name="phone" maxlength="30" value="<?= e($accountSettings['phone'] ?? '') ?>" autocomplete="tel"></label>
-        <label class="settings-switch"><span><strong>Sembunyikan notifikasi</strong><small>Aktifkan untuk mematikan notifikasi dalam aplikasi.</small></span><input type="checkbox" name="hide_notifications" value="1" <?= !$notificationEnabled ? 'checked' : '' ?>><i></i></label>
+        <label class="settings-switch"><span><strong>Sembunyikan notifikasi</strong><small>Aktifkan untuk menonaktifkan pemberitahuan browser/perangkat. Notifikasi tetap tersimpan dan badge lonceng tetap bertambah.</small></span><input type="checkbox" name="hide_notifications" value="1" <?= !$notificationEnabled ? 'checked' : '' ?>><i></i></label>
         <label class="settings-switch"><span><strong>Sembunyikan nomor HP</strong><small>Nomor tidak ditampilkan ke publik dan WhatsApp tidak ditautkan.</small></span><input type="checkbox" name="hide_phone_public" value="1" <?= $accountSettings['hide_phone_public'] ? 'checked' : '' ?>><i></i></label>
         <label class="settings-switch"><span><strong>Sembunyikan foto profil</strong><small>Pengunjung publik melihat avatar, bukan foto profil.</small></span><input type="checkbox" name="hide_profile_photo_public" value="1" <?= $accountSettings['hide_profile_photo_public'] ? 'checked' : '' ?>><i></i></label>
         <div class="form-actions"><button class="button primary" type="submit">Simpan pengaturan</button></div>
     </form>
+</section>
+<section class="panel account-settings-panel">
+    <div class="panel-heading"><div><h2>Pemberitahuan browser dan perangkat</h2><p>Izinkan browser mengirim notifikasi KosKosan saat ada aktivitas baru.</p></div></div>
+    <div class="push-notification-controls">
+        <button class="button secondary" type="button" data-enable-browser-notifications>Aktifkan notifikasi browser</button>
+        <small class="subline" data-browser-notification-status aria-live="polite">Status izin browser akan diperiksa.</small>
+    </div>
 </section>
 <section class="panel account-settings-panel">
     <div class="panel-heading"><div><h2>Akun tertaut</h2><p>Metode masuk yang terhubung dengan akun ini.</p></div></div>

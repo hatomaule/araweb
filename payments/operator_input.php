@@ -44,13 +44,14 @@ $rooms = rows(
                 </select>
             </label>
             <div class="field" id="existing-search-field">
-                <label for="account-search">Cari akun dengan nama, email, atau telepon *</label>
-                <input type="search" id="account-search" autocomplete="off" placeholder="Ketik minimal 2 karakter">
+                <label for="account-search">Cari akun dengan nama atau username *</label>
+                <input type="search" id="account-search" autocomplete="off" placeholder="Ketik nama atau username">
                 <small class="subline" id="account-search-status">Pilih akun dari hasil pencarian.</small>
-                <div class="account-search-results" id="account-search-results" role="listbox"></div>
+                <div class="account-search-results" id="account-search-results" role="listbox" hidden></div>
             </div>
             <div class="form-grid full-span hidden" id="new-account-fields">
                 <label class="field"><span>Nama lengkap *</span><input type="text" name="new_name" maxlength="100" autocomplete="name"></label>
+                <label class="field"><span>Username (opsional)</span><input type="text" name="new_username" maxlength="32" pattern="[A-Za-z]{1,32}" autocomplete="username"></label>
                 <label class="field"><span>Email *</span><input type="email" name="new_email" maxlength="255" autocomplete="email"></label>
                 <label class="field"><span>Nomor telepon *</span><input type="tel" name="new_phone" maxlength="30" autocomplete="tel"></label>
                 <label class="field"><span>Password awal *</span><input type="password" name="new_password" minlength="8" maxlength="72" autocomplete="new-password"></label>
@@ -63,12 +64,11 @@ $rooms = rows(
                     </select>
                 </label>
                 <label class="field"><span>Foto profil (opsional)</span><input type="file" name="new_profile_photo" accept="image/jpeg,image/png,image/webp"></label>
+                <small class="field-help full-span">Username hanya boleh memakai huruf A-Z. Jika dikosongkan, sistem membuat username otomatis.</small>
             </div>
             <div class="form-grid full-span hidden" id="selected-account-fields">
-                <label class="field"><span>Nama akun</span><input id="selected-name" type="text" readonly></label>
-                <label class="field"><span>Email</span><input id="selected-email" type="text" readonly></label>
-                <label class="field"><span>Nomor telepon</span><input id="selected-phone" type="text" readonly></label>
-                <label class="field"><span>Jenis kelamin</span><input id="selected-gender" type="text" readonly></label>
+                <label class="field"><span>Nama lengkap</span><input id="selected-name" type="text" readonly></label>
+                <label class="field"><span>Username</span><input id="selected-username" type="text" readonly></label>
             </div>
             <label class="field">
                 <span>Kamar atau hunian aktif *</span>
@@ -183,6 +183,7 @@ $rooms = rows(
         selectedId.value = '';
         selectedFields.classList.add('hidden');
         results.replaceChildren();
+        results.hidden = true;
         filterRooms();
         const term = search.value.trim();
         if (term.length < 2) {
@@ -205,22 +206,23 @@ $rooms = rows(
                     button.type = 'button';
                     button.className = 'account-search-result';
                     button.setAttribute('role', 'option');
-                    button.textContent = [account.name, account.email, account.phone].filter(Boolean).join(' · ');
+                    button.textContent = `${account.name} · @${account.username}`;
                     button.addEventListener('click', () => {
                         selectedId.value = account.id;
                         document.getElementById('selected-name').value = account.name || '';
-                        document.getElementById('selected-email').value = account.email || '';
-                        document.getElementById('selected-phone').value = account.phone || '';
-                        document.getElementById('selected-gender').value = account.gender === 'male' ? 'Laki-laki' : (account.gender === 'female' ? 'Perempuan' : '—');
+                        document.getElementById('selected-username').value = account.username || '';
                         selectedFields.classList.remove('hidden');
                         results.replaceChildren();
+                        results.hidden = true;
                         status.textContent = 'Akun terpilih. Data akun terisi otomatis.';
                         filterRooms();
                     });
                     results.append(button);
                 });
+                results.hidden = payload.accounts.length === 0;
                 status.textContent = payload.accounts.length ? 'Pilih salah satu akun berikut.' : 'Tidak ada akun kosong yang cocok.';
             } catch (error) {
+                results.hidden = true;
                 status.textContent = error.message || 'Pencarian akun gagal.';
             }
         }, 250);

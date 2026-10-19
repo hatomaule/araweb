@@ -23,9 +23,9 @@ if ($platformAdminId < 1) {
     exit(1);
 }
 $operators = [
-    ['name' => 'Operator Kenanga Demo', 'email' => 'operator.kenanga@araweb.test', 'gender' => 'male', 'kos' => 'Pondok Kenanga Gambesi (Demo)', 'lat' => 0.75612, 'lon' => 127.33572],
-    ['name' => 'Operator Cempaka Demo', 'email' => 'operator.cempaka@araweb.test', 'gender' => 'male', 'kos' => 'Kos Taman Cempaka (Demo)', 'lat' => 0.75521, 'lon' => 127.33655],
-    ['name' => 'Operator Lestari Demo', 'email' => 'operator.lestari@araweb.test', 'gender' => 'male', 'kos' => 'Paviliun Lestari Gambesi (Demo)', 'lat' => 0.75603, 'lon' => 127.33708],
+    ['name' => 'Owner Kenanga Demo', 'email' => 'owner.kenanga@araweb.test', 'gender' => 'male', 'kos' => 'Pondok Kenanga Gambesi (Demo)', 'lat' => 0.75612, 'lon' => 127.33572],
+    ['name' => 'Owner Cempaka Demo', 'email' => 'owner.cempaka@araweb.test', 'gender' => 'male', 'kos' => 'Kos Taman Cempaka (Demo)', 'lat' => 0.75521, 'lon' => 127.33655],
+    ['name' => 'Owner Lestari Demo', 'email' => 'owner.lestari@araweb.test', 'gender' => 'male', 'kos' => 'Paviliun Lestari Gambesi (Demo)', 'lat' => 0.75603, 'lon' => 127.33708],
 ];
 $roomTypes = ['Tipe Standart', 'Tipe Premium', 'Tipe Eksklusif'];
 $facilities = [
@@ -85,8 +85,8 @@ $periodStart = new DateTimeImmutable('first day of this month -6 months');
 $pdo->beginTransaction();
 try {
     $createUser = $pdo->prepare(
-        'INSERT INTO users (name,email,phone,gender,password_hash,role,status)
-         VALUES (:name,:email,:phone,:gender,:password_hash,:role,\'active\')'
+        'INSERT INTO users (name,username,email,phone,gender,password_hash,role,status)
+         VALUES (:name,:username,:email,:phone,:gender,:password_hash,:role,\'active\')'
     );
     $createBuilding = $pdo->prepare(
         "INSERT INTO kos_buildings
@@ -133,8 +133,9 @@ try {
     foreach ($operators as $kosIndex => $operator) {
         $createUser->execute([
             'name' => $operator['name'], 'email' => $operator['email'], 'phone' => null,
+            'username' => generate_unique_username($pdo, $operator['name']),
             'gender' => $operator['gender'],
-            'password_hash' => $passwordHash, 'role' => 'operator',
+            'password_hash' => $passwordHash, 'role' => 'owner',
         ]);
         $operatorId = (int) $pdo->lastInsertId();
         $createBuilding->execute([
@@ -174,6 +175,7 @@ try {
                 . ($tenantIndex + 1) . '@araweb.test';
             $createUser->execute([
                 'name' => $tenantName, 'email' => $tenantEmail, 'phone' => null,
+                'username' => generate_unique_username($pdo, $tenantName),
                 'gender' => $tenantGenders[$tenantName],
                 'password_hash' => $passwordHash, 'role' => 'seeker',
             ]);

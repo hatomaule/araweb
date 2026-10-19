@@ -1,6 +1,6 @@
 <?php
-                $invoiceScope = $user['role'] === 'operator' ? 'AND b.owner_user_id=:owner_id' : '';
-                $invoiceParams = $user['role'] === 'operator' ? ['owner_id' => $user['id']] : [];
+                $invoiceScope = $user['role'] === 'owner' ? 'AND b.owner_user_id=:owner_id' : '';
+                $invoiceParams = $user['role'] === 'owner' ? ['owner_id' => $user['id']] : [];
                 $list = rows(
                     $pdo,
                     "SELECT i.*,t.full_name,rm.room_number,b.name AS building_name,COALESCE(p.paid,0) AS paid

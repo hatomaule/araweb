@@ -94,7 +94,7 @@ if ($action === 'submit_booking_proof') {
         }
 
         if (in_array($action, ['approve_payment_proof', 'reject_payment_proof'], true)) {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Hanya pemilik kos yang dapat memverifikasi pembayaran.');
                 redirect('home');
             }
@@ -165,7 +165,7 @@ if ($action === 'submit_booking_proof') {
 function handle_bank_settings_action(PDO $pdo, array $user, string $action): void
 {
 if ($action === 'save_bank_settings') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengatur rekening kos.');
                 redirect('my_bookings');
             }
@@ -204,7 +204,7 @@ if ($action === 'save_bank_settings') {
 function handle_invoice_action(PDO $pdo, array $user, string $action): void
 {
 if ($action === 'create_invoice') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses membuat tagihan.');
                 redirect('dashboard');
             }
@@ -216,7 +216,7 @@ if ($action === 'create_invoice') {
             $rentalQuery = $pdo->prepare('SELECT id, monthly_rate FROM rentals WHERE id=:id');
             $rentalQuery->execute(['id' => $rentalId]);
             $rental = $rentalQuery->fetch();
-            if (!$rental || ($user['role'] === 'operator' && !can_manage_rental($pdo, $user, $rentalId))
+            if (!$rental || ($user['role'] === 'owner' && !can_manage_rental($pdo, $user, $rentalId))
                 || !$periodStart || !$periodEnd || !$dueDate || $periodEnd < $periodStart
                 || !is_numeric($amount) || (float) $amount <= 0) {
                 set_flash('error', 'Periksa sewa, rentang periode, tanggal jatuh tempo, dan nominal tagihan.');
@@ -243,7 +243,7 @@ if ($action === 'create_invoice') {
 function handle_manual_payment_action(PDO $pdo, array $user, string $action): void
 {
 if ($action === 'save_operator_payment') {
-            if ($user['role'] !== 'operator' || post_value('confirm_operator_payment') !== 'yes') {
+            if ($user['role'] !== 'owner' || post_value('confirm_operator_payment') !== 'yes') {
                 set_flash('error', 'Konfirmasi pencatatan pembayaran wajib diberikan.');
                 redirect('operator_payment');
             }
@@ -276,21 +276,24 @@ if ($action === 'save_operator_payment') {
             $profilePath = null;
             if ($accountType === 'new') {
                 $name = post_value('new_name');
+                $username = normalize_username(post_value('new_username'));
                 $email = strtolower(post_value('new_email'));
                 $phone = post_value('new_phone');
                 $gender = post_value('new_gender');
                 $password = post_value('new_password');
                 if ($name === '' || strlen($name) > 100
+                    || ($username !== '' && (!username_is_valid($username)
+                        || !username_is_available($pdo, $username)))
                     || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255
                     || $phone === '' || strlen($phone) > 30
                     || !in_array($gender, ['male', 'female'], true)
                     || strlen($password) < 8 || strlen($password) > 72) {
-                    set_flash('error', 'Lengkapi data pengguna baru dan gunakan password minimal 8 karakter.');
+                    set_flash('error', 'Lengkapi data pengguna baru, password minimal 8 karakter, dan gunakan username unik berhuruf saja jika diisi.');
                     redirect('operator_payment');
                 }
                 $profilePath = store_profile_photo_upload('new_profile_photo');
             } else {
-                $name = $email = $phone = $gender = $password = null;
+                $name = $email = $phone = $gender = $password = $username = null;
                 if ((int) post_value('existing_user_id') < 1) {
                     set_flash('error', 'Pilih akun KosKosan dari hasil pencarian terlebih dahulu.');
                     redirect('operator_payment');
@@ -320,12 +323,14 @@ if ($action === 'save_operator_payment') {
 
                 $existingRental = null;
                 if ($accountType === 'new') {
+                    $username = $username !== '' ? $username : generate_unique_username($pdo, $name);
                     $account = $pdo->prepare(
-                        "INSERT INTO users (name,email,phone,gender,profile_photo_path,password_hash,role,status)
-                         VALUES (:name,:email,:phone,:gender,:photo,:password,'seeker','active')"
+                        "INSERT INTO users (name,username,email,phone,gender,profile_photo_path,password_hash,role,status)
+                         VALUES (:name,:username,:email,:phone,:gender,:photo,:password,'seeker','active')"
                     );
                     $account->execute([
-                        'name' => $name, 'email' => $email, 'phone' => $phone,
+                        'name' => $name, 'username' => $username,
+                        'email' => $email, 'phone' => $phone,
                         'gender' => $gender, 'photo' => $profilePath,
                         'password' => password_hash($password, PASSWORD_DEFAULT),
                     ]);
@@ -350,15 +355,13 @@ if ($action === 'save_operator_payment') {
                         "SELECT r.id,r.room_id,r.monthly_rate,r.tenant_id
                          FROM rentals r JOIN tenants t ON t.id=r.tenant_id
                          WHERE t.user_id=:user_id AND r.status='active'
+                           AND r.room_id=:room_id
                            AND r.start_date<=CURDATE()
                            AND (r.end_date IS NULL OR r.end_date>=CURDATE())
                          ORDER BY r.start_date DESC,r.id DESC LIMIT 1 FOR UPDATE"
                     );
-                    $currentRental->execute(['user_id' => $userId]);
+                    $currentRental->execute(['user_id' => $userId, 'room_id' => $roomId]);
                     $existingRental = $currentRental->fetch() ?: null;
-                    if ($existingRental && (int) $existingRental['room_id'] !== $roomId) {
-                        throw new RuntimeException('Pilih kamar hunian aktif milik akun tersebut untuk mencatat pembayaran bulan berikutnya.');
-                    }
                 }
 
                 if ($existingRental) {
@@ -483,7 +486,7 @@ if ($action === 'save_operator_payment') {
                 )->execute([
                     'invoice_id' => $invoiceId, 'operator_id' => $user['id'],
                     'amount' => $amount, 'method' => $paymentMethod,
-                    'notes' => 'Pembayaran dicatat langsung oleh operator.',
+                    'notes' => 'Pembayaran dicatat langsung oleh Owner.',
                 ]);
                 $paymentTotal = $pdo->prepare(
                     "SELECT COALESCE(SUM(amount),0) FROM payments
@@ -509,12 +512,13 @@ if ($action === 'save_operator_payment') {
                 }
                 throw $exception;
             }
-            set_flash('success', 'Pembayaran dan hunian berhasil dicatat.');
+            set_flash('success', 'Pembayaran dan hunian berhasil dicatat.'
+                . ($accountType === 'new' ? ' Username login penghuni: @' . $username . '.' : ''));
             redirect('payments');
         }
 
 if ($action === 'create_payment') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mencatat pembayaran.');
                 redirect('dashboard');
             }
@@ -551,7 +555,7 @@ if ($action === 'create_payment') {
                 );
                 $sum->execute(['id' => $invoiceId]);
                 $paid = (float) $sum->fetchColumn();
-                if (!$invoice || ($user['role'] === 'operator'
+                if (!$invoice || ($user['role'] === 'owner'
                         && (int) $invoice['owner_user_id'] !== (int) $user['id'])
                     || ($invoice['rental_status'] === 'upcoming'
                         && (!in_array($invoice['booking_status'], ['approved', 'not_applicable'], true)

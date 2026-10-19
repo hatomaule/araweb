@@ -360,6 +360,11 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   `payments/proof.php`, `payments/confirmations.php`,
   `payments/my_history.php`
 - Laporan: `reports/operator.php`, `reports/user.php`, `reports/platform.php`
+- Log/ulasan: `reports/activity_log.php`, `reports/overview.php`,
+  `reviews/form.php`
+- Push/log core: `core/activity_log.php`, `core/web_push.php`,
+  `notifications/api.php`, `service-worker.js`,
+  `migration_activity_log_and_web_push.sql`
 - Setup dan gambaran fitur: `README.md`
 
 ## Integrasi fitur dan sumber kebenaran
@@ -371,14 +376,21 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   pemberitahuan, tanpa menyimpan salinan data gedung/kamar/akun.
 - Migrasi fitur lanjutan terpisah dari implementasi kode:
   `migration_integrated_property_account_features.sql`,
-  `migration_notifications.sql`, lalu `migration_chat.sql`. Jalankan sekali
-  setelah backup yang dapat dipulihkan dan hanya dengan akun database berhak
-  DDL. Saat pekerjaan ini diverifikasi, akun aplikasi lokal tidak memiliki hak
-  `ALTER`; migrasi tersebut **belum diterapkan**. Jangan menganggap fitur
-  barunya siap digunakan terhadap database yang belum dimigrasi. Entry point
-  memeriksa kolom/tabel fitur sebelum menjalankan route; bila migrasi belum
-  lengkap, tampilkan status 503 beserta panduan migrasi agar kegagalan skema
-  tidak tersembunyi sebagai error query umum.
+  `migration_notifications.sql`, `migration_chat.sql`,
+  `migration_chat_support_admin.sql`, lalu
+  `migration_activity_log_and_web_push.sql`.
+  Jalankan hanya migrasi yang terbukti belum diterapkan, sekali, setelah backup
+  yang dapat dipulihkan dan hanya dengan akun database berhak DDL. Migrasi
+  chat support mengubah struktur `chat_conversations`; jangan ulangi migrasi
+  one-time. Pengguna menyatakan migrasi notifikasi, chat, dan chat support
+  akhirnya berhasil diterapkan. Pada 2026-10-19 pengguna juga menjalankan
+  `migration_activity_log_and_web_push.sql`; query `information_schema` dari
+  pengguna mengonfirmasi tabel `activity_logs` dan `web_push_subscriptions`
+  tersedia. Backup sebelum migrasi dibuat di
+  `~/backups/koskosan/manajemen_kos_before_activity_push_20261019_142139.sql.gz`;
+  `gzip -t` berhasil, tetapi restore belum diuji. Entry point memeriksa 13
+  kolom dan 8 tabel fitur sebelum menjalankan route; saat pemeriksaan setelah
+  migrasi, HTTP lokal root sudah 200 dan menampilkan halaman publik KosKosan.
 - Ketergantungan skema utama: privasi/siklus akun berada di kolom `users`;
   permintaan klasifikasi berada di `property_verification_requests`, sedangkan
   klasifikasi yang ditampilkan berada di `kos_buildings`;
@@ -387,6 +399,27 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   percakapan tersimpan di `chat_conversations`/`chat_messages`; notifikasi
   tersimpan di `notifications` dengan preferensi tunggal per User di
   `notification_preferences`.
+- Pengguna mengizinkan implementasi lanjutan: popup lonceng terbaru dengan link
+  ke halaman Notifikasi; popup pesan Chat/Ulasan; preferensi senyap tetap
+  menyimpan data dan badge; browser permission/VAPID/service worker sebagai
+  transport push; multi-rental untuk satu akun User; log aktivitas terintegrasi
+  dan scoped per role; halaman ulasan; laporan Admin terkelompok. Kode baru ada
+  di `core/activity_log.php`, `core/web_push.php`,
+  `migration_activity_log_and_web_push.sql`, `notifications/api.php`,
+  `reports/activity_log.php`, `reports/overview.php`, dan `reviews/form.php`.
+  Migration telah dijalankan oleh pengguna; push belum aktif sampai
+  environment VAPID dan HTTPS/perizinan browser tersedia.
+- Riwayat migrasi dari pengguna: `migration_notifications.sql` dan
+  `migration_chat.sql` selesai; percobaan pertama `migration_chat_support_admin.sql`
+  gagal karena generated column merujuk kolom yang ditambah dalam ALTER TABLE
+  yang sama. Versi revisi menghapus generated column dan memakai unique key
+  `(conversation_type, requester_user_id)`; pengguna melaporkan versi revisi
+  selesai. Percobaan `migration_integrated_property_account_features.sql`
+  berhenti pada duplicate `users.hide_phone_public`, yang berarti kolom itu
+  sudah ada tetapi tidak membuktikan seluruh migrasi selesai. Pemeriksaan
+  kemudian menemukan hanya empat kolom support chat yang hilang dan setelah
+  itu pengguna menjalankan migrasi support revisi. Jangan mengulang migrasi
+  integrated atau migrasi one-time tanpa pemeriksaan `information_schema`.
 - Hapus akun memulai masa tunggu tujuh hari; request aplikasi berikutnya
   memproses identitas yang jatuh tempo, menghapus provider login, dan
   menganonimkan data kontak tenant tanpa menghapus relasi histori transaksi.
@@ -409,6 +442,113 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   minimum dipenuhi; admin menjadi satu-satunya pihak yang mengesahkan tier.
 - Link Android tidak dibuat sampai pemilik memberikan URL resmi.
 
+## Implementasi UI login, chat, pembayaran, dan notifikasi
+
+- Login User/Operator menggunakan dialog popup di halaman publik, bukan
+  navigasi ke halaman login terpisah. Submit tetap memakai autentikasi server
+  yang ada; popup mencakup close/overlay, lupa password, pendaftaran, dan
+  provider Facebook bila tersedia.
+- Widget chat mengambang kanan bawah tampil hanya untuk akun seeker, operator,
+  dan admin yang sudah login. Layout widget menempatkan daftar percakapan di
+  kiri dan thread/pesan di kanan; API JSON berada pada route
+  `index.php?chat_api=1`, dengan pemeriksaan role/partisipan dan CSRF pada
+  operasi tulis. Pesan ditampilkan sebagai teks, bukan HTML.
+- Seeker/operator dapat membuat satu percakapan bantuan Admin per akun.
+  Admin membalas percakapan bantuan, meninjau chat User–Operator secara
+  read-only, dan dapat mengarsipkan/memulihkan percakapan. Arsip bersifat
+  soft-delete; peserta tidak dapat menghapus percakapan atau mengirim pesan
+  ke thread yang diarsipkan. Menu navigasi Chat/Notifikasi dihilangkan dari
+  User/Operator; Admin tetap memiliki halaman `admin_chat`.
+- Ikon notifikasi pada bagian atas menggunakan SVG lonceng dan badge merah;
+  notifikasi tetap dibuka dari feed notifikasi atas, tidak melalui item menu
+  samping.
+- Pencarian akun pada input pembayaran Operator menampilkan daftar pilihan
+  dropdown berisi nama, email, dan telepon setelah hasil tersedia.
+- `migration_chat_support_admin.sql` menambahkan tipe support, requester,
+  metadata arsip, dan unique thread bantuan per requester melalui unique
+  `(conversation_type, requester_user_id)`; requester kosong untuk chat
+  properti sehingga tidak membatasi jumlah chat properti. Migrasi harus
+  dijalankan setelah `migration_chat.sql`. Pengguna melaporkan migrasi
+  notifications dan chat selesai, sementara chat support gagal pada
+  generated-column dependency. Saat mencoba ulang migrasi integrated-property,
+  MySQL mengembalikan duplicate `users.hide_phone_public`; ini memastikan
+  kolom tersebut sudah ada, tetapi tidak membuktikan semua bagian migrasi telah
+  diterapkan. File migrasi support kini memakai unique key komposit tanpa
+  generated column. Jangan mengulang migrasi penuh; periksa daftar kolom/tabel
+  fitur wajib di `information_schema`, lalu tangani hanya yang terbukti belum
+  tersedia. Sebelum menjalankan migrasi support yang telah diperbaiki, pastikan
+  percobaan sebelumnya tidak meninggalkan perubahan parsial.
+- File terkait: `chat/chat.php`, `chat/act.php`, `chat/api.php`,
+  `chat/widget.php`, `chat/form.php`, `chat/admin_form.php`, `app.js`,
+  `style.css`, `index.php`, `core/modules.php`,
+  `notifications/notifications.php`, `payments/operator_input.php`,
+  `portal/public.php`.
+- Status validasi sebelum migrasi: PHP lint file yang diubah lulus; parser
+  JavaScript browser menerima `app.js` dan `service-worker.js`; uji lokal ES256
+  VAPID serta enkripsi/dekripsi Web Push lulus. Pada 2026-10-19 setelah migrasi,
+  HTTP lokal root mengembalikan 200 dan judul halaman publik KosKosan.
+  Belum ada uji alur logged-in/UI atau kirim push ke provider nyata.
+
+## Implementasi notifikasi, log, multi-rental, laporan, dan ulasan
+
+- Popup lonceng tampil saat hover/klik, memuat lima notifikasi terbaru, dan
+  memiliki tombol **Buka Notifikasi**. Menu profil menyertakan Notifikasi tepat
+  sebelum Keluar. Popup pesan di samping lonceng berisi Chat dan Ulasan.
+- Silent preference menghentikan push/toast baru tetapi tetap menyimpan
+  notifikasi dan menghitung badge. API polling tidak mengirim item untuk toast
+  saat muted; saat aktif, toast/pemberitahuan perangkat hanya diproses untuk
+  notifikasi unread yang baru. Polling berjalan tiap 20 detik pada halaman
+  bertopbar yang memuat menu lonceng. Browser permission dan OS tetap kontrol
+  terpisah.
+- Web Push memakai service worker serta VAPID dari environment
+  `KOSKOSAN_VAPID_PUBLIC_KEY`, `KOSKOSAN_VAPID_PRIVATE_KEY`, dan
+  `KOSKOSAN_VAPID_SUBJECT`. Kunci private tidak boleh dicommit. HTTPS
+  diperlukan (localhost pengecualian); iPhone biasanya harus memasang situs ke
+  Home Screen. Belum ada pengujian push nyata ke browser provider.
+- Log aktivitas mencatat akses halaman/form dan error aplikasi yang
+  tertangkap, tanpa menyimpan input mentah, password, token, atau IP. Admin
+  dapat memfilter role, akun, kategori, dan hasil. Operator hanya melihat
+  log/properti milik gedung sendiri dan pengunjung properti; User hanya melihat
+  log dengan actor ID akunnya. Error login dicatat sebagai `login_failed`
+  tanpa identitas login. Ini bukan jaminan semua error runtime tercatat:
+  kegagalan sebelum koneksi database/logging tersedia hanya masuk ke error log
+  server, dan error eksternal yang tidak tertangkap perlu ditautkan eksplisit.
+- Operator visitor log dipindah ke halaman Log Aktivitas dan ulasan berada di
+  halaman Ulasan. User dapat melihat ulasan miliknya; Admin dapat melihat
+  ulasan platform. Dashboard laporan Admin kini memiliki route terkelompok
+  untuk transaksi, aktivitas, jumlah User/kos, dan error.
+- Laporan Admin saat ini ringkasan: transaksi menghitung row `payments`,
+  aktivitas/error menghitung row `activity_logs`, dan jumlah User/kos
+  menampilkan metrik agregat. Tautan mengarah ke ringkasan/dashboard atau log;
+  belum ada laporan periodik, ekspor, maupun halaman rincian transaksi
+  tersendiri.
+- Input pembayaran untuk akun terdaftar kini mencari rental aktif berdasarkan
+  User **dan kamar**. Sewa aktif lama di kamar lain tidak lagi menghalangi
+  pembuatan sewa tambahan. Tabel Penghuni tetap satu record akun/tenant dan
+  menghitung semua sewa; filter gedung multi-sewa mempertimbangkan seluruh
+  gedung, sedangkan halaman Kamar sudah menampilkan resident per rental.
+- Migration baru `migration_activity_log_and_web_push.sql` telah diterapkan
+  pengguna setelah backup; hasil `information_schema` mengonfirmasi kedua
+  tabel baru ada. Aplikasi merespons HTTP 200 di halaman root setelahnya.
+  Entry point tetap menampilkan petunjuk HTTP 503 jika lingkungan database
+  lain belum memenuhi semua prasyarat skema. README menjelaskan setup VAPID.
+- Batas cakupan audit Operator: peristiwa dengan gedung terkait dibatasi ke
+  gedung milik Operator. Peristiwa tanpa gedung hanya masuk lewat daftar page
+  domain Operator dan actor ID yang sama. Uji cakupan tindakan yang tidak
+  mengirim ID gedung/kamar/entitas setelah migrasi; hindari kebocoran lintas
+  pemilik dan duplikasi saat menambahkan audit yang lebih spesifik. Generic
+  logger dapat mencatat request terpisah dari log error flash.
+- Web Push API membatasi endpoint ke host provider dalam allowlist, memakai
+  HTTPS, CSRF, serta pemeriksaan kepemilikan subscription. Uji provider nyata,
+  audience/expiry JWT, status response/redirect, serta penghapusan subscription
+  setelah logout sebelum mengandalkan pengiriman produksi. Jangan mencatat
+  endpoint subscription atau private key.
+- Belum diverifikasi: alur logged-in seluruh role, API notifikasi/log,
+  push ke provider nyata, dan hasil visual pada perangkat mobile. Root page
+  publik telah diverifikasi HTTP 200 pascamigrasi, tetapi itu tidak membuktikan
+  seluruh route maupun fitur login berjalan benar. Jangan mengklaim pengujian
+  push produksi.
+
 ## Standar interaksi tampilan lanjutan
 
 - Drawer sidebar ponsel menampilkan ikon dan label, dapat di-scroll, menutup
@@ -423,6 +563,10 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   mengikuti aturan yang sama. Kartu memakai data-label dari header sehingga
   tetap punya label aksesibel; aksi/form existing harus tetap di node tabel yang
   sama.
+- Di halaman Kamar, kelompok tombol Sebelumnya/Berikutnya harus tetap sejajar
+  dan ditempatkan berdampingan dengan dropdown Tabel/Kartu di toolbar; pada
+  layar kecil, susun responsif tanpa memisahkan tombol navigasi dari pemilih
+  tampilan.
 - Dropdown tema Light/Dark menampilkan ikon dan label pada nilai terpilih
   maupun setiap pilihan; dropdown Tabel/Kartu mengikuti pola yang sama.
 - Form galerinya satu aksi **Simpan**. Target kamar dikirim bersama upload
@@ -435,13 +579,90 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
 - Semua halaman tetap memakai dropdown bertema dan kontrol tombol/interaksi
   yang sudah distandardisasi; jangan menambah pola kontrol baru tanpa
   menyelaraskannya pada tema gelap, keyboard, fokus, sentuh, dan layar ponsel.
-- Tampilan tema berada di ujung kanan sebelum menu profil/panel. Ikon notifikasi
-  membuka feed dan preferensi notifikasi harus mematikan baik jumlah badge
-  maupun item feed untuk akun tersebut.
-- Switch **Sembunyikan notifikasi** bernilai aktif berarti notifikasi in-app
-  dimatikan; simpan preferensinya sebagai `in_app_enabled = 0` (nilai database
-  adalah kebalikan langsung dari switch tersebut).
+- Tampilan tema berada di ujung kanan sebelum menu profil/panel. Preferensi
+  senyap hanya menghentikan pemberitahuan baru melalui toast/push; notifikasi
+  persisten, feed, dan badge unread tetap tampil dan terhitung.
+- Switch **Sembunyikan notifikasi** bernilai aktif berarti pemberitahuan
+  eksternal/toast disenyapkan; simpan preferensinya sebagai
+  `in_app_enabled = 0`. Notifikasi tetap masuk ke database dan halaman feed,
+  serta unread badge tetap dihitung. Nilai database adalah kebalikan switch.
 
 Saat dokumentasi dan kode tampak berbeda, catat perbedaan tersebut dan
 verifikasi dampaknya sebelum mengubah perilaku. Perbarui panduan ini bila
 arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
+
+  ## Username dan role Owner (implementasi 2026-10-19)
+
+  - Kode saat ini memakai nilai role internal `owner`; label antarmuka untuk
+    role tersebut adalah **Owner**. Route/file/action lama yang memuat
+    `operator` masih dipertahankan sebagai identifier kompatibilitas, bukan
+    sebagai nilai role. Migration lama yang menyebut enum `operator` adalah
+    riwayat dan tidak boleh diedit atau dijalankan ulang.
+  - Database belum dimigrasikan oleh implementasi kode ini. Sebelum mengaktifkan
+    aplikasi yang diperbarui, buat backup yang dapat dipulihkan lalu jalankan
+    `migration_usernames_and_owner_role.sql` satu kali setelah tabel
+    `activity_logs` dan `user_activity_events` tersedia. Migration tersebut
+    backfill username huruf-only dari ID akun lama, menambahkan unique index
+    ASCII case-insensitive, lalu mengubah role akun dan log dari `operator` ke
+    `owner`. Jangan menjalankan migration atas nama pengguna; periksa dulu
+    skema target, backup, dan urutannya. Entry point mengembalikan HTTP 503
+    sampai kolom, tabel, serta enum role yang diperlukan sudah siap.
+  - Username hanya menerima huruf ASCII A-Z, 1–32 karakter, tersimpan lowercase
+    dan unik tanpa membedakan kapitalisasi. User dapat mengganti username dari
+    Profil; ID akun tetap ID sistem dan tidak dapat diedit. Username berlaku
+    untuk login semua role, sedangkan email dan nomor telepon tetap dapat dipakai
+    sebagai opsi login. Form setup/registrasi dan profil mengecek ketersediaan
+    username melalui endpoint `username_check`; validasi server dan unique index
+    tetap menjadi sumber kebenaran. Akun baru yang dibuat otomatis oleh Facebook,
+    Owner dari pembayaran/penghuni, dan seeder memperoleh username unik berbasis
+    nama; form pembuatan penghuni/pembayaran juga dapat menerima username pilihan.
+  - Hasil pencarian akun pembayaran hanya memuat ID internal (untuk submit),
+    nama lengkap, dan username; jangan menambahkan kembali telepon/email ke
+    hasil popup. Formulir backend tetap mengambil ulang detail akun yang
+    dibutuhkan dari database setelah akun dipilih.
+  - Form Profil menaruh pratinjau avatar/foto di bagian atas dengan kontrol
+    upload kustom, satu foto maksimal, penggantian, dan pilihan avatar default.
+    Avatar gender tetap fallback jika tidak ada foto. ID hanya tampil sebagai
+    baca-saja. Form registrasi bukan halaman Profil dan boleh memiliki alur
+    upload tersendiri.
+  - Popup notifikasi/pesan membuka saat hover, menahan diri terbuka ketika pointer
+    masuk ke popup melalui bridge CSS dan delay penutupan, serta tetap mendukung
+    click, keyboard, Escape, dan sentuh. Menu Laporan terkait diberi label
+    Dashboard. Dropdown Tabel/Kartu, daftar Gedung, dan Kamar dimulai pada lima
+    baris; opsi 10/Semua tetap tersedia.
+  - Perbarui cache-buster frontend saat mengubah `app.js` atau `style.css`.
+    Validasi setiap PHP yang tersentuh dengan `php -l`, JavaScript dengan
+    pemeriksaan sintaks Node bila tersedia, `git diff --check`, tes terpilih,
+    dan smoke test route. Jangan menjalankan migration atau mengubah database
+    target dari sesi implementasi.
+
+## Dashboard, Pusat Bantuan, dan pencarian
+
+- Menu pesan Owner/User menautkan **Pusat Bantuan** ke
+  `index.php?page=chat&support=1`. `chat/form.php` memastikan percakapan bantuan
+  akun tersebut terbuka, lalu memakai alur kirim pesan dan notifikasi Admin
+  yang sama seperti chat widget. Jangan membuat tabel/jenis percakapan baru.
+- Form pencarian publik menampilkan input dan tombol Cari; filter jenis kos dan
+  aksi Terdekat berada pada popup yang terbuka saat form menerima fokus. Filter
+  menggunakan parameter `gender_policy`, `latitude`, dan `longitude` yang
+  sudah ada; jangan menghapus dukungan geolokasi.
+- Beranda User tidak lagi menyisipkan ringkasan akun atau pencarian terakhir.
+  Dashboard User adalah route `user_reports`, diakses dari sidebar User, dan
+  seluruh query dibatasi ke ID akun aktif. Dashboard merangkum tagihan dan
+  pembayaran per tagihan dalam satu tabel dengan filter gedung serta tampilan
+  tabel/kartu generik. Riwayat transaksi terperinci tetap di `my_payments`.
+- `payments/my_history.php` menyajikan semua pembayaran dalam satu tabel dengan
+  nama kos/kamar dan filter gedung. Gunakan atribut `data-building-filter`
+  karena `app.js` menyediakan pencarian, paginasi 5 baris awal, dan pilihan
+  tabel/kartu untuk tabel tersebut.
+- Dashboard Owner tidak menyertakan tabel laporan performa atau baris log.
+  Rincian log ada pada route `activity_log`; dashboard menampilkan grafik
+  pemasukan terkonfirmasi dan grafik aktivitas per kos. Nilai pembayaran
+  pending serta tunggakan bukan bagian dari total pemasukan terkonfirmasi.
+- Modal autentikasi hanya ditutup oleh klik backdrop yang dimulai dan berakhir
+  di backdrop. Interaksi pointer yang dimulai pada input/dialog tidak boleh
+  menutup modal, agar pemilihan atau pengeditan password tetap aman.
+- Setelah mengubah `app.js`/`style.css`, perbarui cache-buster `20261019-16`
+  pada halaman publik/panel. Validasi semua file PHP yang berubah dengan
+  `php -l`, pemeriksaan JavaScript bila runtime tersedia, dan uji route bila
+  database lokal lolos prasyarat skema. Jangan jalankan migrasi database.

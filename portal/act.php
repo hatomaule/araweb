@@ -109,7 +109,7 @@ if ($action === 'submit_review') {
 
         if (in_array($action, ['operator_review_reply', 'operator_review_visibility'], true)) {
             $reviewId = (int) post_value('review_id');
-            if ($user['role'] !== 'operator' || $reviewId < 1) {
+            if ($user['role'] !== 'owner' || $reviewId < 1) {
                 set_flash('error', 'Hanya pemilik kos yang dapat mengelola ulasan.');
                 redirect('dashboard');
             }

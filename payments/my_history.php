@@ -7,8 +7,8 @@ if ($tenant) {
         $pdo,
         'SELECT p.id,p.amount,p.payment_method,p.status,p.transaction_reference,p.paid_at,
                 p.payment_proof_path,i.invoice_number,i.period_start,i.period_end,i.amount_due,
-                i.status AS invoice_status,r.id AS rental_id,r.start_date,r.end_date,
-                rm.room_number,b.name AS building_name
+                i.status AS invoice_status,
+                rm.room_number,b.id AS building_id,b.name AS building_name
          FROM payments p JOIN invoices i ON i.id=p.invoice_id
          JOIN rentals r ON r.id=i.rental_id JOIN rooms rm ON rm.id=r.room_id
          JOIN kos_buildings b ON b.id=rm.building_id
@@ -27,20 +27,6 @@ if ($tenant) {
         ['tenant_id' => $tenant['id']]
     ) ?? $paymentSummary;
 }
-$paymentGroups = [];
-foreach ($payments as $payment) {
-    $rentalId = (int) $payment['rental_id'];
-    if (!isset($paymentGroups[$rentalId])) {
-        $paymentGroups[$rentalId] = [
-            'building_name' => $payment['building_name'],
-            'room_number' => $payment['room_number'],
-            'start_date' => $payment['start_date'],
-            'end_date' => $payment['end_date'],
-            'payments' => [],
-        ];
-    }
-    $paymentGroups[$rentalId]['payments'][] = $payment;
-}
 $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wallet' => 'E-wallet', 'other' => 'Lainnya'];
 ?>
 <div class="welcome-row"><div><h2>Riwayat pembayaran saya</h2><p>Histori berikut hanya menampilkan transaksi yang terkait dengan akun Anda.</p></div></div>
@@ -49,12 +35,17 @@ $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wal
     <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=user_reports" aria-label="Buka pembayaran menunggu verifikasi">◷</a><div><span>Menunggu verifikasi</span><strong><?= e(money($paymentSummary['pending_total'])) ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=user_reports" aria-label="Buka laporan transaksi">▤</a><div><span>Jumlah transaksi</span><strong><?= (int) $paymentSummary['transaction_count'] ?></strong></div></article>
 </div>
-<?php foreach ($paymentGroups as $group): ?>
-    <div class="panel payment-history-group">
-        <div class="panel-heading"><div><h2><?= e($group['building_name']) ?> · Kamar <?= e($group['room_number']) ?></h2><p>Masa tinggal <?= e(date_id($group['start_date'])) ?> – <?= e(date_id($group['end_date'])) ?></p></div></div>
-        <div class="table-scroll"><table><thead><tr><th>Tanggal</th><th>Tagihan / periode</th><th>Metode</th><th>Nominal</th><th>Status pembayaran</th></tr></thead><tbody>
-        <?php foreach ($group['payments'] as $payment): ?><tr><td><?= e($payment['paid_at'] ? date_id($payment['paid_at']) : 'Belum dibayar') ?></td><td><strong><?= e($payment['invoice_number']) ?></strong><small class="subline"><?= e(date_id($payment['period_start'])) ?> – <?= e(date_id($payment['period_end'])) ?></small></td><td><?= e($paymentMethods[$payment['payment_method']] ?? $payment['payment_method']) ?></td><td><?= e(money($payment['amount'])) ?></td><td><span class="badge <?= e($payment['status']) ?>"><?= e(status_label($payment['status'])) ?></span><?php if ($payment['payment_proof_path']): ?><small class="subline"><a class="text-link" href="index.php?page=payment_proof&amp;id=<?= (int) $payment['id'] ?>">Lihat bukti</a></small><?php endif; ?></td></tr><?php endforeach; ?>
-        </tbody></table></div>
-    </div>
-<?php endforeach; ?>
-<?php if (!$payments): ?><div class="panel"><p class="no-data">Belum ada transaksi pembayaran untuk akun ini.</p></div><?php endif; ?>
+<section class="panel payment-history-group">
+    <div class="panel-heading"><div><h2>Semua transaksi</h2><p>Riwayat pembayaran dari seluruh kos dan kamar yang Anda sewa.</p></div></div>
+    <div class="table-scroll"><table class="payment-history-table" data-building-filter><thead><tr><th>Tanggal</th><th>Kos / kamar</th><th>Tagihan / periode</th><th>Metode</th><th>Nominal</th><th>Status pembayaran</th></tr></thead><tbody>
+    <?php foreach ($payments as $payment): ?><tr data-building-filter="<?= (int) $payment['building_id'] ?>" data-building-label="<?= e($payment['building_name']) ?>">
+        <td><?= e($payment['paid_at'] ? date_id($payment['paid_at']) : 'Belum dibayar') ?></td>
+        <td><strong><?= e($payment['building_name']) ?></strong><small class="subline">Kamar <?= e($payment['room_number']) ?></small></td>
+        <td><strong><?= e($payment['invoice_number']) ?></strong><small class="subline"><?= e(date_id($payment['period_start'])) ?> – <?= e(date_id($payment['period_end'])) ?></small></td>
+        <td><?= e($paymentMethods[$payment['payment_method']] ?? $payment['payment_method']) ?></td>
+        <td><?= e(money($payment['amount'])) ?></td>
+        <td><span class="badge <?= e($payment['status']) ?>"><?= e(status_label($payment['status'])) ?></span><?php if ($payment['payment_proof_path']): ?><small class="subline"><a class="text-link" href="index.php?page=payment_proof&amp;id=<?= (int) $payment['id'] ?>">Lihat bukti</a></small><?php endif; ?></td>
+    </tr><?php endforeach; ?>
+    <?php if (!$payments): ?><tr><td colspan="6" class="no-data">Belum ada transaksi pembayaran untuk akun ini.</td></tr><?php endif; ?>
+    </tbody></table></div>
+</section>

@@ -1,5 +1,5 @@
 <?php
-$tenantScope = $user['role'] === 'operator'
+$tenantScope = $user['role'] === 'owner'
     ? 'WHERE EXISTS (
         SELECT 1 FROM rentals scope_r
         JOIN rooms scope_rm ON scope_rm.id=scope_r.room_id
@@ -9,28 +9,28 @@ $tenantScope = $user['role'] === 'operator'
           AND (scope_r.end_date IS NULL OR scope_r.end_date>=CURDATE())
     )'
     : '';
-$activeRentalScope = $user['role'] === 'operator'
+$activeRentalScope = $user['role'] === 'owner'
     ? 'AND EXISTS (
         SELECT 1 FROM rooms active_rm
         JOIN kos_buildings active_b ON active_b.id=active_rm.building_id
         WHERE active_rm.id=r.room_id AND active_b.owner_user_id=:owner_active_id
     )'
     : '';
-$activeRentalRoomScope = $user['role'] === 'operator'
+$activeRentalRoomScope = $user['role'] === 'owner'
     ? 'AND EXISTS (
         SELECT 1 FROM rooms active_room_rm
         JOIN kos_buildings active_room_b ON active_room_b.id=active_room_rm.building_id
         WHERE active_room_rm.id=r.room_id AND active_room_b.owner_user_id=:owner_room_scope_id
     )'
     : '';
-$activeBuildingScope = $user['role'] === 'operator'
+$activeBuildingScope = $user['role'] === 'owner'
     ? 'AND EXISTS (
         SELECT 1 FROM kos_buildings active_building
         WHERE active_building.id=active_building_room.building_id
           AND active_building.owner_user_id=:owner_building_id
     )'
     : '';
-$tenantParameters = $user['role'] === 'operator'
+$tenantParameters = $user['role'] === 'owner'
     ? [
         'owner_scope_id' => $user['id'],
         'owner_active_id' => $user['id'],
@@ -50,19 +50,33 @@ $list = rows(
       WHERE r.tenant_id=t.id AND r.status='active'
         AND r.start_date<=CURDATE() AND (r.end_date IS NULL OR r.end_date>=CURDATE())
         {$activeRentalRoomScope} ORDER BY r.id DESC LIMIT 1) AS active_room_id,
-     (SELECT active_building.name FROM rentals active_building_rental
+     (SELECT GROUP_CONCAT(DISTINCT active_building.name ORDER BY active_building.name SEPARATOR ', ') FROM rentals active_building_rental
         JOIN rooms active_building_room ON active_building_room.id=active_building_rental.room_id
         JOIN kos_buildings active_building ON active_building.id=active_building_room.building_id
         WHERE active_building_rental.tenant_id=t.id AND active_building_rental.status='active'
           AND active_building_rental.start_date<=CURDATE()
           AND (active_building_rental.end_date IS NULL OR active_building_rental.end_date>=CURDATE())
-          {$activeBuildingScope}
-        ORDER BY active_building_rental.id DESC LIMIT 1) AS active_building_name
+          {$activeBuildingScope}) AS active_building_name
      FROM tenants t LEFT JOIN users u ON u.id=t.user_id {$tenantScope}
      ORDER BY t.created_at DESC",
     $tenantParameters
 );
-$availableRooms = $user['role'] === 'operator'
+$activeTenantBuildings = rows(
+    $pdo,
+    "SELECT r.tenant_id,b.id AS building_id,b.name AS building_name
+     FROM rentals r JOIN rooms rm ON rm.id=r.room_id
+     JOIN kos_buildings b ON b.id=rm.building_id
+     WHERE (:is_admin=1 OR b.owner_user_id=:owner_id) AND r.status='active'
+       AND r.start_date<=CURDATE() AND (r.end_date IS NULL OR r.end_date>=CURDATE())
+     ORDER BY b.name",
+    ['is_admin' => $user['role'] === 'admin' ? 1 : 0, 'owner_id' => (int) $user['id']]
+);
+$tenantBuildingOptions = [];
+foreach ($activeTenantBuildings as $tenantBuilding) {
+    $tenantBuildingOptions[(int) $tenantBuilding['tenant_id']][(int) $tenantBuilding['building_id']]
+        = $tenantBuilding['building_name'];
+}
+$availableRooms = $user['role'] === 'owner'
     ? rows(
         $pdo,
         "SELECT rm.id,rm.room_number,b.name AS building_name
@@ -80,11 +94,11 @@ $availableRooms = $user['role'] === 'operator'
     : [];
 ?>
 <div class="page-actions">
-    <p><?= $user['role'] === 'operator'
+    <p><?= $user['role'] === 'owner'
         ? 'Kelola akun penghuni, lihat histori, ganti password, pindahkan kamar, atau akhiri sewa.'
         : 'Kelola informasi pelanggan dan kontak darurat.' ?></p>
     <a class="button primary" href="index.php?page=tenant_form">
-        ＋ <?= $user['role'] === 'operator' ? 'Tambah penghuni' : 'Tambah pelanggan' ?>
+        ＋ <?= $user['role'] === 'owner' ? 'Tambah penghuni' : 'Tambah pelanggan' ?>
     </a>
 </div>
 <div class="panel">
@@ -92,16 +106,19 @@ $availableRooms = $user['role'] === 'operator'
         <table data-building-filter>
             <thead>
                 <tr>
-                    <th><?= $user['role'] === 'operator' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
+                    <th><?= $user['role'] === 'owner' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
                     <th>Sewa aktif</th><th>Status</th><th>Aksi</th>
-                    <?php if ($user['role'] === 'operator'): ?><th>Aktivitas akun</th><th>Akun pengguna</th><?php endif; ?>
+                    <?php if ($user['role'] === 'owner'): ?><th>Aktivitas akun</th><th>Akun pengguna</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($list as $row): ?>
-                    <tr data-building-filter="<?= e($row['active_building_name'] ?: '__none') ?>" data-building-label="<?= e($row['active_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') ?>">
+                    <?php $rowBuildings = $tenantBuildingOptions[(int) $row['id']] ?? []; ?>
+                    <tr data-building-filter="<?= e(implode(',', array_keys($rowBuildings))) ?>"
+                        data-building-map="<?= e(json_encode($rowBuildings, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>"
+                        data-building-label="<?= e($row['active_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') ?>">
                         <td>
-                            <?php if ($user['role'] === 'operator' && $row['account_user_id']): ?>
+                            <?php if ($user['role'] === 'owner' && $row['account_user_id']): ?>
                                 <a class="tenant-avatar-link" href="index.php?page=tenant_profile&amp;id=<?= (int) $row['account_user_id'] ?>">
                                     <?= avatar_markup([
                                         'name' => $row['full_name'],
@@ -133,7 +150,7 @@ $availableRooms = $user['role'] === 'operator'
                             <?php endif; ?>
                             <a class="button secondary compact-button" href="index.php?page=tenant_payments&amp;id=<?= (int) $row['id'] ?>">Histori</a>
                         </td>
-                        <?php if ($user['role'] === 'operator'): ?>
+                        <?php if ($user['role'] === 'owner'): ?>
                             <td><?= $row['account_user_id'] && $row['account_last_seen_at']
                                 ? e(date('d-m-Y H:i', strtotime($row['account_last_seen_at'])))
                                 : ($row['account_user_id'] ? 'Belum pernah aktif' : '—') ?></td>
@@ -164,8 +181,8 @@ $availableRooms = $user['role'] === 'operator'
                 <?php endforeach; ?>
                 <?php if (!$list): ?>
                     <tr>
-                        <td colspan="<?= $user['role'] === 'operator' ? '8' : '6' ?>" class="no-data">
-                            <?= $user['role'] === 'operator' ? 'Belum ada penghuni aktif di kos ini.' : 'Belum ada data pelanggan.' ?>
+                        <td colspan="<?= $user['role'] === 'owner' ? '8' : '6' ?>" class="no-data">
+                            <?= $user['role'] === 'owner' ? 'Belum ada penghuni aktif di kos ini.' : 'Belum ada data pelanggan.' ?>
                         </td>
                     </tr>
                 <?php endif; ?>
@@ -173,7 +190,7 @@ $availableRooms = $user['role'] === 'operator'
         </table>
     </div>
 </div>
-<?php if ($user['role'] === 'operator'): ?>
+<?php if ($user['role'] === 'owner'): ?>
     <?php foreach ($list as $row): ?>
         <?php if ($row['account_user_id']): ?>
             <dialog class="action-dialog" id="reset-tenant-password-<?= (int) $row['id'] ?>">
@@ -201,7 +218,7 @@ $availableRooms = $user['role'] === 'operator'
                 </form>
             </dialog>
         <?php endif; ?>
-        <?php if ($user['role'] === 'operator' && $row['account_user_id'] && (int) $row['active_rentals'] > 0): ?>
+        <?php if ($user['role'] === 'owner' && $row['account_user_id'] && (int) $row['active_rentals'] > 0): ?>
             <dialog class="action-dialog" id="move-tenant-<?= (int) $row['id'] ?>">
                 <form method="post" class="action-dialog-form">
                     <?= csrf_field() ?>

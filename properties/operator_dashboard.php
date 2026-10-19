@@ -40,6 +40,30 @@ $propertySummaries = rows(
      FROM kos_buildings b WHERE b.owner_user_id=:id ORDER BY b.name",
     ['id' => $user['id']]
 );
+$propertyCollectedPeak = max(1, ...array_map(
+    static fn(array $summary): float => (float) $summary['collected'],
+    $propertySummaries ?: [['collected' => 1]]
+));
+$propertyActivity = rows(
+    $pdo,
+    "SELECT b.id,b.name,
+       COUNT(CASE WHEN ae.event_type='search_result' THEN 1 END) AS searches,
+       COUNT(CASE WHEN ae.event_type='property_view' THEN 1 END) AS property_views,
+       COUNT(CASE WHEN ae.event_type='room_view' THEN 1 END) AS room_views,
+       COUNT(DISTINCT CASE WHEN ae.event_type IN ('property_view','room_view') THEN ae.visitor_key END) AS unique_visitors
+     FROM kos_buildings b LEFT JOIN property_activity_events ae ON ae.building_id=b.id
+     WHERE b.owner_user_id=:id GROUP BY b.id,b.name ORDER BY b.name",
+    ['id' => $user['id']]
+);
+$propertyActivityPeak = max(1, ...array_map(
+    static fn(array $activity): int => max(
+        (int) $activity['searches'],
+        (int) $activity['property_views'],
+        (int) $activity['room_views'],
+        (int) $activity['unique_visitors']
+    ),
+    $propertyActivity ?: [['searches' => 1, 'property_views' => 1, 'room_views' => 1, 'unique_visitors' => 1]]
+));
 $monthlyIncome = rows(
     $pdo,
     "SELECT DATE_FORMAT(p.paid_at,'%Y-%m') AS month_key,SUM(p.amount) AS total
@@ -71,8 +95,22 @@ foreach ($annualIncome as $income) {
 }
 $currentYear = (int) date('Y');
 $annualPeak = max(1, ...array_values($annualMap ?: [1]));
+$monthlyTotal = array_sum($monthlyMap);
+$currentYearTotal = $annualMap[$currentYear] ?? 0.0;
+$compactMoney = static function (float $amount): string {
+    if ($amount >= 1_000_000_000) {
+        return 'Rp' . rtrim(rtrim(number_format($amount / 1_000_000_000, 1, ',', '.'), '0'), ',') . ' M';
+    }
+    if ($amount >= 1_000_000) {
+        return 'Rp' . rtrim(rtrim(number_format($amount / 1_000_000, 1, ',', '.'), '0'), ',') . ' jt';
+    }
+    if ($amount >= 1_000) {
+        return 'Rp' . rtrim(rtrim(number_format($amount / 1_000, 1, ',', '.'), '0'), ',') . ' rb';
+    }
+    return 'Rp' . number_format($amount, 0, ',', '.');
+};
 ?>
-<div class="welcome-row"><div><h2>Laporan properti</h2><p>Rekap properti, kamar, dan keuangan kos yang terdaftar pada akun Anda.</p></div><div class="actions"><a class="button secondary" href="index.php?page=rooms">Kelola kamar</a><a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a></div></div>
+<div class="welcome-row"><div><h2>Dashboard</h2><p>Rekap properti, kamar, dan keuangan kos yang terdaftar pada akun Anda.</p></div><div class="actions"><a class="button secondary" href="index.php?page=rooms">Kelola kamar</a><a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a></div></div>
 <div class="stats-grid operator-finance-stats">
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=buildings" aria-label="Buka menu kos saya">⌂</a><div><span>Kos saya</span><strong><?= $ownerBuildingCount ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=rooms" aria-label="Buka menu kamar">▦</a><div><span>Jumlah kamar</span><strong><?= $ownerRoomCount ?></strong></div></article>
@@ -82,12 +120,41 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=payments" aria-label="Buka histori pembayaran terkonfirmasi">▤</a><div><span>Pembayaran terkonfirmasi</span><strong><?= (int) $ownerPaymentSummary['confirmed_count'] ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=operator_bookings" aria-label="Buka booking menunggu">▣</a><div><span>Booking menunggu</span><strong><?= $ownerPendingBookings ?></strong></div></article>
 </div>
-<div class="panel"><div class="panel-heading"><div><h2>Ringkasan tiap kos</h2><p>Pemasukan dihitung dari pembayaran yang telah dikonfirmasi.</p></div><a class="text-link" href="index.php?page=payments">Semua transaksi →</a></div><div class="table-scroll"><table><thead><tr><th>Nama kos</th><th>Pemasukan</th><th>Menunggu verifikasi</th><th>Tunggakan</th></tr></thead><tbody>
-<?php foreach ($propertySummaries as $summary): ?><tr><td><strong><?= e($summary['name']) ?></strong><small class="subline"><a class="text-link" href="index.php?page=payments">Lihat histori transaksi</a></small></td><td><?= e(money($summary['collected'])) ?></td><td><?= e(money($summary['pending_payments'])) ?></td><td><?= e(money($summary['arrears'])) ?></td></tr><?php endforeach; ?>
-<?php if (!$propertySummaries): ?><tr><td colspan="4" class="no-data">Belum ada kos pada akun ini.</td></tr><?php endif; ?></tbody></table></div></div>
+<section class="panel">
+    <div class="panel-heading"><div><h2>Pemasukan per kos</h2><p>Total adalah pembayaran terkonfirmasi; skala batang dibandingkan dengan kos Anda yang memiliki pemasukan terbesar.</p></div><a class="text-link" href="index.php?page=payments">Semua transaksi →</a></div>
+    <?php if ($propertySummaries): ?><div class="property-finance-chart-grid">
+        <?php foreach ($propertySummaries as $summary): ?>
+            <article class="property-finance-chart">
+                <h3><?= e($summary['name']) ?></h3>
+                <div class="property-finance-bar" role="img" aria-label="<?= e($summary['name']) ?>: pemasukan terkonfirmasi <?= e(money($summary['collected'])) ?>">
+                    <span style="width:<?= max(1, (int) round((float) $summary['collected'] / $propertyCollectedPeak * 100)) ?>%"></span>
+                </div>
+                <strong><?= e(money($summary['collected'])) ?></strong>
+                <div class="property-finance-details"><span>Menunggu <?= e(money($summary['pending_payments'])) ?></span><span>Tunggakan <?= e(money($summary['arrears'])) ?></span></div>
+            </article>
+        <?php endforeach; ?>
+    </div><?php else: ?><p class="no-data">Belum ada kos pada akun ini.</p><?php endif; ?>
+</section>
+<section class="panel">
+    <div class="panel-heading"><div><h2>Aktivitas pengunjung per kos</h2><p>Grafik jumlah pencarian, kunjungan, dan pengunjung unik. Rincian aktivitas tersedia di menu Log aktivitas.</p></div><a class="text-link" href="index.php?page=activity_log">Buka log aktivitas →</a></div>
+    <?php if ($propertyActivity): ?><div class="property-activity-chart-list">
+        <?php foreach ($propertyActivity as $activity): ?>
+            <article class="property-activity-chart"><h3><?= e($activity['name']) ?></h3>
+                <?php foreach ([
+                    'Hasil pencarian' => (int) $activity['searches'],
+                    'Dilihat' => (int) $activity['property_views'],
+                    'Kamar dilihat' => (int) $activity['room_views'],
+                    'Pengunjung unik' => (int) $activity['unique_visitors'],
+                ] as $label => $count): ?>
+                    <div class="property-activity-row"><span><?= e($label) ?></span><div><i style="width:<?= max(1, (int) round($count / $propertyActivityPeak * 100)) ?>%"></i></div><strong><?= $count ?></strong></div>
+                <?php endforeach; ?>
+            </article>
+        <?php endforeach; ?>
+    </div><?php else: ?><p class="no-data">Belum ada kos untuk diringkas.</p><?php endif; ?>
+</section>
 <div class="income-chart-grid">
 <section class="panel income-chart-panel">
-    <div class="panel-heading"><div><h2>Rekap pemasukan bulanan</h2><p>Pembayaran terkonfirmasi · 12 bulan terakhir.</p></div></div>
+    <div class="panel-heading"><div><h2>Rekap pemasukan bulanan</h2><p>Pembayaran terkonfirmasi · 12 bulan terakhir · total <?= e(money($monthlyTotal)) ?>.</p></div></div>
     <?php $incomePeak = max(1, ...array_values($monthlyMap ?: [1])); ?>
     <div class="income-chart income-chart-monthly">
         <?php for ($offset = 11; $offset >= 0; $offset--):
@@ -95,7 +162,8 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
             $monthKey = $monthDate->format('Y-m');
             $amount = $monthlyMap[$monthKey] ?? 0.0;
         ?>
-            <div class="income-chart-month" title="<?= e(money($amount)) ?>">
+            <div class="income-chart-month" title="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>" aria-label="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>">
+                <small class="income-chart-value"><?= e($compactMoney($amount)) ?></small>
                 <span style="height:<?= max(2, (int) round($amount / $incomePeak * 100)) ?>%"></span>
                 <small><?= e($monthDate->format('M y')) ?></small>
             </div>
@@ -103,12 +171,13 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
     </div>
 </section>
 <section class="panel income-chart-panel">
-    <div class="panel-heading"><div><h2>Rekap pemasukan tahunan</h2><p>Pembayaran terkonfirmasi · 5 tahun terakhir.</p></div></div>
+    <div class="panel-heading"><div><h2>Rekap pemasukan tahunan</h2><p>Pembayaran terkonfirmasi · tahun ini <?= e(money($currentYearTotal)) ?>.</p></div></div>
     <div class="income-chart income-chart-annual">
         <?php for ($year = $currentYear - 4; $year <= $currentYear; $year++):
             $amount = $annualMap[$year] ?? 0.0;
         ?>
-            <div class="income-chart-year" title="<?= e(money($amount)) ?>">
+            <div class="income-chart-year" title="<?= e((string) $year . ': ' . money($amount)) ?>" aria-label="<?= e((string) $year . ': ' . money($amount)) ?>">
+                <small class="income-chart-value"><?= e($compactMoney($amount)) ?></small>
                 <span style="height:<?= max(2, (int) round($amount / $annualPeak * 100)) ?>%"></span>
                 <small><?= $year ?></small>
             </div>
@@ -117,4 +186,3 @@ $annualPeak = max(1, ...array_values($annualMap ?: [1]));
 </section>
 </div>
 <?php foreach ($ownerListings as $ownerListing): ?><div class="alert <?= $ownerListing['status'] === 'active' ? 'success' : 'info' ?>"><strong><?= e($ownerListing['name']) ?>:</strong> <?= $ownerListing['status'] === 'active' ? 'Tampil di pencarian pengguna.' : 'Listing sedang disembunyikan.' ?></div><?php endforeach; ?>
-<?php require __DIR__ . '/../reports/operator.php'; ?>

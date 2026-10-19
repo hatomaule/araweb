@@ -5,7 +5,7 @@ $paymentForms = [
     'operator_payment' => __DIR__ . '/operator_input.php',
     'invoices' => __DIR__ . '/invoices.php',
     'invoice_form' => __DIR__ . '/invoice_form.php',
-    'payments' => $user['role'] === 'operator'
+    'payments' => $user['role'] === 'owner'
         ? __DIR__ . '/operator_history.php'
         : __DIR__ . '/history.php',
     'payment_confirmations' => __DIR__ . '/confirmations.php',
@@ -16,10 +16,10 @@ $paymentForms = [
 
 if (!isset($paymentForms[$page])
     || ($page === 'my_payments' && $user['role'] !== 'seeker')
-    || ($page === 'tenant_payments' && !in_array($user['role'], ['admin', 'operator'], true))
-    || ($page === 'payment_confirmations' && $user['role'] !== 'operator')
+    || ($page === 'tenant_payments' && !in_array($user['role'], ['admin', 'owner'], true))
+    || ($page === 'payment_confirmations' && $user['role'] !== 'owner')
     || (in_array($page, ['operator_payment', 'payments', 'invoices', 'invoice_form', 'bank_settings'], true)
-        && !in_array($user['role'], ['admin', 'operator'], true))
+        && !in_array($user['role'], ['admin', 'owner'], true))
     ) {
     throw new LogicException('Payment module received an unsupported route.');
 }

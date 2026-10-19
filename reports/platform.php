@@ -1,6 +1,6 @@
 <?php
 $platformMetrics = [
-    'operators' => (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role='operator'")->fetchColumn(),
+    'operators' => (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role='owner'")->fetchColumn(),
     'bookings' => (int) $pdo->query(
         "SELECT (SELECT COUNT(*) FROM bookings)
               + (SELECT COUNT(*) FROM rentals r
@@ -11,7 +11,7 @@ $platformMetrics = [
     'users' => (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn(),
     'online' => (int) $pdo->query(
         "SELECT COUNT(*) FROM users
-         WHERE role IN ('operator','seeker') AND status='active'
+         WHERE role IN ('owner','seeker') AND status='active'
            AND last_seen_at>=DATE_SUB(NOW(),INTERVAL 5 MINUTE)"
     )->fetchColumn(),
     'properties' => (int) $pdo->query('SELECT COUNT(*) FROM kos_buildings')->fetchColumn(),
@@ -49,7 +49,7 @@ $latestActivity = rows(
      ORDER BY ae.occurred_at DESC LIMIT 30"
 );
 $platformCards = [
-    ['Operator', $platformMetrics['operators'], '♙', 'purple', '?page=platform_operator_accounts'],
+    ['Owner', $platformMetrics['operators'], '♙', 'purple', '?page=platform_operator_accounts'],
     ['Booking tercatat', $platformMetrics['bookings'], '▣', 'purple', '?page=platform_dashboard#platform-booking-activity'],
     ['Pencarian kos', $platformMetrics['searches'], '⌕', 'blue', '?page=search'],
     ['Pengguna pencari', $platformMetrics['users'], '♙', 'green', '?page=platform_seeker_accounts'],

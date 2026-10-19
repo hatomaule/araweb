@@ -7,7 +7,7 @@ if ($action === 'submit_property_verification') {
     $buildingId = (int) post_value('building_id');
     $requestedTier = post_value('requested_tier');
     $note = post_value('operator_note');
-    if ($user['role'] !== 'operator' || !in_array($requestedTier, ['premium', 'exclusive'], true)
+    if ($user['role'] !== 'owner' || !in_array($requestedTier, ['premium', 'exclusive'], true)
         || strlen($note) > 2000 || !can_manage_building($pdo, $user, $buildingId)) {
         set_flash('error', 'Pengajuan verifikasi properti tidak valid.');
         redirect('buildings');
@@ -121,7 +121,7 @@ if ($action === 'review_property_report') {
 }
 
 if ($action === 'upload_room_type_gallery_photos') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengelola galeri foto.');
                 redirect('home');
             }
@@ -226,7 +226,7 @@ if ($action === 'upload_room_type_gallery_photos') {
         }
 
         if ($action === 'select_room_gallery_photo') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengubah foto kamar.');
                 redirect('home');
             }
@@ -262,7 +262,7 @@ if ($action === 'upload_room_type_gallery_photos') {
         }
 
         if ($action === 'delete_room_type_gallery_photo') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses menghapus foto galeri.');
                 redirect('home');
             }
@@ -476,7 +476,7 @@ if ($action === 'update_building_profile_photo') {
         }
 
 if ($action === 'save_building') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengelola data gedung.');
                 redirect('my_bookings');
             }
@@ -538,7 +538,7 @@ if ($action === 'save_building') {
             ];
             if ($id > 0) {
                 $values['id'] = $id;
-                $approvalSql = $user['role'] === 'operator'
+                $approvalSql = $user['role'] === 'owner'
                     ? ", approval_status='approved', approval_note=NULL, reviewed_by=NULL, reviewed_at=NOW()"
                     : '';
                 $building = $pdo->prepare(
@@ -551,7 +551,7 @@ if ($action === 'save_building') {
                      . $approvalSql . ' WHERE id=:id'
                 );
             } else {
-                $values['owner_user_id'] = $user['role'] === 'operator' ? $user['id'] : null;
+                $values['owner_user_id'] = $user['role'] === 'owner' ? $user['id'] : null;
                 $building = $pdo->prepare(
                     "INSERT INTO kos_buildings
                      (owner_user_id, name, address, province_code, regency_code, district_code, village_code,
@@ -609,7 +609,7 @@ if ($action === 'save_building') {
         }
 
         if ($action === 'building_status') {
-            if (!in_array($user['role'], ['admin', 'operator'], true)) {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
                 set_flash('error', 'Anda tidak memiliki akses mengelola data gedung.');
                 redirect('my_bookings');
             }
@@ -741,7 +741,7 @@ if ($action === 'save_building') {
                 redirect('room_form');
             }
             $buildingCheck = $pdo->prepare("SELECT COUNT(*) FROM kos_buildings WHERE id=:id AND status='active'");
-            if ($user['role'] === 'operator') {
+            if ($user['role'] === 'owner') {
                 $buildingCheck = $pdo->prepare(
                     "SELECT COUNT(*) FROM kos_buildings WHERE id=:id AND owner_user_id=:owner_id
                      AND status='active' AND approval_status IN ('approved','revision','pending')"

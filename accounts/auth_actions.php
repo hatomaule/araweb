@@ -117,19 +117,22 @@ if ($action === 'setup') {
             }
 
             $name = post_value('name');
+            $username = normalize_username(post_value('username'));
             $email = strtolower(post_value('email'));
             $password = post_value('password');
-            if ($name === '' || strlen($name) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL)
+            if ($name === '' || strlen($name) > 100 || !username_is_valid($username)
+                || !username_is_available($pdo, $username) || !filter_var($email, FILTER_VALIDATE_EMAIL)
                 || strlen($email) > 255 || strlen($password) < 8) {
-                set_flash('error', 'Isi nama dan email dengan benar. Kata sandi minimal 8 karakter.');
+                set_flash('error', 'Isi nama, username unik yang hanya berisi huruf, dan email dengan benar. Kata sandi minimal 8 karakter.');
                 redirect('setup');
             }
 
             $statement = $pdo->prepare(
-                "INSERT INTO users (name, email, password_hash, role) VALUES (:name, :email, :password_hash, 'admin')"
+                "INSERT INTO users (name, username, email, password_hash, role) VALUES (:name, :username, :email, :password_hash, 'admin')"
             );
             $statement->execute([
                 'name' => $name,
+                'username' => $username,
                 'email' => $email,
                 'password_hash' => password_hash($password, PASSWORD_DEFAULT),
             ]);
@@ -144,19 +147,21 @@ if ($action === 'setup') {
                 redirect('home');
             }
             $name = post_value('name');
+            $username = normalize_username(post_value('username'));
             $email = strtolower(post_value('email'));
             $phone = post_value('phone');
             $gender = post_value('gender');
             $password = post_value('password');
             $role = post_value('role') ?: 'seeker';
-            if (!in_array($role, ['operator', 'seeker'], true)) {
+            if (!in_array($role, ['owner', 'seeker'], true)) {
                 $role = 'seeker';
             }
             $emailValid = $email === '' || (filter_var($email, FILTER_VALIDATE_EMAIL) && strlen($email) <= 255);
-            if ($name === '' || strlen($name) > 100 || !$emailValid
+            if ($name === '' || strlen($name) > 100 || !username_is_valid($username)
+                || !username_is_available($pdo, $username) || !$emailValid
                 || ($email === '' && $phone === '') || strlen($phone) > 30
                 || !in_array($gender, ['male', 'female'], true) || strlen($password) < 8) {
-                set_flash('error', 'Isi nama, minimal salah satu email atau nomor telepon, jenis kelamin, serta kata sandi minimal 8 karakter.');
+                set_flash('error', 'Isi nama, username unik yang hanya berisi huruf, minimal salah satu email atau nomor telepon, jenis kelamin, serta kata sandi minimal 8 karakter.');
                 redirect('register');
             }
 
@@ -164,11 +169,11 @@ if ($action === 'setup') {
             $pdo->beginTransaction();
             try {
                 $account = $pdo->prepare(
-                    'INSERT INTO users (name, email, phone, gender, profile_photo_path, password_hash, role)
-                     VALUES (:name, :email, :phone, :gender, :photo, :password_hash, :role)'
+                    'INSERT INTO users (name, username, email, phone, gender, profile_photo_path, password_hash, role)
+                     VALUES (:name, :username, :email, :phone, :gender, :photo, :password_hash, :role)'
                 );
                 $account->execute([
-                    'name' => $name, 'email' => $email !== '' ? $email : null,
+                    'name' => $name, 'username' => $username, 'email' => $email !== '' ? $email : null,
                     'phone' => $phone !== '' ? $phone : null, 'role' => $role,
                     'gender' => $gender, 'photo' => $profilePath,
                     'password_hash' => password_hash($password, PASSWORD_DEFAULT),
@@ -195,26 +200,30 @@ if ($action === 'setup') {
             }
             session_regenerate_id(true);
             $_SESSION['user_id'] = $userId;
-            set_flash('success', $role === 'operator'
-                ? 'Akun operator berhasil dibuat. Anda dapat langsung mengelola data kos.'
+            set_flash('success', $role === 'owner'
+                ? 'Akun Owner berhasil dibuat. Anda dapat langsung mengelola data kos.'
                 : 'Akun User berhasil dibuat.');
             if ($role === 'seeker' && post_value('next') === 'booking'
                 && (int) post_value('next_room_id') > 0) {
                 redirect('booking_form&id=' . (int) post_value('next_room_id'));
             }
-            redirect($role === 'operator' ? 'dashboard' : 'home');
+            redirect($role === 'owner' ? 'dashboard' : 'home');
         }
 
         if ($action === 'login') {
-            $login = strtolower(post_value('email'));
+            $login = strtolower(post_value('login_identifier'));
             $statement = $pdo->prepare(
                 "SELECT id, password_hash FROM users
-                 WHERE (email = :email OR phone = :phone) AND status = 'active' LIMIT 1"
+                 WHERE (username = :username OR email = :email OR phone = :phone) AND status = 'active' LIMIT 1"
             );
-            $statement->execute(['email' => $login, 'phone' => post_value('email')]);
+            $statement->execute([
+                'username' => $login,
+                'email' => $login,
+                'phone' => post_value('login_identifier'),
+            ]);
             $account = $statement->fetch();
             if (!$account || !password_verify(post_value('password'), $account['password_hash'])) {
-                set_flash('error', 'Email/nomor telepon atau kata sandi salah, atau akun tidak aktif.');
+                set_flash('error', 'Username, email, nomor telepon, atau kata sandi salah, atau akun tidak aktif.');
                 redirect('login');
             }
 
@@ -226,10 +235,19 @@ if ($action === 'setup') {
             $_SESSION['user_id'] = (int) $account['id'];
             $loggedInUser = current_user();
             redirect(!$loggedInUser ? 'login' : ($loggedInUser['role'] === 'admin' ? 'platform_dashboard'
-                : ($loggedInUser['role'] === 'operator' ? 'dashboard' : 'home')));
+                : ($loggedInUser['role'] === 'owner' ? 'dashboard' : 'home')));
         }
 
         if ($action === 'logout') {
+            $logoutUserId = filter_var(
+                $_SESSION['user_id'] ?? null,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            );
+            if ($logoutUserId !== false && $logoutUserId !== null) {
+                $pdo->prepare('DELETE FROM web_push_subscriptions WHERE user_id=:user_id')
+                    ->execute(['user_id' => $logoutUserId]);
+            }
             $_SESSION = [];
             if (ini_get('session.use_cookies')) {
                 $cookie = session_get_cookie_params();
@@ -332,11 +350,12 @@ if ($action === 'setup') {
                             $userId = (int) $existingAccount['id'];
                         } else {
                             $createAccount = $pdo->prepare(
-                                "INSERT INTO users (name,email,password_hash,role)
-                                 VALUES (:name,:email,:password_hash,'seeker')"
+                                "INSERT INTO users (name,username,email,password_hash,role)
+                                 VALUES (:name,:username,:email,:password_hash,'seeker')"
                             );
                             $createAccount->execute([
                                 'name' => substr($facebookName, 0, 100),
+                                'username' => generate_unique_username($pdo, $facebookName),
                                 'email' => $facebookEmail,
                                 'password_hash' => password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
                             ]);

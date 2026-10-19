@@ -4,22 +4,24 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
     $isRegister = $page === 'register';
     $isForgot = $page === 'forgot_password';
     $isReset = $page === 'reset_password';
-    $registerRole = isset($_GET['role']) && $_GET['role'] === 'operator' ? 'operator' : 'seeker';
-    $registerLabel = $registerRole === 'operator' ? 'operator kos' : 'User';
+    $registerRole = isset($_GET['role']) && in_array($_GET['role'], ['owner', 'operator'], true) ? 'owner' : 'seeker';
+    $registerLabel = $registerRole === 'owner' ? 'Owner kos' : 'User';
     $facebookConfigured = facebook_oauth_config() !== null;
     $nextBookingId = ($isRegister && ($_GET['next'] ?? '') === 'booking')
         ? max(0, (int) ($_GET['id'] ?? 0)) : 0;
     $authTitle = $isForgot ? 'Lupa password' : ($isReset ? 'Atur password baru'
         : ($isSetup ? 'Buat Admin' : ($isRegister ? 'Daftar ' . e($registerLabel) : 'Masuk')));
     ?><!doctype html>
-    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261016-6"></head>
+    <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($authTitle) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-16"></head>
     <body class="auth-page"><main class="auth-wrap"><section class="auth-card">
         <div class="auth-brand-row"><a class="brand auth-brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos lebih mudah</small></span></a><?= theme_switcher() ?></div>
         <h1><?= $isForgot ? 'Lupa password?' : ($isReset ? 'Buat password baru' : ($isSetup ? 'Siapkan akun admin' : ($isRegister ? 'Daftar sebagai ' . e($registerLabel) : 'Selamat datang kembali'))) ?></h1>
-        <p class="muted"><?= $isForgot ? 'Masukkan email akun User. Kami akan mengirim kode reset yang berlaku 15 menit.' : ($isReset ? 'Masukkan email dan kode enam digit dari email KosKosan.' : ($isSetup ? 'Buat akun admin pertama untuk mulai mengelola kos.' : ($isRegister ? ($registerRole === 'operator' ? 'Daftarkan akun operator untuk mengelola dan mempromosikan kos Anda.' : 'Buat akun User untuk memesan kamar dan memantau booking Anda.') : 'Masuk untuk mengelola akun atau pesanan kamar.'))) ?></p>
+        <p class="muted"><?= $isForgot ? 'Masukkan email akun User. Kami akan mengirim kode reset yang berlaku 15 menit.' : ($isReset ? 'Masukkan email dan kode enam digit dari email KosKosan.' : ($isSetup ? 'Buat akun admin pertama untuk mulai mengelola kos.' : ($isRegister ? ($registerRole === 'owner' ? 'Daftarkan akun Owner untuk mengelola dan mempromosikan kos Anda.' : 'Buat akun User untuk memesan kamar dan memantau booking Anda.') : 'Masuk untuk mengelola akun atau pesanan kamar.'))) ?></p>
         <?php if ($flash): ?><div class="alert <?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endif; ?>
         <form method="post" class="form-stack" <?= $isRegister ? 'enctype="multipart/form-data"' : '' ?>><?= csrf_field() ?><input type="hidden" name="action" value="<?= $isForgot ? 'request_password_reset' : ($isReset ? 'complete_password_reset' : ($isSetup ? 'setup' : ($isRegister ? 'register_account' : 'login'))) ?>"><?php if ($isRegister): ?><input type="hidden" name="role" value="<?= e($registerRole) ?>"><input type="hidden" name="next" value="<?= $nextBookingId ? 'booking' : '' ?>"><input type="hidden" name="next_room_id" value="<?= $nextBookingId ?>"><?php endif; ?>
-            <?php if ($isSetup || $isRegister) { field('Nama lengkap', 'name', '', 'text', ['required' => 'required', 'maxlength' => '100', 'autocomplete' => 'name']); } ?>
+            <?php if ($isSetup || $isRegister) { field('Nama lengkap', 'name', '', 'text', ['required' => 'required', 'maxlength' => '100', 'autocomplete' => 'name']); field('Username *', 'username', '', 'text', ['required' => 'required', 'maxlength' => '32', 'pattern' => '[A-Za-z]{1,32}', 'autocomplete' => 'username', 'data-username-check' => '']); ?>
+                <small class="field-help username-feedback" data-username-feedback aria-live="polite">Username hanya boleh berisi huruf A-Z dan harus unik.</small>
+            <?php } ?>
             <?php if ($isRegister) { field('Email (opsional)', 'email', '', 'email', ['maxlength' => '255', 'autocomplete' => 'email']); field('Nomor telepon (opsional)', 'phone', '', 'tel', ['maxlength' => '30', 'autocomplete' => 'tel']); ?>
                 <small class="field-help">Isi minimal salah satu: email atau nomor telepon. Keduanya dapat digunakan untuk login.</small>
                 <label class="field"><span>Jenis kelamin *</span><select name="gender" required><option value="">Pilih jenis kelamin</option><option value="male">Pria</option><option value="female">Wanita</option></select></label>
@@ -32,7 +34,7 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
                 <?php field('Email akun User', 'email', '', 'email', ['required' => 'required', 'autocomplete' => 'email']); field('Kode reset 6 digit', 'code', '', 'text', ['required' => 'required', 'inputmode' => 'numeric', 'pattern' => '[0-9]{6}', 'maxlength' => '6', 'autocomplete' => 'one-time-code']); field('Password baru', 'password', '', 'password', ['required' => 'required', 'minlength' => '8', 'maxlength' => '72', 'autocomplete' => 'new-password']); ?>
                 <button class="button primary full" type="submit">Simpan password baru</button>
             <?php else: ?>
-                <?php if (!$isRegister) { field($isSetup ? 'Email' : 'Email atau nomor telepon', 'email', '', $isSetup ? 'email' : 'text', ['required' => 'required', 'autocomplete' => $isSetup ? 'email' : 'username']); } ?>
+                <?php if (!$isRegister && !$isSetup) { field('Username, email, atau nomor telepon', 'login_identifier', '', 'text', ['required' => 'required', 'autocomplete' => 'username']); } elseif ($isSetup) { field('Email', 'email', '', 'email', ['required' => 'required', 'autocomplete' => 'email']); } ?>
                 <?php if ($page === 'login'): ?>
                     <label class="field" for="login-password"><span>Kata sandi</span>
                         <span class="password-input-wrap">
@@ -63,6 +65,6 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
         <?php if (!$isSetup && !$isForgot && !$isReset): ?><p class="auth-switch"><?= $isRegister ? 'Sudah punya akun?' : 'Belum punya akun User?' ?> <a href="index.php?page=<?= $isRegister ? 'login' : 'register' ?>"><?= $isRegister ? 'Masuk' : 'Daftar sekarang' ?></a></p><?php endif; ?>
         <?php if ($page === 'login'): ?><p class="auth-switch"><a href="index.php?page=forgot_password">Lupa password?</a></p><?php elseif ($isForgot): ?><p class="auth-switch">Sudah menerima kode? <a href="index.php?page=reset_password">Masukkan kode reset</a></p><?php elseif ($isReset): ?><p class="auth-switch">Belum menerima kode? <a href="index.php?page=forgot_password">Kirim ulang kode</a></p><?php endif; ?>
         <a class="auth-home-link" href="index.php">← Kembali ke KosKosan</a>
-    </section></main><script src="app.js?v=koskosan-ui-20261016-5"></script></body></html><?php
+    </section></main><script src="app.js?v=koskosan-ui-20261019-16"></script></body></html><?php
     exit;
 }

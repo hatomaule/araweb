@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function admin_account_list_route(array $target = []): string
 {
-    if (($target['role'] ?? null) === 'operator') {
+    if (($target['role'] ?? null) === 'owner') {
         return 'platform_operator_accounts';
     }
 
@@ -32,7 +32,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
 
         $target = one(
             $pdo,
-            'SELECT id, role FROM users WHERE id=:id AND role IN (\'operator\', \'seeker\') LIMIT 1',
+            'SELECT id, role FROM users WHERE id=:id AND role IN (\'owner\', \'seeker\') LIMIT 1',
             ['id' => $targetId]
         );
         if (!$target) {
@@ -73,7 +73,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
 
         $target = one(
             $pdo,
-            'SELECT id, role FROM users WHERE id=:id AND role IN (\'operator\', \'seeker\') LIMIT 1',
+            'SELECT id, role FROM users WHERE id=:id AND role IN (\'owner\', \'seeker\') LIMIT 1',
             ['id' => $targetId]
         );
         if (!$target) {
@@ -166,7 +166,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         $targetId = (int) post_value('user_id');
         $status = post_value('status');
         if ($targetId < 1 || !in_array($status, ['active', 'inactive'], true)) {
-            set_flash('error', 'Status operator tidak valid.');
+            set_flash('error', 'Status Owner tidak valid.');
             redirect('platform_operator_accounts');
         }
 
@@ -176,13 +176,13 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         }
 
         $updated = $pdo->prepare('UPDATE users SET status=:status WHERE id=:id AND role=:role');
-        $updated->execute(['status' => $status, 'id' => $targetId, 'role' => 'operator']);
+        $updated->execute(['status' => $status, 'id' => $targetId, 'role' => 'owner']);
         if ($updated->rowCount() !== 1) {
-            set_flash('error', 'Operator yang dipilih tidak ditemukan.');
+            set_flash('error', 'Owner yang dipilih tidak ditemukan.');
             redirect('platform_operator_accounts');
         }
 
-        set_flash('success', 'Status operator berhasil diperbarui.');
+        set_flash('success', 'Status Owner berhasil diperbarui.');
         redirect('platform_operator_accounts');
     }
 
@@ -190,6 +190,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         $targetId = (int) post_value('user_id');
         $accountRole = post_value('account_role');
         $name = post_value('name');
+        $username = normalize_username(post_value('username'));
         $email = strtolower(post_value('email'));
         $phone = post_value('phone');
         $gender = post_value('gender');
@@ -200,16 +201,16 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         $detailAddress = post_value('address_block');
         $address = format_indonesia_address($regions, $street, $rt, $rw, $detailAddress);
 
-        if ($targetId < 1 || !in_array($accountRole, ['operator', 'seeker'], true)
-            || $name === '' || strlen($name) > 100
+        if ($targetId < 1 || !in_array($accountRole, ['owner', 'seeker'], true)
+            || $name === '' || strlen($name) > 100 || !username_is_valid($username)
             || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) || strlen($email) > 255
             || strlen($phone ?? '') > 30 || strlen($street) > 1000
             || strlen($rt) > 3 || strlen($rw) > 3 || ($rt !== '' && !ctype_digit($rt))
             || ($rw !== '' && !ctype_digit($rw)) || strlen($detailAddress) > 50
             || strlen($address ?? '') > 1000
             || ($gender !== '' && !in_array($gender, ['male', 'female'], true))) {
-            set_flash('error', 'Periksa kembali nama, email, nomor HP, jenis kelamin, dan alamat profil.');
-            redirect($accountRole === 'operator' ? 'platform_operator_accounts' : 'platform_seeker_accounts');
+            set_flash('error', 'Periksa nama, username unik (huruf A-Z saja), email, nomor HP, jenis kelamin, dan alamat profil.');
+            redirect($accountRole === 'owner' ? 'platform_operator_accounts' : 'platform_seeker_accounts');
         }
 
         $target = one(
@@ -219,7 +220,12 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         );
         if (!$target) {
             set_flash('error', 'Profil akun tidak ditemukan.');
-            redirect($accountRole === 'operator' ? 'platform_operator_accounts' : 'platform_seeker_accounts');
+            redirect($accountRole === 'owner' ? 'platform_operator_accounts' : 'platform_seeker_accounts');
+        }
+
+        if (!username_is_available($pdo, $username, $targetId)) {
+            set_flash('error', 'Username tersebut sudah digunakan akun lain.');
+            redirect($accountRole === 'owner' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
         }
 
         $existingEmail = $email !== '' ? one(
@@ -229,12 +235,12 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         ) : null;
         if ($existingEmail) {
             set_flash('error', 'Email tersebut sudah dipakai akun lain.');
-            redirect($accountRole === 'operator' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
+            redirect($accountRole === 'owner' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
         }
-
         $updated = $pdo->prepare(
             'UPDATE users
              SET name=:name,
+                 username=:username,
                  email=:email,
                  phone=:phone,
                  address=:address,
@@ -251,6 +257,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         );
         $updated->execute([
             'name' => $name,
+            'username' => $username,
             'email' => $email !== '' ? $email : null,
             'phone' => $phone !== '' ? $phone : null,
             'address' => $address,
@@ -268,7 +275,7 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         ]);
         if ($updated->rowCount() !== 1) {
             set_flash('error', 'Profil akun tidak dapat diperbarui.');
-            redirect($accountRole === 'operator' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
+            redirect($accountRole === 'owner' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
         }
 
         if ($accountRole === 'seeker') {
@@ -283,6 +290,6 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         }
 
         set_flash('success', 'Profil akun berhasil diperbarui.');
-        redirect($accountRole === 'operator' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
+        redirect($accountRole === 'owner' ? 'platform_operator_profile&id=' . $targetId : 'platform_user_profile&id=' . $targetId);
     }
 }

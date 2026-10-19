@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 $propertyForms = [
-    'dashboard' => $user['role'] === 'operator'
+    'dashboard' => $user['role'] === 'owner'
         ? __DIR__ . '/operator_dashboard.php'
         : __DIR__ . '/dashboard.php',
     'buildings' => __DIR__ . '/buildings.php',
@@ -17,7 +17,7 @@ $propertyForms = [
     'rental_form' => __DIR__ . '/rental_form.php',
 ];
 
-if (!isset($propertyForms[$page]) || !in_array($user['role'], ['admin', 'operator'], true)) {
+if (!isset($propertyForms[$page]) || !in_array($user['role'], ['admin', 'owner'], true)) {
     throw new LogicException('Property module received an unsupported route.');
 }
 

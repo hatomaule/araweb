@@ -6,7 +6,7 @@ function handle_operator_action(PDO $pdo, array $user, string $action): bool
     if ($action !== 'decide_booking') {
         return false;
     }
-    if ($user['role'] !== 'operator' && $user['role'] !== 'admin') {
+    if ($user['role'] !== 'owner' && $user['role'] !== 'admin') {
         set_flash('error', 'Hanya pemilik kos yang dapat memutuskan booking.');
         redirect('home');
     }

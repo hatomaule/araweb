@@ -59,6 +59,56 @@ function post_value(string $key): string
         : '';
 }
 
+function normalize_username(string $username): string
+{
+    return strtolower(trim($username));
+}
+
+function username_is_valid(string $username): bool
+{
+    return preg_match('/\A[a-z]{1,32}\z/iD', $username) === 1;
+}
+
+function username_is_available(PDO $pdo, string $username, ?int $excludeUserId = null): bool
+{
+    $sql = 'SELECT id FROM users WHERE username=:username';
+    $parameters = ['username' => normalize_username($username)];
+    if ($excludeUserId !== null) {
+        $sql .= ' AND id<>:exclude_id';
+        $parameters['exclude_id'] = $excludeUserId;
+    }
+    $sql .= ' LIMIT 1';
+    $statement = $pdo->prepare($sql);
+    $statement->execute($parameters);
+    return $statement->fetchColumn() === false;
+}
+
+function generate_unique_username(PDO $pdo, string $name): string
+{
+    $asciiName = function_exists('iconv')
+        ? iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name)
+        : false;
+    $base = strtolower(preg_replace('/[^a-z]/i', '', is_string($asciiName) ? $asciiName : ''));
+    $base = substr($base !== '' ? $base : 'user', 0, 24);
+
+    for ($attempt = 0; $attempt < 100000; $attempt++) {
+        $suffix = '';
+        if ($attempt > 0) {
+            $value = $attempt - 1;
+            do {
+                $suffix = chr(97 + ($value % 26)) . $suffix;
+                $value = intdiv($value, 26) - 1;
+            } while ($value >= 0);
+        }
+        $candidate = substr($base, 0, 32 - strlen($suffix)) . $suffix;
+        if (username_is_available($pdo, $candidate)) {
+            return $candidate;
+        }
+    }
+
+    throw new RuntimeException('Username otomatis tidak dapat dibuat karena nama pengguna sudah digunakan.');
+}
+
 function indonesia_region_fields(PDO $pdo, array $selectedCodes = [], bool $required = false): string
 {
     $levels = [
@@ -190,6 +240,10 @@ function format_indonesia_address(?array $regions, string $street, string $rt, s
 function set_flash(string $type, string $message): void
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+    if ($type === 'error' && function_exists('activity_log_current_request_error')
+        && ($_POST['action'] ?? null) !== 'login') {
+        activity_log_current_request_error();
+    }
 }
 
 function take_flash(): ?array
@@ -242,7 +296,7 @@ function current_user(): ?array
     }
 
     $statement = db()->prepare(
-        "SELECT id, name, email, phone, address, gender, profile_photo_path, avatar_key, role,
+        "SELECT id, name, username, email, phone, address, gender, profile_photo_path, avatar_key, role,
                 hide_phone_public,hide_profile_photo_public,self_deactivated_at,
                 deletion_requested_at,deletion_due_at
          FROM users WHERE id = :id AND status = 'active' LIMIT 1"
@@ -268,7 +322,7 @@ function can_manage_building(PDO $pdo, array $user, int $buildingId): bool
     if (is_platform_admin($user)) {
         return true;
     }
-    if ($user['role'] !== 'operator') {
+    if ($user['role'] !== 'owner') {
         return false;
     }
     $statement = $pdo->prepare(
@@ -283,7 +337,7 @@ function can_manage_room(PDO $pdo, array $user, int $roomId): bool
     if (is_platform_admin($user)) {
         return true;
     }
-    if ($user['role'] !== 'operator') {
+    if ($user['role'] !== 'owner') {
         return false;
     }
     $statement = $pdo->prepare(
@@ -299,7 +353,7 @@ function can_manage_rental(PDO $pdo, array $user, int $rentalId): bool
     if (is_platform_admin($user)) {
         return true;
     }
-    if ($user['role'] !== 'operator') {
+    if ($user['role'] !== 'owner') {
         return false;
     }
     $statement = $pdo->prepare(
@@ -316,7 +370,7 @@ function can_manage_tenant(PDO $pdo, array $user, int $tenantId): bool
     if (is_platform_admin($user)) {
         return true;
     }
-    if ($user['role'] !== 'operator') {
+    if ($user['role'] !== 'owner') {
         return false;
     }
     $statement = $pdo->prepare(

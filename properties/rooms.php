@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-$roomScope = $user['role'] === 'operator' ? 'WHERE b.owner_user_id=:owner_id' : '';
-$roomParameters = $user['role'] === 'operator' ? ['owner_id' => $user['id']] : [];
+$roomScope = $user['role'] === 'owner' ? 'WHERE b.owner_user_id=:owner_id' : '';
+$roomParameters = $user['role'] === 'owner' ? ['owner_id' => $user['id']] : [];
 $list = rows(
     $pdo,
     "SELECT rm.*,b.name AS building_name,
@@ -97,9 +97,11 @@ foreach ($list as $room) {
         <label class="data-table-search"><span>Cari kamar</span><input type="search" data-room-search placeholder="Nomor kamar, penghuni..." aria-label="Cari kamar, penghuni, atau gedung"></label>
         <div class="room-table-pagination" data-room-pagination>
             <span data-room-summary aria-live="polite"></span>
-            <button class="button secondary compact-button" type="button" data-room-previous>Sebelumnya</button>
-            <button class="button secondary compact-button" type="button" data-room-next>Berikutnya</button>
-            <label class="data-table-select"><span>Tampilkan</span><select data-room-page-size aria-label="Jumlah kamar yang ditampilkan"><option value="5">5</option><option value="10" selected>10</option><option value="all">Semua</option></select></label>
+            <label class="data-table-select"><span>Tampilkan</span><select data-room-page-size aria-label="Jumlah kamar yang ditampilkan"><option value="5" selected>5</option><option value="10">10</option><option value="all">Semua</option></select></label>
+            <div class="room-pagination-buttons">
+                <button class="button secondary compact-button" type="button" data-room-previous>Sebelumnya</button>
+                <button class="button secondary compact-button" type="button" data-room-next>Berikutnya</button>
+            </div>
         </div>
         <details class="data-table-view-switch data-view-picker room-view-switch" data-room-view-switch aria-label="Pilih tampilan kamar">
             <summary class="data-view-picker-trigger"><span class="data-view-current-icon" data-view-current-icon aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg></span><span data-view-current-label>Tabel</span><span class="data-view-picker-chevron" aria-hidden="true">⌄</span></summary>

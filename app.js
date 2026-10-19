@@ -48,6 +48,306 @@ const initializeApp = () => {
             picker.querySelector('summary')?.focus();
         });
     });
+    const notificationMenu = document.querySelector('[data-notification-menu]');
+    const messageMenu = document.querySelector('[data-message-menu]');
+    [notificationMenu, messageMenu].filter(Boolean).forEach((menu) => {
+        let closeTimer = 0;
+        menu.addEventListener('pointerenter', () => {
+            window.clearTimeout(closeTimer);
+            if (matchMedia('(hover: hover)').matches) menu.open = true;
+        });
+        menu.addEventListener('pointerleave', () => {
+            if (matchMedia('(hover: hover)').matches && !menu.contains(document.activeElement)) {
+                closeTimer = window.setTimeout(() => {
+                    if (!menu.matches(':hover') && !menu.contains(document.activeElement)) {
+                        menu.open = false;
+                    }
+                }, 180);
+            }
+        });
+    });
+    document.addEventListener('click', (event) => {
+        [notificationMenu, messageMenu].filter(Boolean).forEach((menu) => {
+            if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+        });
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        [notificationMenu, messageMenu].filter(Boolean).forEach((menu) => {
+            menu.open = false;
+            menu.querySelector('summary')?.focus();
+        });
+    });
+
+    document.querySelectorAll('[data-profile-photo-trigger]').forEach((button) => {
+        const editor = button.closest('.profile-photo-editor');
+        const input = editor?.querySelector('[data-profile-photo-input]');
+        const filename = editor?.querySelector('[data-profile-photo-filename]');
+        const preview = editor?.querySelector('.profile-photo-preview');
+        const removePhoto = editor?.querySelector('[data-profile-photo-remove]');
+        if (!(input instanceof HTMLInputElement) || !(filename instanceof HTMLElement)) return;
+        let previewUrl = '';
+        button.addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            if (removePhoto instanceof HTMLInputElement) {
+                removePhoto.checked = false;
+                editor?.classList.remove('will-remove-photo');
+            }
+            filename.textContent = file.name;
+            if (!file.type.startsWith('image/')) return;
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            previewUrl = URL.createObjectURL(file);
+            if (preview instanceof HTMLImageElement) {
+                preview.src = previewUrl;
+            } else if (preview instanceof HTMLElement) {
+                const image = document.createElement('img');
+                image.className = 'profile-photo-preview';
+                image.alt = 'Pratinjau foto profil';
+                image.src = previewUrl;
+                preview.replaceWith(image);
+            }
+        });
+        removePhoto?.addEventListener('change', () => {
+            editor?.classList.toggle('will-remove-photo', removePhoto.checked);
+            filename.textContent = removePhoto.checked
+                ? 'Avatar default akan digunakan setelah disimpan'
+                : 'Foto profil saat ini';
+        });
+    });
+
+    document.querySelectorAll('[data-username-check]').forEach((input) => {
+        const feedback = input.closest('form')?.querySelector('[data-username-feedback]');
+        if (!(input instanceof HTMLInputElement) || !(feedback instanceof HTMLElement)) return;
+        let timer = 0;
+        let requestNumber = 0;
+        input.addEventListener('input', () => {
+            window.clearTimeout(timer);
+            const username = input.value.trim();
+            const currentRequest = ++requestNumber;
+            if (!/^[a-z]{1,32}$/i.test(username)) {
+                feedback.textContent = 'Gunakan 1–32 huruf A-Z saja.';
+                feedback.dataset.state = 'invalid';
+                return;
+            }
+            feedback.textContent = 'Memeriksa ketersediaan username…';
+            feedback.dataset.state = 'checking';
+            timer = window.setTimeout(async () => {
+                try {
+                    const response = await fetch(`index.php?username_check=1&username=${encodeURIComponent(username)}`, {
+                        headers: {'Accept': 'application/json'}
+                    });
+                    if (!response.ok) throw new Error('Pemeriksaan username gagal.');
+                    const result = await response.json();
+                    if (currentRequest !== requestNumber) return;
+                    feedback.textContent = result.available
+                        ? 'Username tersedia.'
+                        : (result.valid ? 'Username sudah digunakan.' : 'Format username tidak valid.');
+                    feedback.dataset.state = result.available ? 'available' : 'taken';
+                } catch (error) {
+                    console.error('Username availability check failed:', error);
+                    if (currentRequest !== requestNumber) return;
+                    feedback.textContent = 'Ketersediaan username belum dapat diperiksa. Coba lagi.';
+                    feedback.dataset.state = 'error';
+                }
+            }, 250);
+        });
+    });
+
+    const notificationApi = 'index.php?notifications_api=1';
+    const notificationSeen = new Set();
+    let notificationCursor = 0;
+    let notificationEnabled = true;
+    const updateNotificationBadge = (unreadCount) => {
+        const summary = notificationMenu?.querySelector('summary');
+        if (!summary) return;
+        let badge = summary.querySelector('span');
+        const count = Number(unreadCount) || 0;
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                summary.append(badge);
+            }
+            badge.textContent = count > 99 ? '99+' : String(count);
+            summary.setAttribute('aria-label', `Notifikasi, ${count} belum dibaca`);
+        } else {
+            badge?.remove();
+            summary.setAttribute('aria-label', 'Notifikasi');
+        }
+    };
+    const notificationToast = (item) => {
+        const id = Number(item.id);
+        if (!Number.isSafeInteger(id) || id < 1 || notificationSeen.has(id)) return;
+        notificationSeen.add(id);
+        const toast = document.createElement('a');
+        toast.className = 'notification-toast';
+        toast.href = 'index.php?page=notifications';
+        const title = document.createElement('strong');
+        title.textContent = item.title || 'Notifikasi baru';
+        const body = document.createElement('span');
+        body.textContent = item.body || '';
+        toast.append(title, body);
+        let container = document.querySelector('[data-notification-toasts]');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'notification-toast-stack';
+            container.dataset.notificationToasts = '';
+            container.setAttribute('aria-live', 'polite');
+            container.setAttribute('aria-relevant', 'additions');
+            document.body.append(container);
+        }
+        container.append(toast);
+        window.setTimeout(() => {
+            toast.remove();
+            if (container.childElementCount === 0) container.remove();
+        }, 8000);
+    };
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const enablePushButton = document.querySelector('[data-enable-browser-notifications]');
+    const pushStatus = document.querySelector('[data-browser-notification-status]');
+    const updatePushStatus = (text) => {
+        if (pushStatus) pushStatus.textContent = text;
+    };
+    const registerServiceWorker = async () => {
+        if (!('serviceWorker' in navigator) || !window.isSecureContext) {
+            throw new Error('Notifikasi perangkat memerlukan HTTPS dan dukungan service worker.');
+        }
+        const registration = await navigator.serviceWorker.register('service-worker.js');
+        await navigator.serviceWorker.ready;
+        return registration;
+    };
+    const loadNotificationState = async () => {
+        const response = await fetch(`${notificationApi}&notification_action=state`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`Gagal memuat status notifikasi (${response.status}).`);
+        const state = await response.json();
+        notificationEnabled = state.enabled === true;
+        notificationCursor = Number(state.latest_id) || 0;
+        updateNotificationBadge(state.unread_count);
+        if (!state.enabled && pushStatus) {
+            updatePushStatus('Notifikasi aplikasi disenyapkan. Badge dan daftar notifikasi tetap aktif.');
+        } else if (pushStatus && !('Notification' in window)) {
+            updatePushStatus('Browser ini tidak mendukung notifikasi perangkat.');
+        } else if (pushStatus && Notification.permission === 'denied') {
+            updatePushStatus('Izin ditolak di browser. Ubah izin situs pada pengaturan browser/perangkat.');
+        } else if (pushStatus && state.subscribed) {
+            updatePushStatus('Notifikasi perangkat aktif pada browser ini.');
+        } else if (pushStatus && !state.public_key) {
+            updatePushStatus('Notifikasi di dalam aplikasi aktif. Push perangkat belum dikonfigurasi server.');
+        } else if (pushStatus) {
+            updatePushStatus('Izin browser belum diaktifkan pada perangkat ini.');
+        }
+        if (enablePushButton) {
+            enablePushButton.disabled = !state.enabled || !state.public_key;
+        }
+        return state;
+    };
+    const pollNotifications = async () => {
+        if (!notificationMenu || document.visibilityState === 'prerender') return;
+        try {
+            const response = await fetch(
+                `${notificationApi}&notification_action=poll&after_id=${notificationCursor}`,
+                { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+            );
+            if (!response.ok) throw new Error(`Gagal memeriksa notifikasi (${response.status}).`);
+            const state = await response.json();
+            notificationEnabled = state.enabled === true;
+            updateNotificationBadge(state.unread_count);
+            if (!notificationEnabled) {
+                notificationCursor = Math.max(notificationCursor, Number(state.latest_id) || 0);
+                return;
+            }
+            for (const item of state.notifications || []) {
+                notificationCursor = Math.max(notificationCursor, Number(item.id) || 0);
+                if ('Notification' in window && Notification.permission === 'denied') {
+                    continue;
+                }
+                if (document.visibilityState === 'visible') {
+                    notificationToast(item);
+                } else if ('Notification' in window && Notification.permission === 'granted') {
+                    notificationSeen.add(Number(item.id));
+                    const registration = await registerServiceWorker();
+                    await registration.showNotification(item.title || 'Notifikasi KosKosan', {
+                        body: item.body || '',
+                        icon: 'public-icon.svg',
+                        tag: `koskosan-${item.id}`,
+                        data: { url: 'index.php?page=notifications' },
+                    });
+                }
+            }
+            notificationCursor = Math.max(notificationCursor, Number(state.latest_id) || 0);
+        } catch (error) {
+            console.error('Notification polling failed:', error);
+        }
+    };
+    if (notificationMenu) {
+        loadNotificationState().then((state) => {
+            if (state.public_key && window.isSecureContext) {
+                registerServiceWorker().catch((error) => {
+                    console.error('Service worker registration failed:', error);
+                });
+            }
+        }).catch((error) => console.error('Notification state failed:', error));
+        window.setInterval(pollNotifications, 20000);
+        navigator.serviceWorker?.addEventListener('message', (event) => {
+            if (event.data?.type === 'push-notification') {
+                notificationToast(event.data.notification || {});
+            }
+        });
+    }
+    enablePushButton?.addEventListener('click', async () => {
+        enablePushButton.disabled = true;
+        try {
+            const state = await loadNotificationState();
+            if (!state.enabled) {
+                throw new Error('Aktifkan notifikasi di Pengaturan akun terlebih dahulu.');
+            }
+            if (!state.public_key) {
+                throw new Error('Push perangkat belum dikonfigurasi oleh administrator.');
+            }
+            if (!('Notification' in window)) {
+                throw new Error('Browser ini tidak mendukung notifikasi perangkat.');
+            }
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                throw new Error('Izin notifikasi tidak diberikan. Periksa pengaturan browser/perangkat.');
+            }
+            const registration = await registerServiceWorker();
+            const applicationServerKey = Uint8Array.from(
+                atob(state.public_key.replace(/-/g, '+').replace(/_/g, '/')
+                    + '='.repeat((4 - state.public_key.length % 4) % 4)),
+                (character) => character.charCodeAt(0),
+            );
+            const subscription = await registration.pushManager.getSubscription()
+                || await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey,
+                });
+            const response = await fetch(notificationApi, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body: new URLSearchParams({
+                    csrf_token: csrfToken,
+                    notification_action: 'subscribe',
+                    subscription: JSON.stringify(subscription),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Langganan push tidak dapat disimpan.');
+            updatePushStatus('Notifikasi perangkat aktif pada browser ini.');
+        } catch (error) {
+            updatePushStatus(error.message || 'Notifikasi browser gagal diaktifkan.');
+        } finally {
+            enablePushButton.disabled = false;
+        }
+    });
     const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
     const sidebarBackdrop = document.querySelector('.sidebar-backdrop');
     const closeMobileMenu = () => {
@@ -815,9 +1115,17 @@ const initializeApp = () => {
         if (table.hasAttribute('data-building-filter')) {
             const buildings = new Map();
             rows.forEach((row) => {
-                const value = row.dataset.buildingFilter;
-                if (value !== undefined && !buildings.has(value)) {
-                    buildings.set(value, row.dataset.buildingLabel || value);
+                let rowBuildings = {};
+                try {
+                    rowBuildings = JSON.parse(row.dataset.buildingMap || '{}');
+                } catch (error) {
+                    console.error('Tenant building filter data is invalid:', error);
+                }
+                Object.entries(rowBuildings).forEach(([value, label]) => {
+                    if (!buildings.has(value)) buildings.set(value, label);
+                });
+                if (!Object.keys(rowBuildings).length && row.dataset.buildingFilter === '') {
+                    buildings.set('__none', 'Belum tercatat sebagai penghuni aktif');
                 }
             });
             if (buildings.size) {
@@ -870,7 +1178,7 @@ const initializeApp = () => {
         pageSizeSelect.add(new Option('5', '5'));
         pageSizeSelect.add(new Option('10', '10'));
         pageSizeSelect.add(new Option('Semua', 'all'));
-        pageSizeSelect.value = '10';
+        pageSizeSelect.value = '5';
         pageSizeLabel.append(pageSizeCaption, pageSizeSelect);
 
         const navigation = document.createElement('div');
@@ -950,7 +1258,8 @@ const initializeApp = () => {
             const matchingRows = rows.filter((row) => {
                 const searchableText = `${row.textContent} ${row.dataset.buildingLabel || ''}`.toLocaleLowerCase('id');
                 const matchesSearch = !query || searchableText.includes(query);
-                const matchesBuilding = !selectedBuilding || row.dataset.buildingFilter === selectedBuilding;
+                const matchesBuilding = !selectedBuilding
+                    || (row.dataset.buildingFilter || '').split(',').includes(selectedBuilding);
                 const matchesRegions = regionFilters.every((filter, index) => {
                     if (!filter.value) return true;
                     const codes = (row.dataset[`${regionLevels[index]}Codes`] || '').split(',');
@@ -1252,6 +1561,249 @@ const initializeApp = () => {
             if (event.target === dialog) dialog.close();
         });
     });
+
+    document.querySelectorAll('dialog.auth-dialog').forEach((dialog) => {
+        let backdropPointerDown = false;
+        dialog.addEventListener('pointerdown', (event) => {
+            backdropPointerDown = event.target === dialog;
+        });
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog && backdropPointerDown) dialog.close();
+            backdropPointerDown = false;
+        });
+        dialog.addEventListener('pointercancel', () => { backdropPointerDown = false; });
+    });
+
+    const chatWidget = document.querySelector('[data-chat-widget]');
+    if (chatWidget) {
+        const panel = chatWidget.querySelector('#chat-widget-panel');
+        const toggle = chatWidget.querySelector('[data-chat-toggle]');
+        const close = chatWidget.querySelector('[data-chat-close]');
+        const back = chatWidget.querySelector('[data-chat-back]');
+        const list = chatWidget.querySelector('[data-chat-conversations]');
+        const search = chatWidget.querySelector('[data-chat-search]');
+        const threadHeader = chatWidget.querySelector('[data-chat-thread-header]');
+        const messages = chatWidget.querySelector('[data-chat-messages]');
+        const compose = chatWidget.querySelector('[data-chat-compose]');
+        const messageInput = compose?.querySelector('textarea');
+        const readonlyNote = chatWidget.querySelector('[data-chat-readonly]');
+        const status = chatWidget.querySelector('[data-chat-status]');
+        const unreadBadge = chatWidget.querySelector('[data-chat-total-unread]');
+        const supportButton = chatWidget.querySelector('[data-chat-start-support]');
+        let activeConversationId = 0;
+        let refreshTimer;
+        let lastMessageId = 0;
+        let listItems = [];
+        let loadingMessages = false;
+
+        const requestJson = async (url, options) => {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {'Accept': 'application/json', ...(options?.headers || {})},
+                ...options,
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || 'Chat tidak dapat dimuat.');
+            return payload;
+        };
+        const apiGet = (action, conversationId = 0) => requestJson(
+            `index.php?chat_api=1&chat_action=${encodeURIComponent(action)}${conversationId ? `&conversation_id=${conversationId}` : ''}`
+        );
+        const apiPost = (fields) => {
+            const body = new URLSearchParams({
+                csrf_token: chatWidget.dataset.chatCsrf || '',
+                ...fields,
+            });
+            return requestJson('index.php?chat_api=1', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+                body,
+            });
+        };
+        const showError = (error) => {
+            if (status) status.textContent = error.message || 'Chat tidak dapat dimuat.';
+        };
+        const formatMessageTime = (value) => {
+            const parsed = new Date(String(value).replace(' ', 'T'));
+            return Number.isNaN(parsed.getTime())
+                ? String(value)
+                : parsed.toLocaleString('id-ID', {dateStyle: 'short', timeStyle: 'short'});
+        };
+        const renderConversations = () => {
+            if (!list) return;
+            const term = (search instanceof HTMLInputElement ? search.value : '').trim().toLocaleLowerCase('id');
+            const visible = listItems.filter((conversation) =>
+                `${conversation.title} ${conversation.subtitle} ${conversation.last_message}`.toLocaleLowerCase('id').includes(term)
+            );
+            list.replaceChildren();
+            if (!visible.length) {
+                const empty = document.createElement('p');
+                empty.className = 'chat-widget-empty';
+                empty.textContent = term ? 'Tidak ada hasil pencarian.' : 'Belum ada percakapan.';
+                list.append(empty);
+                return;
+            }
+            visible.forEach((conversation) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `chat-widget-conversation${Number(conversation.id) === activeConversationId ? ' active' : ''}`;
+                const avatar = document.createElement('span');
+                avatar.className = 'chat-avatar';
+                avatar.textContent = conversation.type === 'support'
+                    ? (chatWidget.dataset.chatRole === 'admin' ? String(conversation.title).slice(0, 1) : '?')
+                    : String(conversation.title).slice(0, 1);
+                const copy = document.createElement('span');
+                copy.className = 'chat-widget-conversation-copy';
+                const title = document.createElement('strong');
+                title.textContent = conversation.title;
+                const subtitle = document.createElement('small');
+                subtitle.textContent = conversation.last_message || conversation.subtitle;
+                copy.append(title, subtitle);
+                button.append(avatar, copy);
+                if (conversation.unread_count > 0) {
+                    const unread = document.createElement('i');
+                    unread.className = 'chat-unread-count';
+                    unread.textContent = String(conversation.unread_count);
+                    button.append(unread);
+                }
+                button.addEventListener('click', () => {
+                    activeConversationId = Number(conversation.id);
+                    chatWidget.classList.add('show-thread');
+                    renderConversations();
+                    loadMessages();
+                });
+                list.append(button);
+            });
+        };
+        const loadConversations = async () => {
+            const payload = await apiGet('list');
+            listItems = payload.conversations || [];
+            const unreadCount = listItems.reduce((total, item) => total + Number(item.unread_count || 0), 0);
+            if (unreadBadge) {
+                unreadBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+                unreadBadge.hidden = unreadCount === 0;
+            }
+            renderConversations();
+            if (status) status.textContent = listItems.length
+                ? `${listItems.length} percakapan`
+                : (chatWidget.dataset.chatRole === 'admin' ? 'Belum ada chat masuk' : 'Mulai chat atau minta bantuan admin');
+        };
+        const loadMessages = async () => {
+            if (!activeConversationId || loadingMessages || !messages) return;
+            loadingMessages = true;
+            try {
+                const payload = await apiGet('messages', activeConversationId);
+                if (Number(payload.conversation.id) !== activeConversationId) return;
+                const currentLatestId = payload.messages.length
+                    ? Number(payload.messages[payload.messages.length - 1].id) : 0;
+                const shouldScroll = currentLatestId !== lastMessageId;
+                lastMessageId = currentLatestId;
+                const title = document.createElement('strong');
+                title.textContent = payload.conversation.title;
+                const subtitle = document.createElement('small');
+                subtitle.textContent = payload.conversation.subtitle;
+                const backButton = threadHeader?.querySelector('[data-chat-back]');
+                threadHeader?.replaceChildren(...(backButton ? [backButton, title, subtitle] : [title, subtitle]));
+                messages.replaceChildren();
+                if (!payload.messages.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'chat-widget-empty';
+                    empty.textContent = 'Belum ada pesan. Tulis pesan untuk memulai.';
+                    messages.append(empty);
+                }
+                payload.messages.forEach((message) => {
+                    const bubble = document.createElement('article');
+                    bubble.className = `chat-message${Number(message.sender_user_id) === Number(chatWidget.dataset.chatUserId) ? ' mine' : ''}`;
+                    const body = document.createElement('p');
+                    body.textContent = message.body;
+                    const time = document.createElement('small');
+                    time.textContent = formatMessageTime(message.created_at);
+                    bubble.append(body, time);
+                    messages.append(bubble);
+                });
+                if (compose) compose.hidden = !payload.conversation.can_send;
+                if (readonlyNote) {
+                    readonlyNote.hidden = payload.conversation.can_send;
+                    readonlyNote.textContent = payload.conversation.archived
+                        ? 'Chat diarsipkan admin. Hubungi admin untuk membuka kembali.'
+                        : 'Chat User dan Owner hanya dapat ditinjau admin, bukan dibalas.';
+                }
+                if (shouldScroll) messages.scrollTop = messages.scrollHeight;
+                await loadConversations();
+            } catch (error) {
+                showError(error);
+            } finally {
+                loadingMessages = false;
+            }
+        };
+        const openPanel = async () => {
+            if (!panel || !toggle) return;
+            panel.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+            try {
+                await loadConversations();
+                if (activeConversationId) await loadMessages();
+            } catch (error) {
+                showError(error);
+            }
+            clearInterval(refreshTimer);
+            refreshTimer = window.setInterval(async () => {
+                try {
+                    await loadConversations();
+                    if (activeConversationId) await loadMessages();
+                } catch (error) {
+                    showError(error);
+                }
+            }, 7000);
+        };
+        const closePanel = () => {
+            if (!panel || !toggle) return;
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+            clearInterval(refreshTimer);
+        };
+        toggle?.addEventListener('click', () => panel?.hidden ? openPanel() : closePanel());
+        close?.addEventListener('click', closePanel);
+        back?.addEventListener('click', () => chatWidget.classList.remove('show-thread'));
+        search?.addEventListener('input', renderConversations);
+        supportButton?.addEventListener('click', async () => {
+            try {
+                const existing = listItems.find((item) => item.type === 'support');
+                if (existing) {
+                    activeConversationId = Number(existing.id);
+                } else {
+                    const payload = await apiPost({chat_action: 'start_support'});
+                    activeConversationId = Number(payload.conversation_id);
+                }
+                chatWidget.classList.add('show-thread');
+                await loadConversations();
+                await loadMessages();
+                messageInput?.focus();
+            } catch (error) {
+                showError(error);
+            }
+        });
+        compose?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!(messageInput instanceof HTMLTextAreaElement) || !messageInput.value.trim()) return;
+            const sendButton = compose.querySelector('button[type="submit"]');
+            if (sendButton instanceof HTMLButtonElement) sendButton.disabled = true;
+            try {
+                await apiPost({
+                    chat_action: 'send',
+                    conversation_id: String(activeConversationId),
+                    message: messageInput.value,
+                });
+                messageInput.value = '';
+                lastMessageId = 0;
+                await loadMessages();
+            } catch (error) {
+                showError(error);
+            } finally {
+                if (sendButton instanceof HTMLButtonElement) sendButton.disabled = false;
+            }
+        });
+    }
 
     const photoLightbox = document.getElementById('photo-lightbox');
     const photoPreview = photoLightbox?.querySelector('img');

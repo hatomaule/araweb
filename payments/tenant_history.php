@@ -14,9 +14,9 @@ if (!$tenant) {
     set_flash('error', 'Data penghuni tidak ditemukan.');
     redirect('tenants');
 }
-$buildingScope = $user['role'] === 'operator' ? 'AND b.owner_user_id=:owner_id' : '';
+$buildingScope = $user['role'] === 'owner' ? 'AND b.owner_user_id=:owner_id' : '';
 $queryParams = ['tenant_id' => $tenantId];
-if ($user['role'] === 'operator') {
+if ($user['role'] === 'owner') {
     $queryParams['owner_id'] = $user['id'];
 }
 $payments = rows(
@@ -54,7 +54,7 @@ $balance = one(
 );
 $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wallet' => 'E-wallet', 'other' => 'Lainnya'];
 ?>
-<div class="welcome-row"><div><h2><?= e($tenant['full_name']) ?></h2><p><?= e($tenant['email'] ?: $tenant['phone']) ?> · Histori pembayaran <?= $user['role'] === 'operator' ? 'di kos Anda' : 'seluruh platform' ?></p></div><a class="button secondary" href="index.php?page=tenants">← Kembali ke penghuni</a></div>
+<div class="welcome-row"><div><h2><?= e($tenant['full_name']) ?></h2><p><?= e($tenant['email'] ?: $tenant['phone']) ?> · Histori pembayaran <?= $user['role'] === 'owner' ? 'di kos Anda' : 'seluruh platform' ?></p></div><a class="button secondary" href="index.php?page=tenants">← Kembali ke penghuni</a></div>
 <div class="stats-grid payment-history-stats">
     <article class="stat-card"><div class="stat-icon green">✓</div><div><span>Total diterima</span><strong><?= e(money($summary['confirmed_total'])) ?></strong></div></article>
     <article class="stat-card"><div class="stat-icon orange">◷</div><div><span>Menunggu verifikasi</span><strong><?= e(money($summary['pending_total'])) ?></strong></div></article>

@@ -19,7 +19,7 @@ $buildings = rows($pdo, "SELECT b.*,
 <section class="building-list" data-building-card-list>
     <div class="building-list-tools">
         <label class="building-list-search"><span>Cari gedung</span><input type="search" data-building-card-search placeholder="Nama atau alamat gedung..." aria-label="Cari gedung berdasarkan nama atau alamat"></label>
-        <label class="building-list-page-size"><span>Tampilkan</span><select data-building-card-page-size aria-label="Jumlah gedung yang ditampilkan"><option value="5">5</option><option value="10" selected>10</option><option value="all">Semua</option></select></label>
+        <label class="building-list-page-size"><span>Tampilkan</span><select data-building-card-page-size aria-label="Jumlah gedung yang ditampilkan"><option value="5" selected>5</option><option value="10">10</option><option value="all">Semua</option></select></label>
         <div class="building-list-navigation">
             <span data-building-card-summary aria-live="polite"></span>
             <button class="button secondary compact-button" type="button" data-building-card-previous>Sebelumnya</button>

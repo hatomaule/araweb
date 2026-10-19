@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-$buildingScope = $user['role'] === 'operator' ? 'WHERE owner_user_id=:owner_id' : '';
+$buildingScope = $user['role'] === 'owner' ? 'WHERE owner_user_id=:owner_id' : '';
 $buildings = rows(
     $pdo,
     "SELECT id,name FROM kos_buildings {$buildingScope} ORDER BY name",
-    $user['role'] === 'operator' ? ['owner_id' => $user['id']] : []
+    $user['role'] === 'owner' ? ['owner_id' => $user['id']] : []
 );
 $buildingId = max(0, (int) ($_GET['building_id'] ?? 0));
 if (!$buildingId && $buildings) {

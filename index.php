@@ -3,9 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/core/bootstrap.php';
 require_once __DIR__ . '/core/modules.php';
+require_once __DIR__ . '/core/activity_log.php';
+require_once __DIR__ . '/core/web_push.php';
 require_once __DIR__ . '/chat/chat.php';
 require_once __DIR__ . '/chat/act.php';
+require_once __DIR__ . '/chat/api.php';
 require_once __DIR__ . '/notifications/notifications.php';
+require_once __DIR__ . '/notifications/api.php';
 require_once __DIR__ . '/notifications/act.php';
 require_once __DIR__ . '/accounts/auth_actions.php';
 require_once __DIR__ . '/accounts/act.php';
@@ -25,7 +29,8 @@ $allowedPages = [
     'platform_operator_profile', 'platform_user_profile', 'platform_user_payments',
     'platform_listings', 'platform_property_verification',
     'platform_reports', 'operator_reports', 'user_reports', 'change_password',
-    'account_settings', 'chat', 'notifications', 'saved_properties',
+    'account_settings', 'chat', 'admin_chat', 'notifications', 'saved_properties',
+    'activity_log', 'reviews',
     'operator_bookings', 'tenant_profile', 'facebook_login',
     'facebook_callback', 'login', 'register', 'setup', 'forgot_password', 'reset_password',
 ];
@@ -74,10 +79,12 @@ $featureSchema = $pdo->prepare(
     "SELECT COUNT(*) FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA=DATABASE() AND (
         (TABLE_NAME='users' AND COLUMN_NAME IN
-            ('hide_phone_public','hide_profile_photo_public','self_deactivated_at','deletion_requested_at','deletion_due_at'))
+            ('username','hide_phone_public','hide_profile_photo_public','self_deactivated_at','deletion_requested_at','deletion_due_at'))
         OR (TABLE_NAME='kos_buildings' AND COLUMN_NAME IN ('verification_tier','verification_status'))
         OR (TABLE_NAME='room_type_gallery_photos' AND COLUMN_NAME='room_id')
         OR (TABLE_NAME='property_reviews' AND COLUMN_NAME='reviewer_user_id')
+        OR (TABLE_NAME='chat_conversations' AND COLUMN_NAME IN
+            ('conversation_type','requester_user_id','archived_at','archived_by'))
      )"
 );
 $featureSchema->execute();
@@ -86,13 +93,38 @@ $featureTables = $pdo->prepare(
     "SELECT COUNT(*) FROM information_schema.TABLES
      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN
         ('property_verification_requests','property_user_actions','notification_preferences',
-         'notifications','chat_conversations','chat_messages')"
+         'notifications','chat_conversations','chat_messages','activity_logs','web_push_subscriptions',
+         'user_activity_events')"
 );
 $featureTables->execute();
-if ($requiredFeatureColumns !== 9 || (int) $featureTables->fetchColumn() !== 6) {
+$ownerRoleColumns = (int) $pdo->query(
+    "SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_TYPE LIKE '%owner%'
+       AND ((TABLE_NAME='users' AND COLUMN_NAME='role')
+         OR (TABLE_NAME='activity_logs' AND COLUMN_NAME='actor_role')
+         OR (TABLE_NAME='user_activity_events' AND COLUMN_NAME='account_role'))"
+)->fetchColumn();
+if ($requiredFeatureColumns !== 14 || (int) $featureTables->fetchColumn() !== 9
+    || $ownerRoleColumns !== 3) {
     http_response_code(503);
-    ?><!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pembaruan database diperlukan</title><link rel="stylesheet" href="style.css"></head><body><main class="auth-wrap"><section class="auth-card"><div class="brand-mark">K</div><h1>Pembaruan database diperlukan</h1><p>Skema database belum memuat modul akun/properti, notifikasi, dan chat yang diperlukan versi aplikasi ini.</p><ol><li>Buat backup yang dapat dipulihkan.</li><li>Jalankan sekali: <code>migration_integrated_property_account_features.sql</code>, <code>migration_notifications.sql</code>, lalu <code>migration_chat.sql</code>.</li><li>Gunakan akun administrator database khusus untuk migrasi; akun aplikasi tidak memerlukan hak DDL.</li></ol><p>Setelah migrasi selesai, muat ulang halaman.</p></section></main></body></html><?php
+    ?><!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pembaruan database diperlukan</title><link rel="stylesheet" href="style.css"></head><body><main class="auth-wrap"><section class="auth-card"><div class="brand-mark">K</div><h1>Pembaruan database diperlukan</h1><p>Skema database belum memuat semua modul aplikasi.</p><ol><li>Buat backup yang dapat dipulihkan.</li><li>Pastikan seluruh migrasi fitur akun/properti, notifikasi, chat, log, dan <code>migration_usernames_and_owner_role.sql</code> telah dijalankan sesuai urutan.</li><li>Gunakan akun administrator database khusus untuk migrasi; akun aplikasi tidak memerlukan hak DDL.</li></ol><p>Setelah migrasi selesai, muat ulang halaman.</p></section></main></body></html><?php
     exit;
+}
+
+$user = current_user();
+$backgroundApiPoll = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && (isset($_GET['chat_api']) || isset($_GET['notifications_api']));
+if (!$backgroundApiPoll) {
+    $activityPage = isset($_GET['chat_api']) ? 'chat'
+        : (isset($_GET['notifications_api']) ? 'notifications' : $page);
+    activity_log_request($pdo, $user, $activityPage);
+}
+
+if (isset($_GET['chat_api'])) {
+    chat_api_dispatch($pdo, $user);
+}
+if (isset($_GET['notifications_api'])) {
+    notification_api_dispatch($pdo, $user);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -263,7 +295,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$user = current_user();
 if (isset($_GET['region_options'])) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, private');
@@ -325,7 +356,7 @@ if (isset($_GET['reverse_geocode'])) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, private');
     header('X-Content-Type-Options: nosniff');
-    if (!$user || !in_array($user['role'], ['admin', 'operator'], true)) {
+    if (!$user || !in_array($user['role'], ['admin', 'owner'], true)) {
         http_response_code(403);
         echo json_encode(['error' => 'Akses pencarian alamat ditolak.']);
         exit;
@@ -471,11 +502,25 @@ if ($user) {
         }
     }
 }
+if (isset($_GET['username_check'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    $rawUsername = isset($_GET['username']) && is_string($_GET['username'])
+        ? $_GET['username'] : '';
+    $candidate = normalize_username(substr(trim($rawUsername), 0, 32));
+    $valid = username_is_valid($candidate);
+    echo json_encode([
+        'valid' => $valid,
+        'available' => $valid && username_is_available($pdo, $candidate, $user ? (int) $user['id'] : null),
+    ]);
+    exit;
+}
 if (isset($_GET['account_lookup'])) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, private');
     header('X-Content-Type-Options: nosniff');
-    if (!$user || $user['role'] !== 'operator') {
+    if (!$user || $user['role'] !== 'owner') {
         http_response_code(403);
         echo json_encode(['error' => 'Akses pencarian akun ditolak.']);
         exit;
@@ -486,17 +531,16 @@ if (isset($_GET['account_lookup'])) {
         exit;
     }
     $lookup = $pdo->prepare(
-        "SELECT u.id,u.name,u.email,u.phone,u.gender
+        "SELECT u.id,u.name,u.username
          FROM users u
          WHERE u.role='seeker' AND u.status='active' AND u.self_deactivated_at IS NULL
            AND (u.name LIKE :name_term ESCAPE '!'
-                OR u.email LIKE :email_term ESCAPE '!'
-                OR u.phone LIKE :phone_term ESCAPE '!')
+                OR u.username LIKE :username_term ESCAPE '!')
          ORDER BY u.name,u.id LIMIT 10"
     );
     $searchTerm = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term) . '%';
     $lookup->execute([
-        'name_term' => $searchTerm, 'email_term' => $searchTerm, 'phone_term' => $searchTerm,
+        'name_term' => $searchTerm, 'username_term' => $searchTerm,
     ]);
     echo json_encode(['accounts' => $lookup->fetchAll()], JSON_UNESCAPED_UNICODE);
     exit;
@@ -524,7 +568,7 @@ if ($userCount > 0 && !$user
 }
 if ($user && in_array($page, ['login', 'register', 'setup', 'forgot_password', 'reset_password'], true)) {
     redirect($user['role'] === 'admin' ? 'platform_dashboard'
-        : ($user['role'] === 'operator' ? 'dashboard' : 'home'));
+        : ($user['role'] === 'owner' ? 'dashboard' : 'home'));
 }
 if ($user && $user['role'] === 'admin' && $page === 'platform_accounts') {
     redirect('platform_operator_accounts');
@@ -532,31 +576,29 @@ if ($user && $user['role'] === 'admin' && $page === 'platform_accounts') {
 if ($user && $user['role'] === 'admin' && $page === 'platform_owners') {
     redirect('platform_operator_accounts');
 }
-if ($user && $user['role'] === 'admin' && $page === 'platform_reports') {
-    redirect('platform_dashboard');
-}
 if ($user && $user['role'] === 'admin'
     && in_array($page, [
         'search_history', 'my_bookings', 'booking_form', 'my_payments', 'operator_reports', 'user_reports',
         'chat',
     ], true)) {
-    redirect('platform_dashboard');
+    redirect($page === 'chat' ? 'admin_chat' : 'platform_dashboard');
 }
 if ($user && $user['role'] === 'seeker'
     && !in_array($page, ['home', 'search', 'property', 'room', 'my_bookings', 'my_payments', 'booking_form',
         'payment_proof', 'profile', 'search_history', 'saved_properties', 'user_reports', 'change_password',
-        'account_settings', 'chat', 'notifications'], true)) {
+        'account_settings', 'chat', 'notifications', 'activity_log', 'reviews'], true)) {
     redirect('home');
 }
-if ($user && $user['role'] === 'operator' && $page === 'operator_reports') {
+if ($user && $user['role'] === 'owner' && $page === 'operator_reports') {
     redirect('dashboard');
 }
-if ($user && $user['role'] === 'operator'
+if ($user && $user['role'] === 'owner'
     && !in_array($page, ['home', 'search', 'dashboard', 'buildings', 'building_form', 'gallery', 'rooms',
         'room_form', 'tenants', 'tenant_form', 'tenant_payments', 'invoices',
         'invoice_form', 'operator_payment', 'payments', 'tenant_profile',
         'operator_bookings', 'payment_confirmations', 'bank_settings', 'profile', 'payment_proof',
-        'property', 'room', 'change_password', 'account_settings', 'chat', 'notifications'], true)) {
+        'property', 'room', 'change_password', 'account_settings', 'chat', 'notifications',
+        'activity_log', 'reviews'], true)) {
     redirect('dashboard');
 }
 if ($user && $user['role'] === 'admin'
@@ -586,29 +628,30 @@ function one(PDO $pdo, string $sql, array $params = []): ?array
 function page_title(string $page): string
 {
     $titles = [
-        'dashboard' => 'Laporan', 'tenants' => 'Penghuni', 'tenant_form' => 'Tambah penghuni',
+        'dashboard' => 'Dashboard', 'tenants' => 'Penghuni', 'tenant_form' => 'Tambah penghuni',
         'buildings' => 'Gedung kos', 'building_form' => 'Form gedung', 'gallery' => 'Galeri foto',
         'rooms' => 'Kamar', 'room_form' => 'Form kamar', 'rentals' => 'Masa sewa',
         'rental_form' => 'Sewa baru', 'invoices' => 'Tagihan', 'invoice_form' => 'Buat tagihan',
         'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran',
         'payment_confirmations' => 'Konfirmasi Pembayaran', 'bank_settings' => 'Rekening',
         'my_bookings' => 'Pesanan saya', 'booking_form' => 'Pesan kamar',
-        'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil operator',
+        'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil Owner',
         'platform_user_profile' => 'Profil User',
         'platform_user_payments' => 'Profil pembayaran User',
         'operator_bookings' => 'Booking', 'tenant_profile' => 'Profil penghuni',
         'my_payments' => 'Riwayat pembayaran', 'tenant_payments' => 'Histori penghuni',
-        'platform_dashboard' => 'Dashboard', 'platform_owners' => 'Akun operator',
+        'platform_dashboard' => 'Dashboard', 'platform_owners' => 'Akun Owner',
         'platform_accounts' => 'Manajemen akun',
-        'platform_operator_accounts' => 'Akun operator',
+        'platform_operator_accounts' => 'Akun Owner',
         'platform_seeker_accounts' => 'Akun User',
         'platform_unhoused_users' => 'User pengguna',
         'platform_listings' => 'Daftar kos', 'platform_reports' => 'Dashboard',
         'platform_property_verification' => 'Verifikasi properti',
-        'operator_reports' => 'Laporan', 'user_reports' => 'Laporan pembayaran',
+        'operator_reports' => 'Dashboard', 'user_reports' => 'Dashboard',
         'change_password' => 'Ganti password', 'account_settings' => 'Pengaturan akun',
-        'chat' => 'Chat', 'notifications' => 'Notifikasi',
-        'saved_properties' => 'Kos tersimpan',
+        'chat' => 'Chat', 'admin_chat' => 'Kelola chat', 'notifications' => 'Notifikasi',
+        'saved_properties' => 'Kos tersimpan', 'activity_log' => 'Log aktivitas',
+        'reviews' => 'Ulasan',
     ];
     return $titles[$page] ?? 'Ringkasan';
 }
@@ -667,7 +710,7 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261018-15"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="<?= e(csrf_token()) ?>"><link rel="manifest" href="site.webmanifest"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-16"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
         <a class="brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos</small></span></a>
@@ -675,12 +718,13 @@ require __DIR__ . '/portal/public.php';
         <nav class="main-nav">
             <?php
             $nav = [
-                        'dashboard' => ['▤', 'Laporan'],
+                        'dashboard' => ['▤', 'Dashboard'],
                         'operator_payment' => ['＋', 'Input Pembayaran'],
                         'payments' => ['▤', 'Histori pembayaran'],
             ];
             if ($user['role'] === 'seeker') {
                 $nav = [
+                    'user_reports' => ['▤', 'Dashboard'],
                     'home' => ['⌕', 'Cari kos'], 'my_bookings' => ['⌂', 'Booking saya'],
                     'my_payments' => ['▤', 'Riwayat pembayaran'],
                     'search_history' => ['◷', 'Riwayat pencarian'],
@@ -690,16 +734,14 @@ require __DIR__ . '/portal/public.php';
                 $nav = [
                     'platform_dashboard' => ['⌂', 'Dashboard'],
                     'platform_listings' => ['⌖', 'Daftar kos'],
+                    'admin_chat' => ['✉', 'Kelola chat'],
+                    'platform_reports' => ['▤', 'Dashboard'],
                 ];
             }
-            if (in_array($user['role'], ['seeker', 'operator'], true)) {
-                $nav['chat'] = ['✉', 'Chat'];
-            }
-            $nav['notifications'] = ['♧', 'Notifikasi'];
             foreach ($nav as $target => [$icon, $label]):
             ?>
                 <a class="<?= $page === $target || str_starts_with($page, rtrim($target, 's') . '_') ? 'active' : '' ?>" href="index.php?page=<?= e($target) ?>"><span class="nav-icon"><?= e($icon) ?></span><?= e($label) ?></a>
-                <?php if ($user['role'] === 'operator' && $target === 'dashboard'): ?>
+                <?php if ($user['role'] === 'owner' && $target === 'dashboard'): ?>
                     <?php $propertyMenuPages = ['buildings', 'building_form', 'rooms', 'room_form', 'gallery']; ?>
                     <details class="nav-group" <?= in_array($page, $propertyMenuPages, true) ? 'open' : '' ?>>
                         <summary class="<?= in_array($page, $propertyMenuPages, true) ? 'active' : '' ?>"><span class="nav-icon">⌂</span>Properti<span class="nav-chevron">⌄</span></summary>
@@ -711,7 +753,7 @@ require __DIR__ . '/portal/public.php';
                     </details>
                     <a class="<?= in_array($page, ['tenants', 'tenant_form', 'tenant_profile', 'tenant_payments'], true) ? 'active' : '' ?>" href="index.php?page=tenants"><span class="nav-icon">♙</span>Penghuni</a>
                 <?php endif; ?>
-                <?php if ($user['role'] === 'operator' && $target === 'payments'): ?>
+                <?php if ($user['role'] === 'owner' && $target === 'payments'): ?>
                     <?php $bookingMenuPages = ['operator_bookings', 'payment_confirmations']; ?>
                     <details class="nav-group" <?= in_array($page, $bookingMenuPages, true) ? 'open' : '' ?>>
                         <summary class="<?= in_array($page, $bookingMenuPages, true) ? 'active' : '' ?>"><span class="nav-icon">▣</span>Booking<span class="nav-chevron">⌄</span></summary>
@@ -725,7 +767,7 @@ require __DIR__ . '/portal/public.php';
                     <details class="nav-group" <?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile', 'platform_user_payments'], true) ? 'open' : '' ?>>
                         <summary class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_seeker_accounts', 'platform_unhoused_users', 'platform_operator_profile', 'platform_user_profile', 'platform_user_payments'], true) ? 'active' : '' ?>"><span class="nav-icon">⚙</span>Manajemen akun<span class="nav-chevron">⌄</span></summary>
                         <div class="nav-submenu">
-                            <a class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_operator_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_operator_accounts">Akun operator</a>
+                            <a class="<?= in_array($page, ['platform_accounts', 'platform_operator_accounts', 'platform_operator_profile'], true) ? 'active' : '' ?>" href="index.php?page=platform_operator_accounts">Akun Owner</a>
                             <a class="<?= in_array($page, ['platform_seeker_accounts', 'platform_user_profile', 'platform_user_payments'], true) ? 'active' : '' ?>" href="index.php?page=platform_seeker_accounts">Akun User</a>
                             <a class="<?= $page === 'platform_unhoused_users' ? 'active' : '' ?>" href="index.php?page=platform_unhoused_users">User pengguna</a>
                         </div>
@@ -744,16 +786,23 @@ require __DIR__ . '/portal/public.php';
                     </details>
                 <?php endif; ?>
             <?php endforeach; ?>
+            <a class="<?= $page === 'activity_log' ? 'active' : '' ?>" href="index.php?page=activity_log"><span class="nav-icon">◷</span>Log aktivitas</a>
         </nav>
     </aside>
     <button class="sidebar-backdrop" type="button" aria-label="Tutup menu"></button>
     <main class="main-area">
-        <header class="topbar"><div class="topbar-heading"><button class="mobile-menu-toggle" type="button" aria-label="Buka menu" aria-expanded="false">☰</button><div><div class="eyebrow">MANAJEMEN KOS</div><h1><?= e(page_title($page)) ?></h1></div></div><div class="topbar-right"><span class="today"><?= e(date('d M Y')) ?></span><a class="notification-bell" href="index.php?page=notifications" aria-label="Notifikasi<?= $notificationUnreadCount ? ', ' . $notificationUnreadCount . ' belum dibaca' : '' ?>">♧<?php if ($notificationUnreadCount): ?><span><?= $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount ?></span><?php endif; ?></a><?= theme_switcher() ?><details class="account-menu"><summary><?= avatar_markup($user, 'profile-avatar small') ?><span><?= e($user['name']) ?><small><?= e(['admin'=>'Admin','operator'=>'Operator','seeker'=>'User'][$user['role']] ?? $user['role']) ?></small></span><span class="account-menu-chevron">⌄</span></summary>        <div class="account-menu-dropdown"><a href="index.php?page=profile">Profil</a><a href="index.php?page=account_settings">Pengaturan akun</a><?php if ($user['role'] === 'operator'): ?><a href="index.php?page=bank_settings">Rekening</a><?php endif; ?><a href="index.php?page=change_password">Ganti password</a><button type="button" data-dialog-open="logout-dialog">Keluar</button></div></details></div></header>
+        <header class="topbar"><div class="topbar-heading"><button class="mobile-menu-toggle" type="button" aria-label="Buka menu" aria-expanded="false">☰</button><div><div class="eyebrow">MANAJEMEN KOS</div><h1><?= e(page_title($page)) ?></h1></div></div><div class="topbar-right"><span class="today"><?= e(date('d M Y')) ?></span><?= notification_bell_markup($notificationUnreadCount, $pdo) ?><?= message_menu_markup($user['role']) ?><?= theme_switcher() ?><details class="account-menu"><summary><?= avatar_markup($user, 'profile-avatar small') ?><span><?= e($user['name']) ?><small><?= e(['admin'=>'Admin','owner'=>'Owner','seeker'=>'User'][$user['role']] ?? $user['role']) ?></small></span><span class="account-menu-chevron">⌄</span></summary>        <div class="account-menu-dropdown"><a href="index.php?page=profile">Profil</a><a href="index.php?page=account_settings">Pengaturan akun</a><?php if ($user['role'] === 'owner'): ?><a href="index.php?page=bank_settings">Rekening</a><?php endif; ?><a href="index.php?page=change_password">Ganti password</a><a href="index.php?page=notifications">Notifikasi</a><button type="button" data-dialog-open="logout-dialog">Keluar</button></div></details></div></header>
         <section class="content">
             <?php if ($flash): ?><div class="alert <?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endif; ?>
             <?php if ($page === 'account_settings'):
                 require __DIR__ . '/accounts/settings.php';
-            elseif ($page === 'chat' && in_array($user['role'], ['seeker', 'operator'], true)):
+            elseif ($page === 'activity_log'):
+                require __DIR__ . '/reports/activity_log.php';
+            elseif ($page === 'reviews'):
+                require __DIR__ . '/reviews/form.php';
+            elseif ($page === 'admin_chat' && $user['role'] === 'admin'):
+                require __DIR__ . '/chat/admin_form.php';
+            elseif ($page === 'chat' && in_array($user['role'], ['seeker', 'owner'], true)):
                 require __DIR__ . '/chat/form.php';
             elseif ($page === 'notifications'):
                 require __DIR__ . '/notifications/form.php';
@@ -761,7 +810,7 @@ require __DIR__ . '/portal/public.php';
                 require __DIR__ . '/accounts/change_password.php';
             elseif ($user['role'] === 'admin' && in_array($pageModule, ['admin', 'reports'], true)):
                 require __DIR__ . '/admin/form.php';
-            elseif ($user['role'] === 'operator' && $page === 'dashboard'):
+            elseif ($user['role'] === 'owner' && $page === 'dashboard'):
                 require __DIR__ . '/properties/operator_dashboard.php';
             elseif ($user['role'] === 'seeker' && $page === 'user_reports'):
                 require __DIR__ . '/reports/user.php';
@@ -779,7 +828,7 @@ require __DIR__ . '/portal/public.php';
             <?php elseif ($user['role'] === 'seeker' && $page === 'saved_properties'):
                 require __DIR__ . '/portal/saved_properties.php';
             ?>
-            <?php elseif ($user['role'] === 'operator' && $page === 'operator_bookings'):
+            <?php elseif ($user['role'] === 'owner' && $page === 'operator_bookings'):
                 require __DIR__ . '/bookings/form.php';
             ?>
             <?php elseif ($user['role'] === 'seeker' && $page === 'my_bookings'):
@@ -803,4 +852,5 @@ require __DIR__ . '/portal/public.php';
         <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Ya, keluar</button></div>
     </form>
 </dialog>
-<script src="app.js?v=koskosan-ui-20261018-15"></script></body></html>
+<?php require __DIR__ . '/chat/widget.php'; ?>
+<script src="app.js?v=koskosan-ui-20261019-16"></script></body></html>

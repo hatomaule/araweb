@@ -1,6 +1,6 @@
 <?php
-                $rentalScope = $user['role'] === 'operator' ? 'AND b.owner_user_id=:owner_id' : '';
-                $rentalParams = $user['role'] === 'operator' ? ['owner_id' => $user['id']] : [];
+                $rentalScope = $user['role'] === 'owner' ? 'AND b.owner_user_id=:owner_id' : '';
+                $rentalParams = $user['role'] === 'owner' ? ['owner_id' => $user['id']] : [];
                 $rentals = rows(
                     $pdo,
                     "SELECT r.id,r.monthly_rate,r.start_date,t.full_name,rm.room_number,b.name AS building_name
