@@ -1020,3 +1020,13 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
     tidak dilakukan dan diserahkan kepada pengguna. Jangan ikutkan perubahan
     chat PHP yang terpisah, file upload/data, backup SQL, atau artefak tak
     dikenal.
+- **Aksen garis kartu ringkasan tema gelap (2026-10-23):** Screenshot
+  menunjukkan garis aksen hijau di tepi kiri kartu ringkasan terlihat pada tema
+  terang tetapi tertutup aturan border tema gelap. Override dark theme kini
+  memakai hijau yang lebih terang (#91bd5f) agar aksen terbaca di latar gelap,
+  tanpa mengubah permukaan atau warna kartu tema terang. Cache CSS diperbarui
+  konsisten untuk aplikasi utama, autentikasi, dan halaman publik. Browser
+  mengonfirmasi warna border kiri tema gelap `rgb(145, 189, 95)` dan tema
+  terang tetap `rgb(111, 152, 68)`; `git diff --check` lulus dengan penanganan
+  CRLF. Tidak ada migrasi. Siap dikomit terpisah; jangan masukkan perubahan
+  kerja lain yang tidak berkaitan.

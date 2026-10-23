@@ -2311,3 +2311,4 @@ html[data-theme="dark"] .receipt-total{background:#263f56;color:#f3f7fb}
     .data-table-card-view:not(.building-table-view) table:not(.tenant-list-table) tbody{grid-template-columns:minmax(0,1fr)}
 }
 @media(prefers-reduced-motion:reduce){.chat-widget-launcher::before{animation:none}}
+html[data-theme="dark"] .stat-card{border-left-color:#91bd5f}
