@@ -2,7 +2,6 @@
 $ownerBuildingCount = (int) one($pdo, 'SELECT COUNT(*) AS total FROM kos_buildings WHERE owner_user_id=:id', ['id' => $user['id']])['total'];
 $ownerRoomCount = (int) one($pdo, 'SELECT COUNT(*) AS total FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id WHERE b.owner_user_id=:id', ['id' => $user['id']])['total'];
 $ownerPendingBookings = (int) one($pdo, "SELECT COUNT(*) AS total FROM rentals r JOIN rooms rm ON rm.id=r.room_id JOIN kos_buildings b ON b.id=rm.building_id WHERE b.owner_user_id=:id AND r.booking_status='pending'", ['id' => $user['id']])['total'];
-$ownerListings = rows($pdo, 'SELECT id,name,status FROM kos_buildings WHERE owner_user_id=:id ORDER BY created_at DESC', ['id' => $user['id']]);
 $ownerPaymentSummary = one(
     $pdo,
     "SELECT COALESCE(SUM(CASE WHEN p.status='confirmed' THEN p.amount ELSE 0 END),0) AS collected,
@@ -120,7 +119,7 @@ $compactMoney = static function (float $amount): string {
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=payments" aria-label="Buka histori pembayaran terkonfirmasi">▤</a><div><span>Pembayaran terkonfirmasi</span><strong><?= (int) $ownerPaymentSummary['confirmed_count'] ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=operator_bookings" aria-label="Buka booking menunggu">▣</a><div><span>Booking menunggu</span><strong><?= $ownerPendingBookings ?></strong></div></article>
 </div>
-<section class="panel">
+<section class="panel dashboard-chart-shell">
     <div class="panel-heading"><div><h2>Pemasukan per kos</h2><p>Total adalah pembayaran terkonfirmasi; skala batang dibandingkan dengan kos Anda yang memiliki pemasukan terbesar.</p></div><a class="text-link" href="index.php?page=payments">Semua transaksi →</a></div>
     <?php if ($propertySummaries): ?><div class="property-finance-chart-grid">
         <?php foreach ($propertySummaries as $summary): ?>
@@ -135,8 +134,8 @@ $compactMoney = static function (float $amount): string {
         <?php endforeach; ?>
     </div><?php else: ?><p class="no-data">Belum ada kos pada akun ini.</p><?php endif; ?>
 </section>
-<section class="panel">
-    <div class="panel-heading"><div><h2>Aktivitas pengunjung per kos</h2><p>Grafik jumlah pencarian, kunjungan, dan pengunjung unik. Rincian aktivitas tersedia di menu Log aktivitas.</p></div><a class="text-link" href="index.php?page=activity_log">Buka log aktivitas →</a></div>
+<section class="panel dashboard-chart-shell">
+    <div class="panel-heading"><div><h2>Aktivitas pengunjung per kos</h2><p>Grafik jumlah pencarian, kunjungan, dan pengunjung unik. Rincian aktivitas tersedia di menu Aktivitas.</p></div><a class="text-link" href="index.php?page=activity">Buka aktivitas →</a></div>
     <?php if ($propertyActivity): ?><div class="property-activity-chart-list">
         <?php foreach ($propertyActivity as $activity): ?>
             <article class="property-activity-chart"><h3><?= e($activity['name']) ?></h3>
@@ -153,36 +152,35 @@ $compactMoney = static function (float $amount): string {
     </div><?php else: ?><p class="no-data">Belum ada kos untuk diringkas.</p><?php endif; ?>
 </section>
 <div class="income-chart-grid">
-<section class="panel income-chart-panel">
+<section class="panel income-chart-panel dashboard-chart-shell">
     <div class="panel-heading"><div><h2>Rekap pemasukan bulanan</h2><p>Pembayaran terkonfirmasi · 12 bulan terakhir · total <?= e(money($monthlyTotal)) ?>.</p></div></div>
     <?php $incomePeak = max(1, ...array_values($monthlyMap ?: [1])); ?>
-    <div class="income-chart income-chart-monthly">
+    <div class="income-chart-list">
         <?php for ($offset = 11; $offset >= 0; $offset--):
             $monthDate = (new DateTimeImmutable('first day of this month'))->modify('-' . $offset . ' months');
             $monthKey = $monthDate->format('Y-m');
             $amount = $monthlyMap[$monthKey] ?? 0.0;
         ?>
-            <div class="income-chart-month" title="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>" aria-label="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>">
-                <small class="income-chart-value"><?= e($compactMoney($amount)) ?></small>
-                <span style="height:<?= max(2, (int) round($amount / $incomePeak * 100)) ?>%"></span>
-                <small><?= e($monthDate->format('M y')) ?></small>
+            <div class="income-chart-row" title="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>">
+                <span><?= e($monthDate->format('M y')) ?></span>
+                <div role="img" aria-label="<?= e($monthDate->format('F Y') . ': ' . money($amount)) ?>"><i style="width:<?= $amount > 0 ? max(1, (int) round($amount / $incomePeak * 100)) : 0 ?>%"></i></div>
+                <strong><?= e($compactMoney($amount)) ?></strong>
             </div>
         <?php endfor; ?>
     </div>
 </section>
-<section class="panel income-chart-panel">
+<section class="panel income-chart-panel dashboard-chart-shell">
     <div class="panel-heading"><div><h2>Rekap pemasukan tahunan</h2><p>Pembayaran terkonfirmasi · tahun ini <?= e(money($currentYearTotal)) ?>.</p></div></div>
-    <div class="income-chart income-chart-annual">
+    <div class="income-chart-list annual">
         <?php for ($year = $currentYear - 4; $year <= $currentYear; $year++):
             $amount = $annualMap[$year] ?? 0.0;
         ?>
-            <div class="income-chart-year" title="<?= e((string) $year . ': ' . money($amount)) ?>" aria-label="<?= e((string) $year . ': ' . money($amount)) ?>">
-                <small class="income-chart-value"><?= e($compactMoney($amount)) ?></small>
-                <span style="height:<?= max(2, (int) round($amount / $annualPeak * 100)) ?>%"></span>
-                <small><?= $year ?></small>
+            <div class="income-chart-row" title="<?= e((string) $year . ': ' . money($amount)) ?>">
+                <span><?= $year ?></span>
+                <div role="img" aria-label="<?= e((string) $year . ': ' . money($amount)) ?>"><i style="width:<?= $amount > 0 ? max(1, (int) round($amount / $annualPeak * 100)) : 0 ?>%"></i></div>
+                <strong><?= e($compactMoney($amount)) ?></strong>
             </div>
         <?php endfor; ?>
     </div>
 </section>
 </div>
-<?php foreach ($ownerListings as $ownerListing): ?><div class="alert <?= $ownerListing['status'] === 'active' ? 'success' : 'info' ?>"><strong><?= e($ownerListing['name']) ?>:</strong> <?= $ownerListing['status'] === 'active' ? 'Tampil di pencarian pengguna.' : 'Listing sedang disembunyikan.' ?></div><?php endforeach; ?>

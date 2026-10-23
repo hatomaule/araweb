@@ -100,7 +100,7 @@ if ($action === 'submit_booking_proof') {
             }
             $paymentId = (int) post_value('payment_id');
             $decision = $action === 'approve_payment_proof' ? 'confirmed' : 'rejected';
-            $returnPage = $user['role'] === 'admin' ? 'payments' : 'payment_confirmations';
+            $returnPage = $user['role'] === 'admin' ? 'payments' : 'operator_bookings';
             $pdo->beginTransaction();
             try {
                 $paymentQuery = $pdo->prepare(
@@ -156,6 +156,9 @@ if ($action === 'submit_booking_proof') {
             set_flash('success', $decision === 'confirmed'
                 ? 'Pembayaran disetujui. Booking telah dikonfirmasi dan kamar tercatat terisi.'
                 : 'Bukti pembayaran ditolak. Pelanggan dapat mengunggah bukti baru.');
+            if ($decision === 'confirmed') {
+                redirect('payment_receipt&id=' . $paymentId);
+            }
             redirect($returnPage);
         }
 
@@ -182,6 +185,121 @@ if ($action === 'save_bank_settings') {
                 set_flash('error', 'Nama bank, nama pemilik rekening, dan nomor rekening wajib diisi.');
                 redirect('bank_settings&id=' . $buildingId);
             }
+            $bankMode = post_value('bank_mode');
+            if ($user['role'] === 'owner' && in_array($bankMode, ['existing', 'new'], true)) {
+                $sharedBankSchemaReady = (int) $pdo->query(
+                    "SELECT COUNT(*) FROM information_schema.TABLES
+                     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='owner_bank_accounts'"
+                )->fetchColumn() === 1
+                    && (int) $pdo->query(
+                        "SELECT COUNT(*) FROM information_schema.COLUMNS
+                         WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bank_transfer_settings'
+                           AND COLUMN_NAME='bank_account_id'"
+                    )->fetchColumn() === 1;
+                if (!$sharedBankSchemaReady) {
+                    set_flash('error', 'Fitur rekening bersama memerlukan migrasi database terlebih dahulu.');
+                    redirect('bank_settings&id=' . $buildingId);
+                }
+                $buildingOwnerId = (int) one(
+                    $pdo,
+                    'SELECT owner_user_id FROM kos_buildings WHERE id=:id',
+                    ['id' => $buildingId]
+                )['owner_user_id'];
+                if ($buildingOwnerId !== (int) $user['id']) {
+                    set_flash('error', 'Rekening bersama hanya dapat digunakan untuk kos milik Anda.');
+                    redirect('bank_settings&id=' . $buildingId);
+                }
+
+                $bankAccountId = 0;
+                $pdo->beginTransaction();
+                try {
+                    if ($bankMode === 'existing') {
+                        $bankAccountId = (int) post_value('bank_account_id');
+                        $account = one(
+                            $pdo,
+                            'SELECT id FROM owner_bank_accounts WHERE id=:id AND owner_user_id=:owner_id',
+                            ['id' => $bankAccountId, 'owner_id' => $user['id']]
+                        );
+                        if (!$account) {
+                            $pdo->rollBack();
+                            set_flash('error', 'Pilih rekening tersimpan milik akun Anda.');
+                            redirect('bank_settings&id=' . $buildingId);
+                        }
+                        $updateAccount = $pdo->prepare(
+                            'UPDATE owner_bank_accounts
+                             SET bank_name=:bank_name, account_name=:account_name,
+                                 account_number=:account_number, updated_by=:updated_by
+                             WHERE id=:id AND owner_user_id=:owner_id'
+                        );
+                        $updateAccount->execute([
+                            'bank_name' => $bankName,
+                            'account_name' => $accountName,
+                            'account_number' => $accountNumber,
+                            'updated_by' => $user['id'],
+                            'id' => $bankAccountId,
+                            'owner_id' => $user['id'],
+                        ]);
+                        $updateLinkedSettings = $pdo->prepare(
+                            'UPDATE bank_transfer_settings
+                             SET bank_name=:bank_name, account_name=:account_name,
+                                 account_number=:account_number, updated_by=:updated_by
+                             WHERE bank_account_id=:bank_account_id'
+                        );
+                        $updateLinkedSettings->execute([
+                            'bank_name' => $bankName,
+                            'account_name' => $accountName,
+                            'account_number' => $accountNumber,
+                            'updated_by' => $user['id'],
+                            'bank_account_id' => $bankAccountId,
+                        ]);
+                    } else {
+                        $createAccount = $pdo->prepare(
+                            'INSERT INTO owner_bank_accounts
+                                (owner_user_id, bank_name, account_name, account_number, updated_by)
+                             VALUES (:owner_id, :bank_name, :account_name, :account_number, :updated_by)'
+                        );
+                        $createAccount->execute([
+                            'owner_id' => $user['id'],
+                            'bank_name' => $bankName,
+                            'account_name' => $accountName,
+                            'account_number' => $accountNumber,
+                            'updated_by' => $user['id'],
+                        ]);
+                        $bankAccountId = (int) $pdo->lastInsertId();
+                    }
+
+                    $settings = $pdo->prepare(
+                        'INSERT INTO bank_transfer_settings
+                            (building_id, bank_account_id, bank_name, account_name, account_number, instructions, updated_by)
+                         VALUES
+                            (:building_id, :bank_account_id, :bank_name, :account_name, :account_number, :instructions, :updated_by)
+                         ON DUPLICATE KEY UPDATE bank_account_id=VALUES(bank_account_id),
+                            bank_name=VALUES(bank_name), account_name=VALUES(account_name),
+                            account_number=VALUES(account_number), instructions=VALUES(instructions),
+                            updated_by=VALUES(updated_by)'
+                    );
+                    $settings->execute([
+                        'building_id' => $buildingId,
+                        'bank_account_id' => $bankAccountId,
+                        'bank_name' => $bankName,
+                        'account_name' => $accountName,
+                        'account_number' => $accountNumber,
+                        'instructions' => post_value('instructions') ?: null,
+                        'updated_by' => $user['id'],
+                    ]);
+                    $pdo->commit();
+                } catch (Throwable $exception) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    throw $exception;
+                }
+                set_flash('success', $bankMode === 'existing'
+                    ? 'Rekening kos diperbarui. Perubahan rekening berlaku untuk semua kos yang menggunakannya.'
+                    : 'Rekening baru berhasil dibuat dan digunakan untuk kos ini.');
+                redirect('bank_settings&id=' . $buildingId);
+            }
+
             $settings = $pdo->prepare(
                 'INSERT INTO bank_transfer_settings (building_id, bank_name, account_name, account_number, instructions, updated_by)
                  VALUES (:building_id, :bank_name, :account_name, :account_number, :instructions, :updated_by)
@@ -488,6 +606,7 @@ if ($action === 'save_operator_payment') {
                     'amount' => $amount, 'method' => $paymentMethod,
                     'notes' => 'Pembayaran dicatat langsung oleh Owner.',
                 ]);
+                $paymentId = (int) $pdo->lastInsertId();
                 $paymentTotal = $pdo->prepare(
                     "SELECT COALESCE(SUM(amount),0) FROM payments
                      WHERE invoice_id=:invoice_id AND status='confirmed'"
@@ -514,7 +633,7 @@ if ($action === 'save_operator_payment') {
             }
             set_flash('success', 'Pembayaran dan hunian berhasil dicatat.'
                 . ($accountType === 'new' ? ' Username login penghuni: @' . $username . '.' : ''));
-            redirect('payments');
+            redirect('payment_receipt&id=' . $paymentId);
         }
 
 if ($action === 'create_payment') {
@@ -578,6 +697,7 @@ if ($action === 'create_payment') {
                     'transaction_reference' => post_value('transaction_reference') ?: null,
                     'notes' => post_value('notes') ?: null,
                 ]);
+                $paymentId = (int) $pdo->lastInsertId();
                 $invoiceStatus = $paid + (float) $amount >= (float) $invoice['amount_due'] ? 'paid' : 'open';
                 $update = $pdo->prepare('UPDATE invoices SET status=:status WHERE id=:id');
                 $update->execute(['status' => $invoiceStatus, 'id' => $invoiceId]);
@@ -598,7 +718,7 @@ if ($action === 'create_payment') {
                 throw $exception;
             }
             set_flash('success', 'Pembayaran berhasil dicatat.');
-            redirect('payments');
+            redirect('payment_receipt&id=' . $paymentId);
         }
 
         

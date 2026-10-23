@@ -141,7 +141,7 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="site.webmanifest">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-16">
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-18">
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page property-page"><header class="public-header" id="top"><nav class="public-nav">
@@ -204,7 +204,7 @@ if ($page === 'room') {
                 </div><?php endif; ?>
                 <?php if ($room['house_rules']): ?><h3>Peraturan kos</h3><p><?= nl2br(e($room['house_rules'])) ?></p><?php endif; ?></section>
             <section class="property-section"><h2>Informasi kos</h2><p><?= e($room['building_name']) ?></p><p><?= e($room['building_address']) ?></p><a class="text-link" href="index.php?page=property&amp;id=<?= (int) $room['property_id'] ?>">Lihat profil kos dan kamar lainnya ↗</a></section>
-            <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="room-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($room['owner_phone']): ?><a class="button secondary compact-button" href="https://wa.me/<?= e(preg_replace('/\D+/', '', $room['owner_phone'])) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></div></section><?php endif; ?>
+            <?php if ($room['owner_name']): ?><section class="property-section"><h2>Pengelola</h2><div class="property-owner-card"><?= avatar_markup(['name' => $room['owner_name'], 'gender' => $room['owner_gender'], 'profile_photo_path' => $room['owner_photo']], 'profile-avatar') ?><div><strong><?= e($room['owner_name']) ?></strong><small>Pengelola kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="room-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($room['owner_phone'] && ($whatsappUrl = whatsapp_url((string) $room['owner_phone']))): ?><a class="button secondary compact-button" href="<?= e($whatsappUrl) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></div></section><?php endif; ?>
         </div><aside class="property-booking-card room-booking-card"><span><?= $roomAvailable ? 'Kamar tersedia' : 'Kamar sedang tidak tersedia' ?></span><strong><?= e(money($room['monthly_rate'])) ?><small> / bulan</small></strong><p>Tarif bulanan kamar <?= e($room['room_number']) ?> di <?= e($room['building_name']) ?>.</p><?php if ($roomAvailable): ?><a class="button primary" href="<?= $user && $user['role'] === 'seeker' ? 'index.php?page=booking_form&id=' . $roomId : 'index.php?page=register&role=seeker&next=booking&id=' . $roomId ?>">Ajukan booking kamar</a><?php else: ?><span class="room-unavailable-note">Booking belum dapat dilakukan untuk kamar ini.</span><?php endif; ?></aside></div>
     </main><footer class="public-footer room-detail-footer">
         <div class="public-footer-inner room-detail-footer-inner">
@@ -277,7 +277,7 @@ if ($page === 'room') {
         </div>
     </dialog>
     <?php require __DIR__ . '/../chat/widget.php'; ?>
-    <script src="app.js?v=koskosan-ui-20261019-16"></script></body></html>
+    <script src="app.js?v=koskosan-ui-20261019-18"></script></body></html>
     <?php
     exit;
 }
@@ -496,7 +496,7 @@ if ($page === 'property') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="site.webmanifest">
     <meta name="description" content="<?= e($property['name']) ?> — foto, kamar, fasilitas, lokasi, ulasan dan informasi pemilik kos.">
-    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-16">
+    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-18">
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head><body class="public-page property-page">
     <header class="public-header"><nav class="public-nav"><a class="tiara-brand koskosan-brand" href="index.php" aria-label="KosKosan, beranda"><span class="tiara-brand-icon">K</span><span>KosKosan<small>HUNIAN NYAMAN</small></span></a><?php if ($user): ?><?= notification_bell_markup($notificationUnreadCount, $pdo) ?><?= message_menu_markup($user['role']) ?><?php endif; ?><?= theme_switcher() ?><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="public-login-dialog">Masuk / Daftar</button><?php endif; ?></nav>
@@ -621,7 +621,7 @@ if ($page === 'property') {
             </section>
             <section class="property-section"><h2>Alamat kos</h2><p><?= e($property['address']) ?></p></section>
             <section class="property-section" id="review"><h2>Ulasan pengguna</h2><?php if ($propertyReviews): ?><div class="property-review-list"><?php foreach ($propertyReviews as $review): ?><article><strong><?= e($review['reviewer_name'] ?: 'Pengguna') ?> · <?= str_repeat('★',(int)$review['rating']) ?></strong><small><?= e(date_id($review['created_at'])) ?></small><p><?= nl2br(e($review['review_text'])) ?></p><?php if ($review['operator_reply']): ?><div class="property-review-reply"><strong>Balasan pengelola</strong><?php if ($review['operator_replied_at']): ?><small><?= e(date_id($review['operator_replied_at'])) ?></small><?php endif; ?><p><?= nl2br(e($review['operator_reply'])) ?></p></div><?php endif; ?></article><?php endforeach; ?></div><?php else: ?><p class="muted">Kos ini belum memiliki ulasan.</p><?php endif; ?><?php if ($canReview): ?><form method="post" class="property-review-form"><?= csrf_field() ?><input type="hidden" name="action" value="submit_review"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><fieldset class="review-star-field"><legend>Rating Anda</legend><div class="review-stars"><?php for($star=1;$star<=5;$star++): ?><label><input type="radio" name="rating" value="<?= $star ?>" required><span aria-label="<?= $star ?> bintang">★</span></label><?php endfor; ?></div></fieldset><label class="field"><span>Ceritakan pengalaman Anda</span><textarea name="review_text" rows="4" maxlength="3000" required></textarea></label><button class="button primary" type="submit">Kirim ulasan</button></form><?php elseif (!$user): ?><p class="muted">Silakan <button class="text-link" type="button" data-dialog-open="public-login-dialog">masuk</button> sebagai User untuk memberikan ulasan.</p><?php endif; ?></section>
-            <section class="property-section" id="pemilik"><h2>Pemilik kos</h2><article class="property-owner-card"><?= avatar_markup(['name' => $property['owner_name'] ?: 'Pengelola kos', 'gender' => $property['owner_gender'], 'profile_photo_path' => $property['owner_photo'], 'avatar_key' => $property['owner_avatar']]) ?><div><strong><?= e($property['owner_name'] ?: 'Pengelola kos') ?></strong><small>Owner kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($property['owner_phone']): ?><a class="button secondary compact-button" href="https://wa.me/<?= e(preg_replace('/\D+/', '', $property['owner_phone'])) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></article></section>
+            <section class="property-section" id="pemilik"><h2>Pemilik kos</h2><article class="property-owner-card"><?= avatar_markup(['name' => $property['owner_name'] ?: 'Pengelola kos', 'gender' => $property['owner_gender'], 'profile_photo_path' => $property['owner_photo'], 'avatar_key' => $property['owner_avatar']]) ?><div><strong><?= e($property['owner_name'] ?: 'Pengelola kos') ?></strong><small>Owner kos</small></div><div class="property-owner-actions"><?php if ($user && $user['role'] === 'seeker'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-chat-dialog">Chat Sistem</button><?php endif; ?><?php if ($property['owner_phone'] && ($whatsappUrl = whatsapp_url((string) $property['owner_phone']))): ?><a class="button secondary compact-button" href="<?= e($whatsappUrl) ?>" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><?php elseif ($user && $user['role'] === 'seeker'): ?><small>Nomor WhatsApp disembunyikan; gunakan chat sistem.</small><?php endif; ?></div></article></section>
         </div><aside class="property-booking-card"><span>Mulai dari</span><strong><?= e($availablePropertyRooms ? money(min(array_column($availablePropertyRooms, 'monthly_rate'))) : '—') ?><small>/ bulan</small></strong><a class="button primary full" href="#fasilitas-kamar">Pilih kamar tersedia</a><p>Login diperlukan untuk mengirim permintaan booking. Pemilik kos akan meninjau permintaan Anda.</p></aside></div>
     </main>
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>const propertyMap=L.map('property-map',{scrollWheelZoom:false,zoomControl:false}).setView([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(propertyMap);L.marker([<?= json_encode((float)$property['latitude']) ?>,<?= json_encode((float)$property['longitude']) ?>]).addTo(propertyMap).bindPopup(<?= json_encode($property['name'], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) ?>);setTimeout(()=>propertyMap.invalidateSize(),100);document.getElementById('property-map').addEventListener('click',()=>propertyMap.scrollWheelZoom.enable());</script><?php endif; ?>
@@ -633,7 +633,7 @@ if ($page === 'property') {
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
     <?php if (!$user): render_public_login_dialog(); endif; ?>
     <?php require __DIR__ . '/../chat/widget.php'; ?>
-    <script src="app.js?v=koskosan-ui-20261019-16"></script>
+    <script src="app.js?v=koskosan-ui-20261019-18"></script>
     </body></html><?php
     exit;
 }
@@ -656,6 +656,16 @@ if (in_array($page, ['home', 'search'], true)) {
         && $nearbyLatitude !== null && $nearbyLongitude !== null
         && $nearbyLatitude >= -90 && $nearbyLatitude <= 90
         && $nearbyLongitude >= -180 && $nearbyLongitude <= 180;
+    $popularDestinations = rows(
+        $pdo,
+        "SELECT ir.name,COUNT(DISTINCT b.id) AS property_count
+         FROM kos_buildings b
+         JOIN indonesia_regions ir ON ir.code=b.regency_code AND ir.level='regency'
+         WHERE b.status='active'
+         GROUP BY ir.code,ir.name
+         ORDER BY property_count DESC,ir.name
+         LIMIT 6"
+    );
     $regionSearchSql = "OR EXISTS (
         SELECT 1 FROM indonesia_regions ir
         WHERE ir.code IN (b.province_code,b.regency_code,b.district_code,b.village_code)
@@ -931,7 +941,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="description" content="Temukan kos dan kamar nyaman di KosKosan. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>KosKosan — Hunian nyaman, hati tenang</title>
         <link rel="manifest" href="site.webmanifest">
-        <link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-16">
+        <link rel="stylesheet" href="style.css?v=koskosan-ui-20261019-18">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -941,20 +951,30 @@ if (in_array($page, ['home', 'search'], true)) {
                     <span class="tiara-brand-icon">K</span>
                     <span>KosKosan<small>HUNIAN NYAMAN</small></span>
                 </a>
-                <form class="public-search" action="index.php" method="get">
+                <form class="public-search" action="index.php" method="get" data-public-search>
                     <input type="hidden" name="page" value="home">
                     <input type="hidden" name="latitude" value="<?= $hasNearbyLocation ? e((string) $nearbyLatitude) : '' ?>" data-nearby-latitude>
                     <input type="hidden" name="longitude" value="<?= $hasNearbyLocation ? e((string) $nearbyLongitude) : '' ?>" data-nearby-longitude>
                     <input name="q" value="<?= e($searchTerm) ?>" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat" autocomplete="off">
                     <button class="button primary" type="submit">Cari</button>
                     <div class="public-search-options">
+                        <button class="search-nearby-button" type="button" data-search-nearby><span aria-hidden="true">⌖</span>Dekat saya</button>
+                        <div class="search-popular-destinations">
+                            <h2>Destinasi populer</h2>
+                            <?php foreach ($popularDestinations as $destination): ?>
+                                <button type="button" data-search-destination="<?= e($destination['name']) ?>">
+                                    <span><strong><?= e($destination['name']) ?></strong><small>Indonesia</small></span>
+                                    <span class="search-destination-count"><?= (int) $destination['property_count'] ?> kos</span>
+                                </button>
+                            <?php endforeach; ?>
+                            <?php if (!$popularDestinations): ?><p>Lokasi akan muncul setelah kos tersedia.</p><?php endif; ?>
+                        </div>
                         <label class="public-search-type"><span>Jenis kos</span><select name="gender_policy" aria-label="Filter jenis kos">
                             <option value="">Semua jenis kos</option>
                             <option value="male" <?= $genderPolicy === 'male' ? 'selected' : '' ?>>Kos putra</option>
                             <option value="female" <?= $genderPolicy === 'female' ? 'selected' : '' ?>>Kos putri</option>
                             <option value="mixed" <?= $genderPolicy === 'mixed' ? 'selected' : '' ?>>Kos campur</option>
                         </select></label>
-                        <button class="button secondary" type="button" data-search-nearby>Terdekat</button>
                         <small class="search-nearby-status" data-nearby-status aria-live="polite"><?= $hasNearbyLocation ? 'Hasil diurutkan berdasarkan lokasi Anda.' : '' ?></small>
                     </div>
                 </form>
@@ -967,7 +987,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 </div>
                 <?php if ($user): ?><?= notification_bell_markup($notificationUnreadCount, $pdo) ?><?= message_menu_markup($user['role']) ?><?php endif; ?>
                 <?= theme_switcher() ?>
-                <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Booking saya' : ($user['role'] === 'admin' ? 'Panel admin' : 'Panel Owner kos') ?><span aria-hidden="true">↗</span></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="public-login-dialog">Masuk / Daftar<span aria-hidden="true">↗</span></button><?php endif; ?>
+                <?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_bookings' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= $user['role'] === 'seeker' ? 'Panel User' : ($user['role'] === 'admin' ? 'Panel Admin' : 'Panel Owner') ?><span aria-hidden="true">↗</span></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="public-login-dialog">Masuk / Daftar<span aria-hidden="true">↗</span></button><?php endif; ?>
                 <button class="public-menu-toggle" type="button" aria-label="Buka navigasi" aria-expanded="false">☰</button>
             </nav>
         </header>
@@ -1169,7 +1189,7 @@ if (in_array($page, ['home', 'search'], true)) {
                     <a href="https://www.google.com/maps/search/?api=1&amp;query=Maps%20Gambesi%20Tiara%20Kost%2C%20lapangan%20pramuka%20gambesi" target="_blank" rel="noopener noreferrer">
                         <span aria-hidden="true">⌖</span><span>Maps Gambesi Tiara Kost,<br>Lapangan Pramuka Gambesi</span>
                     </a>
-                    <a href="tel:081342122105"><span aria-hidden="true">☎</span><span>081342122105</span></a>
+                    <?php if ($adminWhatsappUrl = site_contact_whatsapp_url()): ?><a href="<?= e($adminWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">☎</span><span>WhatsApp Admin · 081342122105</span></a><?php endif; ?>
                     <a href="mailto:alstrazhila@gmail.com"><span aria-hidden="true">✉</span><span>alstrazhila@gmail.com</span></a>
                 </section>
                 <div class="public-footer-bottom">
@@ -1230,7 +1250,7 @@ if (in_array($page, ['home', 'search'], true)) {
         </script><?php endif; ?>
         <?php if (!$user): render_public_login_dialog(); endif; ?>
         <?php require __DIR__ . '/../chat/widget.php'; ?>
-        <script src="app.js?v=koskosan-ui-20261019-16"></script>
+        <script src="app.js?v=koskosan-ui-20261019-18"></script>
     </body>
     </html>
     <?php

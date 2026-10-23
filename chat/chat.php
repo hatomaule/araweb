@@ -101,11 +101,68 @@ function chat_participant_conversation(PDO $pdo, array $user, int $conversationI
                 : $conversation['owner_user_id'] !== null
                     && (int) $conversation['owner_user_id'] === $userId));
 
-    if (!$authorized || ($conversation['archived_at'] !== null && $user['role'] !== 'admin')) {
+    if (!$authorized) {
         throw new ChatNotFoundException('Conversation not found.');
     }
 
     return $conversation;
+}
+
+function chat_conversation_state(PDO $pdo, int $conversationId, int $userId): string
+{
+    $statement = $pdo->prepare(
+        'SELECT status FROM chat_conversation_user_state
+         WHERE conversation_id=:conversation_id AND user_id=:user_id'
+    );
+    $statement->execute(['conversation_id' => $conversationId, 'user_id' => $userId]);
+    return (string) ($statement->fetchColumn() ?: 'active');
+}
+
+function chat_set_conversation_state(PDO $pdo, int $conversationId, int $userId, string $status): void
+{
+    if (!in_array($status, ['active', 'archived', 'trash', 'purged'], true)) {
+        throw new InvalidArgumentException('Invalid conversation state.');
+    }
+    $statement = $pdo->prepare(
+        'INSERT INTO chat_conversation_user_state
+            (conversation_id,user_id,status,trashed_at)
+         VALUES (:conversation_id,:user_id,:status,
+            CASE WHEN :trash_flag=1 THEN CURRENT_TIMESTAMP ELSE NULL END)
+         ON DUPLICATE KEY UPDATE status=VALUES(status), trashed_at=VALUES(trashed_at)'
+    );
+    $statement->execute([
+        'conversation_id' => $conversationId,
+        'user_id' => $userId,
+        'status' => $status,
+        'trash_flag' => $status === 'trash' ? 1 : 0,
+    ]);
+}
+
+function chat_purge_expired_trash(PDO $pdo): void
+{
+    $pdo->exec(
+        "UPDATE chat_conversation_user_state
+         SET status='purged', trashed_at=NULL
+         WHERE status='trash' AND trashed_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)"
+    );
+    $pdo->exec(
+        "DELETE c FROM chat_conversations c
+         LEFT JOIN kos_buildings b ON b.id=c.building_id
+         WHERE (
+             (c.conversation_type='property'
+                AND EXISTS (SELECT 1 FROM chat_conversation_user_state ss
+                    WHERE ss.conversation_id=c.id AND ss.user_id=c.seeker_user_id AND ss.status='purged')
+                AND EXISTS (SELECT 1 FROM chat_conversation_user_state os
+                    WHERE os.conversation_id=c.id AND os.user_id=b.owner_user_id AND os.status='purged'))
+             OR
+             (c.conversation_type='support'
+                AND EXISTS (SELECT 1 FROM chat_conversation_user_state rs
+                    WHERE rs.conversation_id=c.id AND rs.user_id=c.requester_user_id AND rs.status='purged'))
+         )
+         AND NOT EXISTS (SELECT 1 FROM chat_conversation_user_state s
+             WHERE s.conversation_id=c.id AND s.status<>'purged')
+         "
+    );
 }
 
 function chat_start_support_conversation(PDO $pdo, array $user): int
@@ -134,11 +191,7 @@ function chat_start_support_conversation(PDO $pdo, array $user): int
     if ($conversationId < 1) {
         throw new RuntimeException('Unable to open support conversation.');
     }
-    $archived = $pdo->prepare('SELECT archived_at FROM chat_conversations WHERE id=:id');
-    $archived->execute(['id' => $conversationId]);
-    if ($archived->fetchColumn() !== null) {
-        throw new ChatAccessDeniedException('Your support conversation has been archived by an admin.');
-    }
+    chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
 
     return $conversationId;
 }
@@ -159,6 +212,10 @@ function chat_insert_message(PDO $pdo, int $conversationId, int $senderUserId, s
         'UPDATE chat_conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = :id'
     );
     $update->execute(['id' => $conversationId]);
+    $pdo->prepare(
+        "DELETE FROM chat_conversation_user_state
+         WHERE conversation_id=:id AND status='purged' AND user_id<>:sender_id"
+    )->execute(['id' => $conversationId, 'sender_id' => $senderUserId]);
 
     return (int) $pdo->lastInsertId();
 }
@@ -222,13 +279,11 @@ function chat_start_conversation(
             ]);
             $conversationId = (int) $pdo->lastInsertId();
         } else {
-            if ($existingConversation['archived_at'] !== null) {
-                throw new ChatAccessDeniedException('This conversation has been archived by an admin.');
-            }
             $conversationId = (int) $existingConversation['id'];
         }
 
         chat_insert_message($pdo, $conversationId, $userId, $body);
+        chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
         return $conversationId;
     });
 }
@@ -240,12 +295,14 @@ function chat_send_message(PDO $pdo, array $user, int $conversationId, string $m
 
     return chat_transaction($pdo, static function () use ($pdo, $user, $userId, $conversationId, $body): int {
         $conversation = chat_participant_conversation($pdo, $user, $conversationId, true);
-        if ($conversation['archived_at'] !== null) {
-            throw new ChatAccessDeniedException('Archived conversations cannot receive messages.');
+        if (chat_conversation_state($pdo, $conversationId, $userId) !== 'active') {
+            throw new ChatAccessDeniedException('Restore this conversation to your inbox before sending a message.');
         }
         if ($conversation['conversation_type'] === 'support') {
             if ($user['role'] === 'admin') {
-                return chat_insert_message($pdo, $conversationId, $userId, $body);
+                $messageId = chat_insert_message($pdo, $conversationId, $userId, $body);
+                chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
+                return $messageId;
             }
             if ((int) $conversation['requester_user_id'] !== $userId) {
                 throw new ChatAccessDeniedException('Only the support requester or an admin may reply.');
@@ -264,39 +321,41 @@ function chat_send_message(PDO $pdo, array $user, int $conversationId, string $m
     });
 }
 
-function chat_list_conversations(PDO $pdo, array $user): array
+function chat_list_conversations(PDO $pdo, array $user, string $folder = 'inbox'): array
 {
+    chat_purge_expired_trash($pdo);
     $userId = chat_actor_id($user);
-    if ($user['role'] === 'admin') {
-        $participantFilter = '1=1';
-        $unreadQuery = "SELECT COUNT(*) FROM chat_messages unread
-            JOIN users unread_sender ON unread_sender.id=unread.sender_user_id
-            WHERE c.conversation_type='support' AND c.archived_at IS NULL
-              AND unread.conversation_id=c.id AND unread.read_at IS NULL
-              AND unread_sender.role <> 'admin'";
-        $parameters = [];
-    } else {
-        $participantFilter = $user['role'] === 'seeker'
+    $folderStatus = ['inbox' => 'active', 'archive' => 'archived', 'trash' => 'trash'][$folder] ?? 'active';
+    $participantFilter = $user['role'] === 'admin'
+        ? '1=1'
+        : ($user['role'] === 'seeker'
             ? '(c.conversation_type = \'support\' AND c.requester_user_id = :requester_id)
                 OR (c.conversation_type = \'property\' AND c.seeker_user_id = :participant_id)'
             : '(c.conversation_type = \'support\' AND c.requester_user_id = :requester_id)
-                OR (c.conversation_type = \'property\' AND b.owner_user_id = :participant_id)';
-        $unreadQuery = 'SELECT COUNT(*) FROM chat_messages unread
+                OR (c.conversation_type = \'property\' AND b.owner_user_id = :participant_id)');
+    $unreadQuery = $user['role'] === 'admin'
+        ? "SELECT COUNT(*) FROM chat_messages unread
+            JOIN users unread_sender ON unread_sender.id=unread.sender_user_id
+            WHERE c.conversation_type='support' AND unread.conversation_id=c.id
+              AND unread.read_at IS NULL AND unread_sender.role <> 'admin'"
+        : 'SELECT COUNT(*) FROM chat_messages unread
             WHERE unread.conversation_id=c.id AND unread.sender_user_id <> :unread_user_id
               AND unread.read_at IS NULL';
-        $parameters = [
-            'requester_id' => $userId,
-            'participant_id' => $userId,
-            'unread_user_id' => $userId,
-        ];
+    $parameters = [
+        'folder_status' => $folderStatus,
+        'user_id' => $userId,
+    ];
+    if ($user['role'] !== 'admin') {
+        $parameters += ['requester_id' => $userId, 'participant_id' => $userId, 'unread_user_id' => $userId];
     }
 
-    $sql =
+    $statement = $pdo->prepare(
         'SELECT c.id, c.conversation_type, c.seeker_user_id, c.requester_user_id,
                 c.building_id, c.room_id, c.created_at, c.updated_at, c.last_message_at,
                 c.archived_at, b.name AS building_name, rm.room_number,
                 s.name AS seeker_name, requester.name AS requester_name,
                 requester.role AS requester_role, o.name AS operator_name,
+                COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT m.body FROM chat_messages m WHERE m.conversation_id = c.id
                  ORDER BY m.id DESC LIMIT 1) AS last_message,
                 (' . $unreadQuery . ') AS unread_count
@@ -306,11 +365,13 @@ function chat_list_conversations(PDO $pdo, array $user): array
          LEFT JOIN users requester ON requester.id = c.requester_user_id
          LEFT JOIN users o ON o.id = b.owner_user_id
          LEFT JOIN rooms rm ON rm.id = c.room_id
-         WHERE c.archived_at IS NULL AND (' . $participantFilter . ')
-         ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC';
-    $statement = $pdo->prepare($sql);
+         LEFT JOIN chat_conversation_user_state state
+            ON state.conversation_id=c.id AND state.user_id=:user_id
+         WHERE COALESCE(state.status, \'active\')=:folder_status
+           AND (' . $participantFilter . ')
+         ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC'
+    );
     $statement->execute($parameters);
-
     return $statement->fetchAll();
 }
 
@@ -322,10 +383,11 @@ function chat_unread_count(PDO $pdo, array $user): int
             "SELECT COUNT(*) FROM chat_messages m
              JOIN chat_conversations c ON c.id=m.conversation_id
              JOIN users sender ON sender.id=m.sender_user_id
-             WHERE c.conversation_type='support' AND c.archived_at IS NULL
-               AND m.read_at IS NULL AND sender.role <> 'admin'"
+             LEFT JOIN chat_conversation_user_state state
+                ON state.conversation_id=c.id AND state.user_id=:user_id
+             WHERE c.conversation_type='support' AND m.read_at IS NULL
+               AND sender.role <> 'admin' AND COALESCE(state.status,'active')='active'"
         );
-        $statement->execute();
     } else {
         $propertyParticipant = $user['role'] === 'seeker'
             ? 'c.seeker_user_id = :participant_id'
@@ -334,34 +396,41 @@ function chat_unread_count(PDO $pdo, array $user): int
             'SELECT COUNT(*) FROM chat_messages m
              JOIN chat_conversations c ON c.id=m.conversation_id
              LEFT JOIN kos_buildings b ON b.id=c.building_id
-             WHERE c.archived_at IS NULL AND m.read_at IS NULL
-               AND m.sender_user_id <> :sender_id
+             LEFT JOIN chat_conversation_user_state state
+                ON state.conversation_id=c.id AND state.user_id=:user_id
+             WHERE m.read_at IS NULL AND m.sender_user_id <> :sender_id
+               AND COALESCE(state.status,\'active\')=\'active\'
                AND ((c.conversation_type=\'support\' AND c.requester_user_id=:requester_id)
                     OR (c.conversation_type=\'property\' AND ' . $propertyParticipant . '))'
         );
         $statement->execute([
+            'user_id' => $userId,
             'sender_id' => $userId,
             'requester_id' => $userId,
             'participant_id' => $userId,
         ]);
+        return (int) $statement->fetchColumn();
     }
 
+    $statement->execute(['user_id' => $userId]);
     return (int) $statement->fetchColumn();
 }
 
-function chat_admin_list_conversations(PDO $pdo, string $type, string $status, string $search): array
+function chat_admin_list_conversations(PDO $pdo, string $type, string $status, string $search, int $userId): array
 {
+    chat_purge_expired_trash($pdo);
     $where = [];
     $parameters = [];
     if (in_array($type, ['property', 'support'], true)) {
         $where[] = 'c.conversation_type = :conversation_type';
         $parameters['conversation_type'] = $type;
     }
-    if ($status === 'active') {
-        $where[] = 'c.archived_at IS NULL';
-    } elseif ($status === 'archived') {
-        $where[] = 'c.archived_at IS NOT NULL';
+
+    if (in_array($status, ['active', 'archived', 'trash'], true)) {
+        $where[] = 'COALESCE(state.status, \'active\') = :personal_status';
+        $parameters['personal_status'] = $status;
     }
+    $where[] = 'COALESCE(state.status, \'active\') <> \'purged\'';
     $search = trim($search);
     if ($search !== '') {
         $where[] = '(requester.name LIKE :requester_name ESCAPE \'!\'
@@ -378,7 +447,7 @@ function chat_admin_list_conversations(PDO $pdo, string $type, string $status, s
             'building_name' => $term,
         ];
     }
-    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $whereSql = 'WHERE ' . ($where ? implode(' AND ', $where) . ' AND ' : '');
     $statement = $pdo->prepare(
         'SELECT c.id, c.conversation_type, c.seeker_user_id, c.requester_user_id,
                 c.building_id, c.room_id, c.created_at, c.last_message_at,
@@ -386,6 +455,7 @@ function chat_admin_list_conversations(PDO $pdo, string $type, string $status, s
                 s.name AS seeker_name, requester.name AS requester_name,
                 requester.email AS requester_email, requester.role AS requester_role,
                 o.name AS operator_name,
+                COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT m.body FROM chat_messages m WHERE m.conversation_id = c.id
                  ORDER BY m.id DESC LIMIT 1) AS last_message,
                 (SELECT COUNT(*) FROM chat_messages unread
@@ -398,10 +468,13 @@ function chat_admin_list_conversations(PDO $pdo, string $type, string $status, s
          LEFT JOIN users requester ON requester.id = c.requester_user_id
          LEFT JOIN users o ON o.id = b.owner_user_id
          LEFT JOIN rooms rm ON rm.id = c.room_id
-         ' . $whereSql . '
+         LEFT JOIN chat_conversation_user_state state
+            ON state.conversation_id=c.id AND state.user_id=:state_user_id
+         ' . $whereSql . '1=1
          ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
          LIMIT 200'
     );
+    $parameters['state_user_id'] = $userId;
     $statement->execute($parameters);
 
     return $statement->fetchAll();
@@ -409,14 +482,25 @@ function chat_admin_list_conversations(PDO $pdo, string $type, string $status, s
 
 function chat_get_conversation(PDO $pdo, array $user, int $conversationId): array
 {
+    chat_purge_expired_trash($pdo);
     chat_participant_conversation($pdo, $user, $conversationId);
     $userId = (int) $user['id'];
     $statement = $pdo->prepare(
         'SELECT c.id, c.conversation_type, c.seeker_user_id, c.requester_user_id,
                 c.building_id, c.room_id, c.created_at, c.updated_at, c.last_message_at,
                 c.archived_at, c.archived_by, b.name AS building_name,
-                rm.room_number, s.name AS seeker_name, o.name AS operator_name,
-                requester.name AS requester_name, requester.role AS requester_role,
+                rm.room_number, s.name AS seeker_name, s.id AS seeker_id,
+                s.email AS seeker_email, s.username AS seeker_username,
+                s.profile_photo_path AS seeker_photo, s.gender AS seeker_gender,
+                s.avatar_key AS seeker_avatar,
+                o.name AS operator_name, o.id AS operator_id, o.email AS operator_email,
+                o.username AS operator_username, o.profile_photo_path AS operator_photo,
+                o.gender AS operator_gender, o.avatar_key AS operator_avatar,
+                requester.name AS requester_name, requester.id AS requester_user_id,
+                requester.email AS requester_email, requester.username AS requester_username,
+                requester.profile_photo_path AS requester_photo, requester.gender AS requester_gender,
+                requester.avatar_key AS requester_avatar, requester.role AS requester_role,
+                COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT COUNT(*) FROM chat_messages unread
                  WHERE unread.conversation_id = c.id
                    AND unread.sender_user_id <> :user_id
@@ -427,14 +511,17 @@ function chat_get_conversation(PDO $pdo, array $user, int $conversationId): arra
          LEFT JOIN users requester ON requester.id = c.requester_user_id
          LEFT JOIN users o ON o.id = b.owner_user_id
          LEFT JOIN rooms rm ON rm.id = c.room_id
+         LEFT JOIN chat_conversation_user_state state
+            ON state.conversation_id=c.id AND state.user_id=:state_user_id
          WHERE c.id = :conversation_id'
     );
     $statement->execute([
         'conversation_id' => $conversationId,
         'user_id' => $user['role'] === 'admin' ? -$userId : $userId,
+        'state_user_id' => $userId,
     ]);
     $conversation = $statement->fetch();
-    if (!$conversation) {
+    if (!$conversation || $conversation['personal_status'] === 'purged') {
         throw new ChatNotFoundException('Conversation not found.');
     }
 
@@ -443,18 +530,37 @@ function chat_get_conversation(PDO $pdo, array $user, int $conversationId): arra
 
 function chat_archive_conversation(PDO $pdo, array $user, int $conversationId, bool $archived): void
 {
-    if (($user['role'] ?? null) !== 'admin') {
-        throw new ChatAccessDeniedException('Only admins may archive conversations.');
-    }
+    $userId = chat_actor_id($user);
     chat_participant_conversation($pdo, $user, $conversationId, true);
+    chat_set_conversation_state($pdo, $conversationId, $userId, $archived ? 'archived' : 'active');
+}
+
+function chat_trash_conversation(PDO $pdo, array $user, int $conversationId): void
+{
+    $userId = chat_actor_id($user);
+    chat_participant_conversation($pdo, $user, $conversationId, true);
+    chat_set_conversation_state($pdo, $conversationId, $userId, 'trash');
+}
+
+function chat_restore_trashed_conversation(PDO $pdo, array $user, int $conversationId): void
+{
+    $userId = chat_actor_id($user);
+    chat_participant_conversation($pdo, $user, $conversationId, true);
+    if (chat_conversation_state($pdo, $conversationId, $userId) !== 'trash') {
+        throw new ChatNotFoundException('Conversation not found in trash.');
+    }
+    chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
+}
+
+function chat_empty_trash(PDO $pdo, array $user): void
+{
+    $userId = chat_actor_id($user);
     $statement = $pdo->prepare(
-        $archived
-            ? 'UPDATE chat_conversations SET archived_at=CURRENT_TIMESTAMP, archived_by=:admin_id WHERE id=:id AND archived_at IS NULL'
-            : 'UPDATE chat_conversations SET archived_at=NULL, archived_by=NULL WHERE id=:id AND archived_at IS NOT NULL'
+        "UPDATE chat_conversation_user_state SET status='purged', trashed_at=NULL
+         WHERE user_id=:user_id AND status='trash'"
     );
-    $statement->execute($archived
-        ? ['admin_id' => (int) $user['id'], 'id' => $conversationId]
-        : ['id' => $conversationId]);
+    $statement->execute(['user_id' => $userId]);
+    chat_purge_expired_trash($pdo);
 }
 
 function chat_get_messages(
@@ -465,6 +571,9 @@ function chat_get_messages(
     int $limit = 50
 ): array {
     chat_participant_conversation($pdo, $user, $conversationId);
+    if (chat_conversation_state($pdo, $conversationId, (int) $user['id']) === 'purged') {
+        throw new ChatNotFoundException('Conversation not found.');
+    }
     if ($beforeMessageId < 0) {
         throw new ChatValidationException('Invalid message cursor.');
     }
@@ -492,6 +601,9 @@ function chat_mark_read(PDO $pdo, array $user, int $conversationId): int
 
     return chat_transaction($pdo, static function () use ($pdo, $user, $userId, $conversationId): int {
         $conversation = chat_participant_conversation($pdo, $user, $conversationId, true);
+        if (chat_conversation_state($pdo, $conversationId, $userId) === 'purged') {
+            throw new ChatNotFoundException('Conversation not found.');
+        }
         if ($user['role'] === 'admin' && $conversation['conversation_type'] !== 'support') {
             return 0;
         }

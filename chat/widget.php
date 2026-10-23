@@ -24,10 +24,17 @@ if ($user && in_array($user['role'], ['seeker', 'owner', 'admin'], true)):
                 <label class="chat-widget-search"><span class="visually-hidden">Cari percakapan</span>
                     <input type="search" data-chat-search placeholder="Cari nama">
                 </label>
+                <nav class="chat-widget-folders" aria-label="Folder chat">
+                    <button type="button" data-chat-folder="inbox" aria-pressed="true">Kotak masuk</button>
+                    <button type="button" data-chat-folder="archive" aria-pressed="false">Arsip</button>
+                    <button type="button" data-chat-folder="trash" aria-pressed="false">Sampah</button>
+                </nav>
+                <button type="button" class="chat-widget-empty-trash" data-chat-empty-trash hidden>Kosongkan Sampah sekarang</button>
                 <?php if ($user['role'] !== 'admin'): ?>
                     <button class="chat-widget-support" type="button" data-chat-start-support>
                         <span aria-hidden="true">?</span><span><strong>Bantuan KosKosan</strong><small>Hubungi admin</small></span>
                     </button>
+                    <?php if ($adminWhatsappUrl = site_contact_whatsapp_url('Halo Admin KosKosan, saya memerlukan bantuan.')): ?><a class="chat-widget-support chat-widget-whatsapp" href="<?= e($adminWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span><span><strong>WhatsApp Admin</strong><small>Buka WhatsApp / WhatsApp Web</small></span></a><?php endif; ?>
                 <?php endif; ?>
                 <div class="chat-widget-conversations" data-chat-conversations aria-live="polite"></div>
             </aside>

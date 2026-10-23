@@ -45,6 +45,72 @@ function activity_log_record(
     ]);
 }
 
+function activity_log_filter_query(array $filters, array $user): array
+{
+    $isAdmin = ($user['role'] ?? null) === 'admin';
+    $isOwner = ($user['role'] ?? null) === 'owner';
+    $conditions = [];
+    $params = [];
+    $role = isset($filters['role']) && is_string($filters['role'])
+        && in_array($filters['role'], ['admin', 'owner', 'seeker', 'system'], true)
+            ? $filters['role'] : '';
+    $category = isset($filters['category']) && is_string($filters['category'])
+        && in_array($filters['category'], ['auth', 'business', 'request', 'system'], true)
+            ? $filters['category'] : '';
+    $outcome = isset($filters['outcome']) && is_string($filters['outcome'])
+        && in_array($filters['outcome'], ['success', 'error'], true)
+            ? $filters['outcome'] : '';
+    $actorId = $isAdmin && isset($filters['actor_id'])
+        ? filter_var($filters['actor_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
+    $search = isset($filters['q']) && is_string($filters['q'])
+        ? substr(trim($filters['q']), 0, 120) : '';
+
+    if ($isAdmin && $role !== '') {
+        $conditions[] = 'al.actor_role=:actor_role';
+        $params['actor_role'] = $role;
+    }
+    if ($isAdmin && $actorId !== false) {
+        $conditions[] = 'al.actor_user_id=:actor_id';
+        $params['actor_id'] = $actorId;
+    }
+    if ($category !== '') {
+        $conditions[] = 'al.category=:category';
+        $params['category'] = $category;
+    }
+    if ($outcome !== '') {
+        $conditions[] = 'al.outcome=:outcome';
+        $params['outcome'] = $outcome;
+    }
+    if ($search !== '') {
+        $conditions[] = "CONCAT_WS(' ',al.action,REPLACE(al.action,'_',' '),al.summary,al.page,
+            al.category,CASE al.category WHEN 'request' THEN 'akses halaman'
+                WHEN 'business' THEN 'aktivitas' WHEN 'auth' THEN 'autentikasi' ELSE 'sistem' END,
+            al.outcome,CASE al.outcome WHEN 'success' THEN 'berhasil' ELSE 'error gagal' END,
+            DATE_FORMAT(al.created_at,'%d-%m-%Y'),
+            (SELECT u.name FROM users u WHERE u.id=al.actor_user_id),
+            (SELECT b.name FROM kos_buildings b WHERE b.id=al.building_id))
+            LIKE :search_query";
+        $params['search_query'] = '%' . strtr($search, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
+    }
+    if ($isOwner) {
+        $conditions[] = "(al.building_id IN (SELECT id FROM kos_buildings WHERE owner_user_id=:owner_id)
+            OR (al.actor_user_id=:operator_id AND al.building_id IS NULL
+                AND al.page IN ('dashboard','buildings','building_form','rooms','room_form','gallery',
+                    'tenants','tenant_form','tenant_profile','tenant_payments','invoices','invoice_form',
+                    'operator_payment','payments','operator_bookings','payment_confirmations','bank_settings')))";
+        $params['owner_id'] = (int) $user['id'];
+        $params['operator_id'] = (int) $user['id'];
+    } elseif (!$isAdmin) {
+        $conditions[] = 'al.actor_user_id=:user_id';
+        $params['user_id'] = (int) $user['id'];
+    }
+    if (!$isAdmin) {
+        $conditions[] = "al.action NOT IN ('property_listing_published','property_listing_hidden')";
+    }
+
+    return [$conditions ? 'WHERE ' . implode(' AND ', $conditions) : '', $params];
+}
+
 function activity_log_set_error(PDO $pdo, ?array $actor, string $action, ?string $page = null): void
 {
     try {
@@ -76,6 +142,9 @@ function activity_log_request(PDO $pdo, ?array $actor, string $page): void
             ? (is_string($postedAction)
                 ? preg_replace('/[^a-zA-Z0-9_-]/', '', $postedAction) : 'form_submit')
             : 'page_view';
+        if ($action === 'delete_activity_logs') {
+            return;
+        }
         $lastError = error_get_last();
         $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
         $loginFailed = $action === 'login' && ($_SESSION['flash']['type'] ?? null) === 'error';

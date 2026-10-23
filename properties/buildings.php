@@ -16,7 +16,7 @@ $buildings = rows($pdo, "SELECT b.*,
     <div><h2><?= $user['role'] === 'admin' ? 'Gedung kos' : 'Gedung kos saya' ?></h2><p>Kelola informasi, galeri foto, lokasi, kamar, dan status setiap gedung.</p></div>
     <a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a>
 </div>
-<section class="building-list" data-building-card-list>
+<section class="building-list" data-building-card-list data-building-view-storage-key="buildingView-<?= e($user['role']) ?>-<?= (int) $user['id'] ?>">
     <div class="building-list-tools">
         <label class="building-list-search"><span>Cari gedung</span><input type="search" data-building-card-search placeholder="Nama atau alamat gedung..." aria-label="Cari gedung berdasarkan nama atau alamat"></label>
         <label class="building-list-page-size"><span>Tampilkan</span><select data-building-card-page-size aria-label="Jumlah gedung yang ditampilkan"><option value="5" selected>5</option><option value="10">10</option><option value="all">Semua</option></select></label>
@@ -25,6 +25,7 @@ $buildings = rows($pdo, "SELECT b.*,
             <button class="button secondary compact-button" type="button" data-building-card-previous>Sebelumnya</button>
             <button class="button secondary compact-button" type="button" data-building-card-next>Berikutnya</button>
         </div>
+        <details class="data-table-view-switch data-view-picker building-view-switch" data-building-view-switch aria-label="Pilih tampilan gedung"></details>
     </div>
     <div class="building-card-grid" data-building-card-grid>
         <?php foreach ($buildings as $building):
@@ -34,7 +35,7 @@ $buildings = rows($pdo, "SELECT b.*,
             }
             $isActive = $building['status'] === 'active';
         ?>
-            <article class="building-card" data-building-card>
+            <article class="building-card" data-building-card data-building-id="<?= (int) $building['id'] ?>">
                 <a class="building-card-cover" href="index.php?page=property&amp;id=<?= (int) $building['id'] ?>" aria-label="Lihat halaman publik <?= e($building['name']) ?>">
                     <?php if (!empty($building['cover_photo'])): ?>
                         <img src="<?= e($building['cover_photo']) ?>" alt="Foto <?= e($building['name']) ?>" loading="lazy">
@@ -67,6 +68,27 @@ $buildings = rows($pdo, "SELECT b.*,
                 </div>
             </article>
         <?php endforeach; ?>
+    </div>
+    <div class="table-scroll building-table-view" data-building-table-view hidden>
+        <table data-custom-table-controls>
+            <thead><tr><th>Gedung</th><th>Alamat</th><th>Kamar</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+                <?php foreach ($buildings as $building): ?>
+                    <?php $isActive = $building['status'] === 'active'; ?>
+                    <tr data-building-table-row data-building-id="<?= (int) $building['id'] ?>">
+                        <td><a class="building-name-link" href="index.php?page=property&amp;id=<?= (int) $building['id'] ?>"><strong><?= e($building['name']) ?></strong></a></td>
+                        <td><?= e($building['address']) ?></td>
+                        <td><?= (int) $building['room_count'] ?></td>
+                        <td><span class="badge <?= e($building['status']) ?>"><?= e(status_label($building['status'])) ?></span></td>
+                        <td class="actions">
+                            <a class="button secondary compact-button" href="index.php?page=building_form&amp;id=<?= (int) $building['id'] ?>">Edit</a>
+                            <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="building_status"><input type="hidden" name="id" value="<?= (int) $building['id'] ?>"><input type="hidden" name="status" value="<?= $isActive ? 'inactive' : 'active' ?>"><button class="button <?= $isActive ? 'danger' : 'primary' ?> compact-button" type="submit"><?= $isActive ? 'Nonaktifkan' : 'Aktifkan' ?></button></form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$buildings): ?><tr><td colspan="5" class="no-data">Belum ada gedung kos.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
     </div>
     <p class="building-list-empty" data-building-card-empty <?= $buildings ? 'hidden' : '' ?>><?= $buildings ? 'Tidak ada gedung yang cocok dengan pencarian.' : 'Belum ada gedung kos. Tambahkan gedung sebelum mencatat kamar.' ?></p>
 </section>

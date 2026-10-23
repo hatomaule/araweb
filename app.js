@@ -1,4 +1,42 @@
 const initializeApp = () => {
+    document.querySelectorAll('form[data-auto-submit]').forEach((form) => {
+        let submitTimer = 0;
+        form.querySelectorAll('select').forEach((select) => {
+            select.addEventListener('change', () => {
+                window.clearTimeout(submitTimer);
+                form.requestSubmit();
+            });
+        });
+        form.querySelectorAll('input[type="search"]').forEach((input) => {
+            input.addEventListener('input', () => {
+                window.clearTimeout(submitTimer);
+                submitTimer = window.setTimeout(() => form.requestSubmit(), 350);
+            });
+        });
+    });
+    document.querySelectorAll('[data-expense-type]').forEach((select) => {
+        const form = select.closest('form');
+        const routineField = form?.querySelector('[data-expense-routine]');
+        const otherField = form?.querySelector('[data-expense-other]');
+        const routineSelect = routineField?.querySelector('select');
+        const otherInput = otherField?.querySelector('input');
+        if (!(select instanceof HTMLSelectElement) || !routineField || !otherField
+            || !(routineSelect instanceof HTMLSelectElement) || !(otherInput instanceof HTMLInputElement)) return;
+        const update = () => {
+            const isRoutine = select.value === 'routine';
+            routineField.hidden = !isRoutine;
+            otherField.hidden = isRoutine;
+            routineSelect.disabled = !isRoutine || routineSelect.options.length < 2;
+            routineSelect.required = isRoutine && routineSelect.options.length > 1;
+            otherInput.disabled = isRoutine;
+            otherInput.required = !isRoutine;
+        };
+        select.addEventListener('change', update);
+        update();
+    });
+    document.querySelectorAll('[data-print-page]').forEach((button) => {
+        button.addEventListener('click', () => window.print());
+    });
     const tableViewIcons = {
         table: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg>',
         cards: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/></svg>',
@@ -361,6 +399,39 @@ const initializeApp = () => {
     sidebarBackdrop?.addEventListener('click', closeMobileMenu);
     document.querySelectorAll('.sidebar .main-nav a').forEach((link) => {
         link.addEventListener('click', closeMobileMenu);
+    });
+    document.querySelectorAll('[data-public-search]').forEach((form) => {
+        const searchInput = form.querySelector('input[name="q"]');
+        if (!(searchInput instanceof HTMLInputElement)) return;
+        const openSearch = () => {
+            form.classList.add('is-open');
+            document.body.classList.add('public-search-open');
+        };
+        const closeSearch = () => {
+            form.classList.remove('is-open');
+            document.body.classList.remove('public-search-open');
+        };
+        searchInput.addEventListener('focus', openSearch);
+        searchInput.addEventListener('click', openSearch);
+        form.querySelectorAll('[data-search-destination]').forEach((button) => {
+            button.addEventListener('click', () => {
+                searchInput.value = button.dataset.searchDestination || '';
+                form.querySelectorAll('[data-nearby-latitude], [data-nearby-longitude]')
+                    .forEach((coordinate) => {
+                        if (coordinate instanceof HTMLInputElement) coordinate.value = '';
+                    });
+                form.requestSubmit();
+            });
+        });
+        document.addEventListener('click', (event) => {
+            if (event.target instanceof Node && !form.contains(event.target)) closeSearch();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && form.classList.contains('is-open')) {
+                closeSearch();
+                searchInput.blur();
+            }
+        });
     });
     document.querySelectorAll('[data-search-nearby]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -891,17 +962,45 @@ const initializeApp = () => {
 
     document.querySelectorAll('[data-building-card-list]').forEach((list) => {
         const cards = Array.from(list.querySelectorAll('[data-building-card]'));
+        const buildingRows = Array.from(list.querySelectorAll('[data-building-table-row]'));
         const search = list.querySelector('[data-building-card-search]');
         const pageSizeSelect = list.querySelector('[data-building-card-page-size]');
         const summary = list.querySelector('[data-building-card-summary]');
         const previous = list.querySelector('[data-building-card-previous]');
         const next = list.querySelector('[data-building-card-next]');
         const empty = list.querySelector('[data-building-card-empty]');
+        const cardGrid = list.querySelector('[data-building-card-grid]');
+        const tableView = list.querySelector('[data-building-table-view]');
+        const pickerHost = list.querySelector('[data-building-view-switch]');
         if (!(search instanceof HTMLInputElement) || !(pageSizeSelect instanceof HTMLSelectElement)
             || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
-            || !(empty instanceof HTMLElement) || !summary) return;
+            || !(empty instanceof HTMLElement) || !(cardGrid instanceof HTMLElement)
+            || !(tableView instanceof HTMLElement) || !(pickerHost instanceof HTMLDetailsElement)
+            || !summary) return;
+
+        const { picker, buttons } = createDataViewPicker('Pilih tampilan gedung');
+        pickerHost.replaceChildren(...Array.from(picker.childNodes));
+        const storageKey = `koskosan-building-view:${list.dataset.buildingViewStorageKey || 'buildings'}`;
 
         let currentPage = 1;
+        let selectedView = 'cards';
+        try {
+            if (localStorage.getItem(storageKey) === 'table') selectedView = 'table';
+        } catch (error) {
+            console.error('Building view preference could not be read:', error);
+        }
+        const setView = (view) => {
+            selectedView = view;
+            const cardView = view === 'cards';
+            cardGrid.hidden = !cardView;
+            tableView.hidden = cardView;
+            syncDataViewPicker(pickerHost, buttons, view);
+            try {
+                localStorage.setItem(storageKey, view);
+            } catch (error) {
+                console.error('Building view preference could not be saved:', error);
+            }
+        };
         const render = () => {
             const query = search.value.trim().toLocaleLowerCase('id');
             const matches = cards.filter((card) => !query
@@ -913,6 +1012,8 @@ const initializeApp = () => {
             const first = pageSizeSelect.value === 'all' ? 0 : (currentPage - 1) * pageSize;
             const visibleCards = new Set(matches.slice(first, first + pageSize));
             cards.forEach((card) => { card.hidden = !visibleCards.has(card); });
+            const visibleIds = new Set(Array.from(visibleCards, (card) => card.dataset.buildingId));
+            buildingRows.forEach((row) => { row.hidden = !visibleIds.has(row.dataset.buildingId); });
             pageSizeSelect.closest('label')?.toggleAttribute('hidden', matches.length <= 5);
             empty.hidden = matches.length > 0;
             if (matches.length === 0) {
@@ -940,6 +1041,14 @@ const initializeApp = () => {
             currentPage += 1;
             render();
         });
+        buttons.forEach((button, view) => {
+            button.addEventListener('click', () => {
+                setView(view);
+                pickerHost.open = false;
+            });
+        });
+        syncDataViewPicker(pickerHost, buttons, selectedView);
+        setView(selectedView);
         render();
     });
 
@@ -1090,7 +1199,7 @@ const initializeApp = () => {
 
     document.querySelectorAll('.main-area .content table').forEach((table) => {
         if (!(table instanceof HTMLTableElement) || !table.tHead || !table.tBodies.length) return;
-        if (table.closest('[data-room-management]')) return;
+        if (table.closest('[data-room-management]') || table.hasAttribute('data-custom-table-controls')) return;
         const tbody = table.tBodies[0];
         const rows = Array.from(tbody.rows).filter((row) =>
             !row.hasAttribute('data-table-group-heading') && !row.querySelector('.no-data')
@@ -1108,6 +1217,12 @@ const initializeApp = () => {
         search.type = 'search';
         search.placeholder = 'Nama, email, ID, status...';
         search.setAttribute('aria-label', 'Cari data dalam tabel');
+        if (table.id === 'activity-log-table') {
+            search.placeholder = 'Akun, aktivitas, jenis, kos...';
+            search.maxLength = 120;
+            const currentQuery = document.querySelector('.activity-log-filters input[name="q"]');
+            if (currentQuery instanceof HTMLInputElement) search.value = currentQuery.value;
+        }
         searchLabel.append(searchCaption, search);
         tools.append(searchLabel);
 
@@ -1221,7 +1336,9 @@ const initializeApp = () => {
         rows.forEach((row) => {
             Array.from(row.cells).forEach((cell, index) => {
                 const heading = table.tHead.rows[0]?.cells[index];
-                if (heading && !cell.hasAttribute('colspan')) cell.dataset.label = heading.textContent.trim();
+                if (heading && !cell.hasAttribute('colspan')) {
+                    cell.dataset.label = heading.dataset.cardLabel ?? heading.textContent.trim();
+                }
             });
         });
         let selectedTableView = 'table';
@@ -1298,7 +1415,16 @@ const initializeApp = () => {
             next.disabled = currentPage >= pageCount || pageSizeSelect.value === 'all';
         };
 
-        search.addEventListener('input', () => { currentPage = 1; render(); });
+        search.addEventListener('input', () => {
+            if (table.id === 'activity-log-table') {
+                document.querySelectorAll('.activity-log-filters input[name="q"],[data-log-delete-search]')
+                    .forEach((queryInput) => {
+                        if (queryInput instanceof HTMLInputElement) queryInput.value = search.value;
+                    });
+            }
+            currentPage = 1;
+            render();
+        });
         buildingFilter?.addEventListener('change', () => { currentPage = 1; render(); });
         pageSizeSelect.addEventListener('change', () => { currentPage = 1; render(); });
         previous.addEventListener('click', () => { currentPage -= 1; render(); });
@@ -1574,6 +1700,90 @@ const initializeApp = () => {
         dialog.addEventListener('pointercancel', () => { backdropPointerDown = false; });
     });
 
+    document.addEventListener('keydown', (event) => {
+        const input = event.target;
+        if (!(input instanceof HTMLTextAreaElement) || input.name !== 'message'
+            || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey
+            || event.metaKey || event.isComposing) return;
+
+        const form = input.form;
+        const action = form?.querySelector('input[name="action"]')?.value;
+        if (!form || !['send_chat_message', 'start_chat_conversation'].includes(action)) return;
+
+        event.preventDefault();
+        form.requestSubmit();
+    });
+
+    document.querySelectorAll('[data-bank-settings]').forEach((form) => {
+        const accountPicker = form.querySelector('[data-bank-account-picker]');
+        const existingField = form.querySelector('[data-bank-existing-field]');
+        const sharedNote = form.querySelector('[data-bank-shared-note]');
+        const bankName = form.querySelector('[name="bank_name"]');
+        const accountName = form.querySelector('[name="account_name"]');
+        const accountNumber = form.querySelector('[name="account_number"]');
+        const modeInputs = form.querySelectorAll('input[name="bank_mode"]');
+        if (!(accountPicker instanceof HTMLSelectElement)
+            || !(bankName instanceof HTMLInputElement)
+            || !(accountName instanceof HTMLInputElement)
+            || !(accountNumber instanceof HTMLInputElement)) return;
+
+        const setMode = (mode, clearNewAccount = false) => {
+            const useExisting = mode === 'existing';
+            if (existingField instanceof HTMLElement) existingField.hidden = !useExisting;
+            accountPicker.disabled = !useExisting;
+            accountPicker.required = useExisting;
+            if (sharedNote instanceof HTMLElement) sharedNote.hidden = !useExisting;
+            const selected = accountPicker.selectedOptions[0];
+            if (useExisting && selected?.value) {
+                bankName.value = selected.dataset.bankName || '';
+                accountName.value = selected.dataset.accountName || '';
+                accountNumber.value = selected.dataset.accountNumber || '';
+            }
+            if (clearNewAccount && !useExisting) {
+                bankName.value = '';
+                accountName.value = '';
+                accountNumber.value = '';
+            }
+        };
+
+        modeInputs.forEach((input) => {
+            input.addEventListener('change', () => setMode(input.value, true));
+        });
+        accountPicker.addEventListener('change', () => {
+            const selected = accountPicker.selectedOptions[0];
+            if (!selected?.value) return;
+            bankName.value = selected.dataset.bankName || '';
+            accountName.value = selected.dataset.accountName || '';
+            accountNumber.value = selected.dataset.accountNumber || '';
+        });
+        const checkedMode = form.querySelector('input[name="bank_mode"]:checked');
+        if (checkedMode instanceof HTMLInputElement) setMode(checkedMode.value);
+    });
+
+    document.querySelectorAll('.chat-admin-filters').forEach((form) => {
+        const search = form.querySelector('input[name="q"]');
+        if (!(search instanceof HTMLInputElement)) return;
+        let submitTimer = 0;
+        const submitFilters = (delay = 0) => {
+            window.clearTimeout(submitTimer);
+            submitTimer = window.setTimeout(() => form.requestSubmit(), delay);
+        };
+        search.addEventListener('input', () => {
+            submitFilters(300);
+        });
+        form.querySelectorAll('select').forEach((select) => {
+            select.addEventListener('change', () => submitFilters(50));
+        });
+    });
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[data-confirm]')) return;
+        if (!window.confirm(form.dataset.confirm || 'Lanjutkan tindakan ini?')) {
+            event.preventDefault();
+        }
+    });
+
     const chatWidget = document.querySelector('[data-chat-widget]');
     if (chatWidget) {
         const panel = chatWidget.querySelector('#chat-widget-panel');
@@ -1590,11 +1800,15 @@ const initializeApp = () => {
         const status = chatWidget.querySelector('[data-chat-status]');
         const unreadBadge = chatWidget.querySelector('[data-chat-total-unread]');
         const supportButton = chatWidget.querySelector('[data-chat-start-support]');
+        const folderButtons = chatWidget.querySelectorAll('[data-chat-folder]');
+        const emptyTrashButton = chatWidget.querySelector('[data-chat-empty-trash]');
         let activeConversationId = 0;
+        let currentFolder = 'inbox';
         let refreshTimer;
         let lastMessageId = 0;
         let listItems = [];
         let loadingMessages = false;
+        const conversationDrafts = new Map();
 
         const requestJson = async (url, options) => {
             const response = await fetch(url, {
@@ -1607,7 +1821,7 @@ const initializeApp = () => {
             return payload;
         };
         const apiGet = (action, conversationId = 0) => requestJson(
-            `index.php?chat_api=1&chat_action=${encodeURIComponent(action)}${conversationId ? `&conversation_id=${conversationId}` : ''}`
+            `index.php?chat_api=1&chat_action=${encodeURIComponent(action)}${conversationId ? `&conversation_id=${conversationId}` : ''}${action === 'list' ? `&folder=${encodeURIComponent(currentFolder)}` : ''}`
         );
         const apiPost = (fields) => {
             const body = new URLSearchParams({
@@ -1644,6 +1858,8 @@ const initializeApp = () => {
                 return;
             }
             visible.forEach((conversation) => {
+                const row = document.createElement('div');
+                row.className = 'chat-widget-conversation-row';
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = `chat-widget-conversation${Number(conversation.id) === activeConversationId ? ' active' : ''}`;
@@ -1667,12 +1883,45 @@ const initializeApp = () => {
                     button.append(unread);
                 }
                 button.addEventListener('click', () => {
+                    if (messageInput instanceof HTMLTextAreaElement && activeConversationId) {
+                        conversationDrafts.set(activeConversationId, messageInput.value);
+                    }
                     activeConversationId = Number(conversation.id);
+                    if (messageInput instanceof HTMLTextAreaElement) {
+                        messageInput.value = conversationDrafts.get(activeConversationId) || '';
+                    }
                     chatWidget.classList.add('show-thread');
                     renderConversations();
                     loadMessages();
                 });
-                list.append(button);
+                row.append(button);
+                const addAction = (label, action) => {
+                    const actionButton = document.createElement('button');
+                    actionButton.type = 'button';
+                    actionButton.className = 'chat-widget-conversation-action';
+                    actionButton.textContent = label;
+                    actionButton.setAttribute('aria-label', `${label}: ${conversation.title}`);
+                    actionButton.addEventListener('click', async () => {
+                        try {
+                            await apiPost({chat_action: action, conversation_id: String(conversation.id)});
+                            await loadConversations();
+                            if (Number(conversation.id) === activeConversationId) await loadMessages();
+                        } catch (error) {
+                            showError(error);
+                        }
+                    });
+                    row.append(actionButton);
+                };
+                if (currentFolder === 'inbox') {
+                    addAction('Arsipkan', 'archive');
+                    addAction('Hapus', 'trash');
+                } else if (currentFolder === 'archive') {
+                    addAction('Pulihkan', 'restore');
+                    addAction('Hapus', 'trash');
+                } else {
+                    addAction('Pulihkan', 'restore_trash');
+                }
+                list.append(row);
             });
         };
         const loadConversations = async () => {
@@ -1684,15 +1933,19 @@ const initializeApp = () => {
                 unreadBadge.hidden = unreadCount === 0;
             }
             renderConversations();
+            if (emptyTrashButton instanceof HTMLButtonElement) {
+                emptyTrashButton.hidden = currentFolder !== 'trash' || listItems.length === 0;
+            }
             if (status) status.textContent = listItems.length
                 ? `${listItems.length} percakapan`
                 : (chatWidget.dataset.chatRole === 'admin' ? 'Belum ada chat masuk' : 'Mulai chat atau minta bantuan admin');
         };
         const loadMessages = async () => {
             if (!activeConversationId || loadingMessages || !messages) return;
+            const requestedConversationId = activeConversationId;
             loadingMessages = true;
             try {
-                const payload = await apiGet('messages', activeConversationId);
+                const payload = await apiGet('messages', requestedConversationId);
                 if (Number(payload.conversation.id) !== activeConversationId) return;
                 const currentLatestId = payload.messages.length
                     ? Number(payload.messages[payload.messages.length - 1].id) : 0;
@@ -1724,9 +1977,11 @@ const initializeApp = () => {
                 if (compose) compose.hidden = !payload.conversation.can_send;
                 if (readonlyNote) {
                     readonlyNote.hidden = payload.conversation.can_send;
-                    readonlyNote.textContent = payload.conversation.archived
-                        ? 'Chat diarsipkan admin. Hubungi admin untuk membuka kembali.'
-                        : 'Chat User dan Owner hanya dapat ditinjau admin, bukan dibalas.';
+                    readonlyNote.textContent = payload.conversation.personal_status === 'archived'
+                        ? 'Chat di Arsip Anda. Pulihkan ke Kotak masuk untuk mengirim pesan.'
+                        : (payload.conversation.personal_status === 'trash'
+                            ? 'Chat di Sampah. Pulihkan ke Kotak masuk untuk mengirim pesan.'
+                            : 'Chat User dan Owner hanya dapat ditinjau admin, bukan dibalas.');
                 }
                 if (shouldScroll) messages.scrollTop = messages.scrollHeight;
                 await loadConversations();
@@ -1734,6 +1989,9 @@ const initializeApp = () => {
                 showError(error);
             } finally {
                 loadingMessages = false;
+                if (activeConversationId && activeConversationId !== requestedConversationId) {
+                    loadMessages();
+                }
             }
         };
         const openPanel = async () => {
@@ -1766,14 +2024,36 @@ const initializeApp = () => {
         close?.addEventListener('click', closePanel);
         back?.addEventListener('click', () => chatWidget.classList.remove('show-thread'));
         search?.addEventListener('input', renderConversations);
+        folderButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                if (!(button instanceof HTMLButtonElement)) return;
+                currentFolder = button.dataset.chatFolder || 'inbox';
+                folderButtons.forEach((folderButton) => {
+                    folderButton.setAttribute('aria-pressed', String(folderButton === button));
+                });
+                loadConversations().catch(showError);
+            });
+        });
+        emptyTrashButton?.addEventListener('click', async () => {
+            if (!window.confirm('Kosongkan Sampah secara permanen? Salinan peserta lain tetap terjaga.')) return;
+            try {
+                await apiPost({chat_action: 'empty_trash'});
+                await loadConversations();
+            } catch (error) {
+                showError(error);
+            }
+        });
+        messageInput?.addEventListener('input', () => {
+            if (activeConversationId && messageInput instanceof HTMLTextAreaElement) {
+                conversationDrafts.set(activeConversationId, messageInput.value);
+            }
+        });
         supportButton?.addEventListener('click', async () => {
             try {
-                const existing = listItems.find((item) => item.type === 'support');
-                if (existing) {
-                    activeConversationId = Number(existing.id);
-                } else {
-                    const payload = await apiPost({chat_action: 'start_support'});
-                    activeConversationId = Number(payload.conversation_id);
+                const payload = await apiPost({chat_action: 'start_support'});
+                activeConversationId = Number(payload.conversation_id);
+                if (messageInput instanceof HTMLTextAreaElement) {
+                    messageInput.value = conversationDrafts.get(activeConversationId) || '';
                 }
                 chatWidget.classList.add('show-thread');
                 await loadConversations();
@@ -1786,15 +2066,19 @@ const initializeApp = () => {
         compose?.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (!(messageInput instanceof HTMLTextAreaElement) || !messageInput.value.trim()) return;
+            const sendingConversationId = activeConversationId;
+            const messageBody = messageInput.value;
+            conversationDrafts.set(sendingConversationId, messageBody);
             const sendButton = compose.querySelector('button[type="submit"]');
             if (sendButton instanceof HTMLButtonElement) sendButton.disabled = true;
             try {
                 await apiPost({
                     chat_action: 'send',
-                    conversation_id: String(activeConversationId),
-                    message: messageInput.value,
+                    conversation_id: String(sendingConversationId),
+                    message: messageBody,
                 });
-                messageInput.value = '';
+                conversationDrafts.delete(sendingConversationId);
+                if (activeConversationId === sendingConversationId) messageInput.value = '';
                 lastMessageId = 0;
                 await loadMessages();
             } catch (error) {

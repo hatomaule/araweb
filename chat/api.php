@@ -22,6 +22,7 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
             $action = isset($_GET['chat_action']) && is_string($_GET['chat_action'])
                 ? $_GET['chat_action'] : 'list';
             if ($action === 'list') {
+                $folder = isset($_GET['folder']) && is_string($_GET['folder']) ? $_GET['folder'] : 'inbox';
                 $conversations = array_map(
                     static function (array $conversation) use ($user): array {
                         $isSupport = $conversation['conversation_type'] === 'support';
@@ -45,9 +46,10 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                                 : ($conversation['building_name'] ?: 'Percakapan kos'),
                             'last_message' => (string) ($conversation['last_message'] ?? ''),
                             'unread_count' => (int) $conversation['unread_count'],
+                            'personal_status' => $conversation['personal_status'],
                         ];
                     },
-                    array_slice(chat_list_conversations($pdo, $user), 0, 100)
+                    array_slice(chat_list_conversations($pdo, $user, $folder), 0, 100)
                 );
                 chat_api_respond(['conversations' => $conversations]);
             }
@@ -71,12 +73,13 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                             ? 'Dukungan KosKosan'
                             : ($conversation['building_name'] ?: 'Percakapan kos')
                                 . ($conversation['room_number'] ? ' · Kamar ' . $conversation['room_number'] : ''),
-                        'can_send' => $conversation['archived_at'] === null
+                        'can_send' => $conversation['personal_status'] === 'active'
                             && ($conversation['conversation_type'] === 'support'
                                 ? ($user['role'] === 'admin'
                                     || (int) $conversation['requester_user_id'] === (int) $user['id'])
                                 : $user['role'] !== 'admin'),
-                        'archived' => $conversation['archived_at'] !== null,
+                        'archived' => $conversation['personal_status'] === 'archived',
+                        'personal_status' => $conversation['personal_status'],
                     ],
                     'messages' => array_map(
                         static fn (array $message): array => [
@@ -102,6 +105,24 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
         }
 
         $action = post_value('chat_action');
+        if ($action === 'archive' || $action === 'trash'
+            || $action === 'restore' || $action === 'restore_trash') {
+            $conversationId = (int) post_value('conversation_id');
+            if ($action === 'archive') {
+                chat_archive_conversation($pdo, $user, $conversationId, true);
+            } elseif ($action === 'trash') {
+                chat_trash_conversation($pdo, $user, $conversationId);
+            } elseif ($action === 'restore') {
+                chat_archive_conversation($pdo, $user, $conversationId, false);
+            } else {
+                chat_restore_trashed_conversation($pdo, $user, $conversationId);
+            }
+            chat_api_respond(['ok' => true]);
+        }
+        if ($action === 'empty_trash') {
+            chat_empty_trash($pdo, $user);
+            chat_api_respond(['ok' => true]);
+        }
         if ($action === 'start_support') {
             if ($user['role'] === 'admin') {
                 chat_api_respond(['error' => 'Admin tidak dapat membuat chat bantuan.'], 403);

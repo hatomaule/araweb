@@ -3,49 +3,16 @@ declare(strict_types=1);
 
 $isAdmin = $user['role'] === 'admin';
 $isOwner = $user['role'] === 'owner';
-$roleFilter = $isAdmin && isset($_GET['role']) && is_string($_GET['role'])
-    && in_array($_GET['role'], ['admin', 'owner', 'seeker', 'system'], true)
-        ? $_GET['role'] : '';
+$filters = activity_log_filter_query($_GET, $user);
+[$where, $params] = $filters;
+$roleFilter = isset($_GET['role']) && is_string($_GET['role'])
+    && in_array($_GET['role'], ['admin', 'owner', 'seeker', 'system'], true) ? $_GET['role'] : '';
 $categoryFilter = isset($_GET['category']) && is_string($_GET['category'])
-    && in_array($_GET['category'], ['auth', 'business', 'request', 'system'], true)
-        ? $_GET['category'] : '';
+    && in_array($_GET['category'], ['auth', 'business', 'request', 'system'], true) ? $_GET['category'] : '';
 $outcomeFilter = isset($_GET['outcome']) && is_string($_GET['outcome'])
-    && in_array($_GET['outcome'], ['success', 'error'], true)
-        ? $_GET['outcome'] : '';
+    && in_array($_GET['outcome'], ['success', 'error'], true) ? $_GET['outcome'] : '';
 $actorFilter = $isAdmin && isset($_GET['actor_id'])
     ? filter_var($_GET['actor_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
-
-$conditions = [];
-$params = [];
-if ($isAdmin && $roleFilter !== '') {
-    $conditions[] = 'al.actor_role=:actor_role';
-    $params['actor_role'] = $roleFilter;
-}
-if ($isAdmin && $actorFilter !== false) {
-    $conditions[] = 'al.actor_user_id=:actor_id';
-    $params['actor_id'] = $actorFilter;
-}
-if ($categoryFilter !== '') {
-    $conditions[] = 'al.category=:category';
-    $params['category'] = $categoryFilter;
-}
-if ($outcomeFilter !== '') {
-    $conditions[] = 'al.outcome=:outcome';
-    $params['outcome'] = $outcomeFilter;
-}
-if ($isOwner) {
-    $conditions[] = "(al.building_id IN (SELECT id FROM kos_buildings WHERE owner_user_id=:owner_id)
-        OR (al.actor_user_id=:operator_id AND al.building_id IS NULL
-            AND al.page IN ('dashboard','buildings','building_form','rooms','room_form','gallery',
-                'tenants','tenant_form','tenant_profile','tenant_payments','invoices','invoice_form',
-                'operator_payment','payments','operator_bookings','payment_confirmations','bank_settings')))";
-    $params['owner_id'] = (int) $user['id'];
-    $params['operator_id'] = (int) $user['id'];
-} elseif (!$isAdmin) {
-    $conditions[] = 'al.actor_user_id=:user_id';
-    $params['user_id'] = (int) $user['id'];
-}
-$where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 $logs = rows(
     $pdo,
     "SELECT al.id,al.actor_role,al.category,al.action,al.outcome,al.page,al.summary,
@@ -62,28 +29,17 @@ $accounts = $isAdmin ? rows(
     "SELECT id,name,role FROM users WHERE role IN ('admin','owner','seeker')
      ORDER BY role,name,id"
 ) : [];
-$visitorEvents = $isOwner ? rows(
-    $pdo,
-    "SELECT ae.event_type,ae.search_query,ae.occurred_at,b.name AS building_name,
-            CASE WHEN ae.user_id IS NULL THEN 'Pengunjung anonim' ELSE 'Pengunjung terdaftar' END AS visitor_label
-     FROM property_activity_events ae
-     JOIN kos_buildings b ON b.id=ae.building_id
-     WHERE b.owner_user_id=:owner_id
-       AND ae.event_type IN ('search_result','property_view','room_view')
-     ORDER BY ae.occurred_at DESC,ae.id DESC LIMIT 50",
-    ['owner_id' => (int) $user['id']]
-) : [];
 $roleLabels = ['admin' => 'Admin', 'owner' => 'Owner', 'seeker' => 'User', 'system' => 'Sistem'];
 $categoryLabels = ['auth' => 'Autentikasi', 'business' => 'Aktivitas', 'request' => 'Akses halaman', 'system' => 'Sistem'];
 ?>
 <section class="page-heading">
-    <div><span class="eyebrow">AUDIT AKTIVITAS</span><h2>Log aktivitas</h2>
-        <p><?= $isAdmin ? 'Pantau aktivitas, kegagalan, dan tindakan pada seluruh platform.' : ($isOwner ? 'Aktivitas yang berkaitan dengan kos dan penghuni yang Anda kelola.' : 'Riwayat aktivitas pada akun Anda.') ?></p>
+    <div><span class="eyebrow">LOG</span><h2>Log</h2>
+        <p><?= $isAdmin ? 'Pantau tindakan dan kegagalan pada seluruh platform.' : ($isOwner ? 'Log tindakan yang berkaitan dengan kos dan penghuni yang Anda kelola.' : 'Log tindakan pada akun Anda.') ?></p>
     </div>
 </section>
 <section class="panel">
     <?php if ($isAdmin || $isOwner): ?>
-        <form method="get" class="activity-log-filters">
+        <form method="get" class="activity-log-filters" data-auto-submit>
             <input type="hidden" name="page" value="activity_log">
             <?php if ($isAdmin): ?>
                 <label>Role
@@ -108,12 +64,14 @@ $categoryLabels = ['auth' => 'Autentikasi', 'business' => 'Aktivitas', 'request'
                     <option value="error" <?= $outcomeFilter === 'error' ? 'selected' : '' ?>>Gagal / error</option>
                 </select>
             </label>
-            <button class="button primary" type="submit">Terapkan filter</button>
-            <a class="button secondary" href="index.php?page=activity_log">Reset</a>
+            <?php if ($isAdmin): ?>
+                <input type="hidden" name="q" value="<?= e(isset($_GET['q']) && is_string($_GET['q']) ? $_GET['q'] : '') ?>">
+            <?php endif; ?>
+            <?php if ($isAdmin): ?><button class="button danger" type="button" data-dialog-open="delete-activity-logs">Hapus log</button><?php endif; ?>
         </form>
     <?php endif; ?>
-    <div class="panel-heading"><div><h2>Aktivitas aplikasi</h2><p class="activity-log-summary">Menampilkan maksimal 200 aktivitas terbaru.</p></div></div>
-    <div class="table-scroll"><table>
+    <div class="panel-heading"><div><h2>Log aplikasi</h2><p class="activity-log-summary">Menampilkan maksimal 200 catatan terbaru.</p></div></div>
+    <div class="table-scroll"><table id="activity-log-table">
         <thead><tr><th>Waktu</th><?php if ($isAdmin): ?><th>Akun</th><th>Role</th><?php endif; ?><th>Aktivitas</th><th>Jenis</th><th>Hasil</th><th>Kos terkait</th></tr></thead>
         <tbody>
         <?php foreach ($logs as $log): ?>
@@ -130,14 +88,22 @@ $categoryLabels = ['auth' => 'Autentikasi', 'business' => 'Aktivitas', 'request'
         </tbody>
     </table></div>
 </section>
-<?php if ($isOwner): ?>
-<section class="panel">
-    <div class="panel-heading"><div><h2>Aktivitas pengunjung properti</h2><p>Informasi kunjungan dan pencarian kos milik Anda; alamat IP tidak disimpan.</p></div></div>
-    <div class="table-scroll"><table><thead><tr><th>Waktu</th><th>Kos</th><th>Aktivitas</th><th>Pengunjung</th><th>Pencarian</th></tr></thead><tbody>
-        <?php foreach ($visitorEvents as $event): ?>
-            <tr><td><?= e(date_id($event['occurred_at'])) ?></td><td><?= e($event['building_name']) ?></td><td><?= e(['search_result' => 'Hasil pencarian', 'property_view' => 'Melihat kos', 'room_view' => 'Melihat kamar'][$event['event_type']] ?? $event['event_type']) ?></td><td><?= e($event['visitor_label']) ?></td><td><?= e($event['search_query'] ?: '—') ?></td></tr>
+<?php if ($isAdmin): ?>
+<dialog class="action-dialog" id="delete-activity-logs">
+    <form method="post" class="action-dialog-form">
+        <?= csrf_field() ?><input type="hidden" name="action" value="delete_activity_logs">
+        <?php foreach (['role', 'actor_id', 'category', 'outcome'] as $filterName): ?>
+            <?php if (isset($_GET[$filterName]) && is_string($_GET[$filterName]) && $_GET[$filterName] !== ''): ?>
+                <input type="hidden" name="<?= e($filterName) ?>" value="<?= e($_GET[$filterName]) ?>">
+            <?php endif; ?>
         <?php endforeach; ?>
-        <?php if (!$visitorEvents): ?><tr><td colspan="5" class="no-data">Belum ada aktivitas pengunjung pada kos Anda.</td></tr><?php endif; ?>
-    </tbody></table></div>
-</section>
+        <input type="hidden" name="q" value="<?= e(isset($_GET['q']) && is_string($_GET['q']) ? $_GET['q'] : '') ?>" data-log-delete-search>
+        <button type="button" class="dialog-close" aria-label="Tutup" data-dialog-close>×</button>
+        <span class="dialog-eyebrow">KONFIRMASI PENGHAPUSAN LOG</span>
+        <h2>Hapus log yang cocok?</h2>
+        <p>Log yang cocok dengan filter dan pencarian saat ini akan dihapus. Statistik kunjungan dan pencarian tetap tersimpan.</p>
+        <label class="confirmation-check"><input type="checkbox" name="confirm_delete_logs" value="yes" required><span>Saya memahami tindakan ini menghapus log audit yang cocok.</span></label>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Batal</button><button class="button danger" type="submit">Hapus log</button></div>
+    </form>
+</dialog>
 <?php endif; ?>

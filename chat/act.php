@@ -39,17 +39,40 @@ function chat_notify_message_recipients(PDO $pdo, array $user, array $conversati
 
 function handle_chat_action(PDO $pdo, array $user, string $action): void
 {
-    if ($action === 'archive_chat_conversation' || $action === 'restore_chat_conversation') {
-        if (($user['role'] ?? null) !== 'admin') {
-            throw new ChatAccessDeniedException('Only admins may archive or restore conversations.');
-        }
+    if (in_array($action, [
+        'archive_chat_conversation',
+        'restore_chat_conversation',
+        'trash_chat_conversation',
+        'restore_trashed_chat_conversation',
+    ], true)) {
         $conversationId = (int) post_value('conversation_id');
-        chat_archive_conversation($pdo, $user, $conversationId, $action === 'archive_chat_conversation');
-        set_flash('success', $action === 'archive_chat_conversation'
-            ? 'Percakapan diarsipkan dan dapat dipulihkan oleh admin.'
-            : 'Percakapan berhasil dipulihkan.');
-        redirect('admin_chat&id=' . $conversationId . '&status='
-            . ($action === 'archive_chat_conversation' ? 'archived' : 'active'));
+        if ($action === 'archive_chat_conversation') {
+            chat_archive_conversation($pdo, $user, $conversationId, true);
+            $folder = 'archive';
+            $message = 'Percakapan dipindahkan ke Arsip.';
+        } elseif ($action === 'restore_chat_conversation') {
+            chat_archive_conversation($pdo, $user, $conversationId, false);
+            $folder = 'inbox';
+            $message = 'Percakapan dipulihkan ke kotak masuk.';
+        } elseif ($action === 'trash_chat_conversation') {
+            chat_trash_conversation($pdo, $user, $conversationId);
+            $folder = 'trash';
+            $message = 'Percakapan dipindahkan ke Sampah dan akan dihapus permanen setelah 30 hari.';
+        } else {
+            chat_restore_trashed_conversation($pdo, $user, $conversationId);
+            $folder = 'inbox';
+            $message = 'Percakapan dipulihkan dari Sampah.';
+        }
+        set_flash('success', $message);
+        redirect($user['role'] === 'admin'
+            ? 'admin_chat&id=' . $conversationId . '&status=' . ($folder === 'inbox' ? 'active' : $folder)
+            : 'chat&id=' . $conversationId . '&folder=' . $folder);
+    }
+
+    if ($action === 'empty_chat_trash') {
+        chat_empty_trash($pdo, $user);
+        set_flash('success', 'Sampah Anda dikosongkan secara permanen; salinan peserta lain tetap terjaga.');
+        redirect($user['role'] === 'admin' ? 'admin_chat&status=trash' : 'chat&folder=trash');
     }
 
     if ($action === 'start_support_conversation') {
@@ -89,6 +112,8 @@ function handle_chat_action(PDO $pdo, array $user, string $action): void
         chat_send_message($pdo, $user, $conversationId, post_value('message'));
         $conversation = chat_get_conversation($pdo, $user, $conversationId);
         chat_notify_message_recipients($pdo, $user, $conversation, $conversationId);
-        redirect('chat&id=' . $conversationId);
+        redirect($user['role'] === 'admin'
+            ? 'admin_chat&id=' . $conversationId
+            : 'chat&id=' . $conversationId);
     }
 }

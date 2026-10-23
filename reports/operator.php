@@ -18,7 +18,7 @@ $propertyActivity = rows(
     <div><span class="eyebrow">LAPORAN PROPERTI</span><h2>Performa properti</h2><p>Pantau hasil pencarian dan kunjungan pada properti yang Anda kelola.</p></div>
 </section>
 <section class="panel">
-    <div class="panel-heading"><div><h2>Pencarian dan pengunjung per kos</h2><p>Jumlah pengunjung unik dihitung dari aktivitas melihat kos atau kamar.</p></div><a class="text-link" href="index.php?page=activity_log">Buka log aktivitas →</a></div>
+    <div class="panel-heading"><div><h2>Pencarian dan pengunjung per kos</h2><p>Jumlah pengunjung unik dihitung dari aktivitas melihat kos atau kamar.</p></div><a class="text-link" href="index.php?page=activity">Buka aktivitas →</a></div>
     <div class="table-scroll">
         <table><thead><tr><th>Nama kos</th><th>Hasil pencarian</th><th>Dilihat</th><th>Kamar dilihat</th><th>Pengunjung unik</th></tr></thead>
             <tbody>

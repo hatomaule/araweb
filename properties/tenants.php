@@ -40,7 +40,8 @@ $tenantParameters = $user['role'] === 'owner'
     : [];
 $list = rows(
     $pdo,
-    "SELECT t.*,u.id AS account_user_id,u.status AS account_status,u.last_seen_at AS account_last_seen_at,
+    "SELECT t.*,u.id AS account_user_id,u.username AS account_username,
+     u.status AS account_status,u.last_seen_at AS account_last_seen_at,
      u.gender,u.profile_photo_path,u.avatar_key,
      (SELECT COUNT(*) FROM rentals r
       WHERE r.tenant_id=t.id AND r.status='active'
@@ -103,12 +104,12 @@ $availableRooms = $user['role'] === 'owner'
 </div>
 <div class="panel">
     <div class="table-scroll">
-        <table data-building-filter>
+        <table class="tenant-list-table" data-building-filter>
             <thead>
                 <tr>
-                    <th><?= $user['role'] === 'owner' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
+                    <th data-card-label=""><?= $user['role'] === 'owner' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
                     <th>Sewa aktif</th><th>Status</th><th>Aksi</th>
-                    <?php if ($user['role'] === 'owner'): ?><th>Aktivitas akun</th><th>Akun pengguna</th><?php endif; ?>
+                    <?php if ($user['role'] === 'owner'): ?><th>Aktivitas akun</th><th data-card-label="">Akun pengguna</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -118,20 +119,39 @@ $availableRooms = $user['role'] === 'owner'
                         data-building-map="<?= e(json_encode($rowBuildings, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>"
                         data-building-label="<?= e($row['active_building_name'] ?: 'Belum tercatat sebagai penghuni aktif') ?>">
                         <td>
-                            <?php if ($user['role'] === 'owner' && $row['account_user_id']): ?>
-                                <a class="tenant-avatar-link" href="index.php?page=tenant_profile&amp;id=<?= (int) $row['account_user_id'] ?>">
+                            <?php if ($row['account_user_id']): ?>
+                                <a class="tenant-avatar-link" href="index.php?page=<?= $user['role'] === 'owner' ? 'tenant_profile' : 'platform_user_profile' ?>&amp;id=<?= (int) $row['account_user_id'] ?>">
                                     <?= avatar_markup([
                                         'name' => $row['full_name'],
                                         'gender' => $row['gender'] ?? null,
                                         'profile_photo_path' => $row['profile_photo_path'] ?? null,
                                         'avatar_key' => $row['avatar_key'] ?? null,
-                                    ], 'profile-avatar small') ?>
+                                    ], 'profile-avatar tenant-list-avatar') ?>
                                     <strong><?= e($row['full_name']) ?></strong>
                                 </a>
                             <?php else: ?>
                                 <strong><?= e($row['full_name']) ?></strong>
                             <?php endif; ?>
                             <small class="subline"><?= e($row['email'] ?: '—') ?></small>
+                            <?php if ($row['account_user_id']): ?>
+                                <small class="subline tenant-inline-account">
+                                    ID-<?= str_pad((string) $row['account_user_id'], 6, '0', STR_PAD_LEFT) ?>
+                                    <?= $row['account_username'] ? ' · @' . e($row['account_username']) : '' ?>
+                                </small>
+                            <?php endif; ?>
+                            <div class="tenant-card-profile">
+                                <?= avatar_markup([
+                                    'name' => $row['full_name'],
+                                    'gender' => $row['gender'] ?? null,
+                                    'profile_photo_path' => $row['profile_photo_path'] ?? null,
+                                    'avatar_key' => $row['avatar_key'] ?? null,
+                                ], 'profile-avatar tenant-list-avatar') ?>
+                                <div><strong><?= e($row['full_name']) ?></strong>
+                                    <small>ID: <?= $row['account_user_id'] ? 'ID-' . str_pad((string) $row['account_user_id'], 6, '0', STR_PAD_LEFT) : '—' ?></small>
+                                    <small>User: <?= $row['account_username'] ? '@' . e($row['account_username']) : '—' ?></small>
+                                    <small>Email: <?= e($row['email'] ?: '—') ?></small>
+                                </div>
+                            </div>
                         </td>
                         <td><?= $row['account_user_id'] ? 'ID-' . str_pad((string) $row['account_user_id'], 6, '0', STR_PAD_LEFT) : '—' ?></td>
                         <td><?= e($row['phone']) ?></td>
@@ -149,6 +169,10 @@ $availableRooms = $user['role'] === 'owner'
                                 </form>
                             <?php endif; ?>
                             <a class="button secondary compact-button" href="index.php?page=tenant_payments&amp;id=<?= (int) $row['id'] ?>">Histori</a>
+                            <?php if ($user['role'] === 'owner' && ($tenantWhatsappUrl = whatsapp_url(
+                                (string) $row['phone'],
+                                'Halo ' . $row['full_name'] . ', saya pengelola kos ingin menghubungi Anda terkait hunian.'
+                            ))): ?><a class="button secondary compact-button" href="<?= e($tenantWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">WhatsApp</a><?php endif; ?>
                         </td>
                         <?php if ($user['role'] === 'owner'): ?>
                             <td><?= $row['account_user_id'] && $row['account_last_seen_at']

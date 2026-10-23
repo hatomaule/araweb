@@ -377,7 +377,7 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
 - Migrasi fitur lanjutan terpisah dari implementasi kode:
   `migration_integrated_property_account_features.sql`,
   `migration_notifications.sql`, `migration_chat.sql`,
-  `migration_chat_support_admin.sql`, lalu
+  `migration_chat_support_admin.sql`, `migration_chat_inbox_visibility.sql`, lalu
   `migration_activity_log_and_web_push.sql`.
   Jalankan hanya migrasi yang terbukti belum diterapkan, sekali, setelah backup
   yang dapat dipulihkan dan hanya dengan akun database berhak DDL. Migrasi
@@ -513,10 +513,11 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   tanpa identitas login. Ini bukan jaminan semua error runtime tercatat:
   kegagalan sebelum koneksi database/logging tersedia hanya masuk ke error log
   server, dan error eksternal yang tidak tertangkap perlu ditautkan eksplisit.
-- Operator visitor log dipindah ke halaman Log Aktivitas dan ulasan berada di
-  halaman Ulasan. User dapat melihat ulasan miliknya; Admin dapat melihat
-  ulasan platform. Dashboard laporan Admin kini memiliki route terkelompok
-  untuk transaksi, aktivitas, jumlah User/kos, dan error.
+- Halaman Aktivitas dan Log menggunakan satu database bersama dengan query
+  yang dibatasi role/akun. Log audit berada di route `activity_log`; data
+  pencarian/kunjungan berasal dari `property_activity_events` dan tidak ikut
+  terhapus saat Admin membersihkan `activity_logs`. Status listing dicatat
+  dalam Log Admin saja.
 - Laporan Admin saat ini ringkasan: transaksi menghitung row `payments`,
   aktivitas/error menghitung row `activity_logs`, dan jumlah User/kos
   menampilkan metrik agregat. Tautan mengarah ke ringkasan/dashboard atau log;
@@ -642,27 +643,137 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   `index.php?page=chat&support=1`. `chat/form.php` memastikan percakapan bantuan
   akun tersebut terbuka, lalu memakai alur kirim pesan dan notifikasi Admin
   yang sama seperti chat widget. Jangan membuat tabel/jenis percakapan baru.
-- Form pencarian publik menampilkan input dan tombol Cari; filter jenis kos dan
-  aksi Terdekat berada pada popup yang terbuka saat form menerima fokus. Filter
-  menggunakan parameter `gender_policy`, `latitude`, dan `longitude` yang
-  sudah ada; jangan menghapus dukungan geolokasi.
+- Form pencarian publik hanya memiliki satu kolom pencarian; popup terbuka
+  ketika kolom dipilih dan memuat filter jenis kos, destinasi populer, serta
+  aksi Dekat saya. Gunakan parameter `gender_policy`, `latitude`, dan
+  `longitude`; lokasi browser hanya diminta setelah pengguna memilih Dekat saya.
 - Beranda User tidak lagi menyisipkan ringkasan akun atau pencarian terakhir.
   Dashboard User adalah route `user_reports`, diakses dari sidebar User, dan
-  seluruh query dibatasi ke ID akun aktif. Dashboard merangkum tagihan dan
-  pembayaran per tagihan dalam satu tabel dengan filter gedung serta tampilan
-  tabel/kartu generik. Riwayat transaksi terperinci tetap di `my_payments`.
+  seluruh query dibatasi ke ID akun aktif. Ringkasan berada di Dashboard;
+  tabel tagihan dipindahkan ke `my_payments` bersama riwayat transaksi.
 - `payments/my_history.php` menyajikan semua pembayaran dalam satu tabel dengan
   nama kos/kamar dan filter gedung. Gunakan atribut `data-building-filter`
   karena `app.js` menyediakan pencarian, paginasi 5 baris awal, dan pilihan
   tabel/kartu untuk tabel tersebut.
 - Dashboard Owner tidak menyertakan tabel laporan performa atau baris log.
-  Rincian log ada pada route `activity_log`; dashboard menampilkan grafik
-  pemasukan terkonfirmasi dan grafik aktivitas per kos. Nilai pembayaran
-  pending serta tunggakan bukan bagian dari total pemasukan terkonfirmasi.
+  Dashboard menampilkan kartu statistik dan grafik batang horizontal dengan
+  angka transaksi/pemasukan tetap terlihat. Kartu chart bagian luar transparan,
+  sedangkan kotak data internal tetap terlihat. Detail statistik berada pada
+  `activity`; log audit berada pada `activity_log`. Nilai pending dan tunggakan
+  bukan bagian dari total pemasukan terkonfirmasi.
+- Status folder chat bersifat personal per akun: Kotak Masuk, Arsip, dan
+  Sampah. Arsip/Hapus hanya memindahkan salinan pengguna tanpa konfirmasi;
+  hapus permanen tersedia lewat pengosongan Sampah dengan konfirmasi. Setelah
+  30 hari di Sampah, status menjadi `purged`. Event harian dan fallback pada
+  request Chat menghapus percakapan fisik hanya setelah seluruh peserta dan
+  seluruh status personal yang tercatat telah dihapus permanen. Terapkan
+  `migration_chat_personal_folders.sql` setelah `migration_chat_inbox_visibility.sql`
+  dan aktifkan `event_scheduler`; jangan menjalankan migrasi otomatis.
+  Tekan Enter untuk mengirim pesan, Shift+Enter untuk baris baru. Draft widget
+  disimpan per ID percakapan.
+- Rekening bank pelanggan dibaca dari `bank_transfer_settings` agar data lama
+  dan petunjuk transfer per gedung tetap kompatibel. Katalog
+  `owner_bank_accounts` menyimpan detail rekening yang dapat digunakan bersama
+  oleh beberapa gedung milik Owner; perubahan detail disinkronkan ke semua
+  pengaturan yang mereferensikan rekening, sedangkan petunjuk transfer tetap
+  per gedung. `migration_shared_owner_bank_accounts.sql` harus diterapkan
+  setelah backup; jangan jalankan migrasi otomatis.
+- Sidebar memakai warna hangat/olive dari palet halaman publik. Header panel
+  desktop dipendekkan dan header mobile memakai baris terpisah agar judul tidak
+  bertumpuk dengan tombol. Label Kelola akun berada di atas tiga aksi saat
+  tabel akun menggunakan tampilan kartu.
+- Role Admin hanya memiliki satu link Dashboard; Verifikasi adalah menu
+  tersendiri. Tabel manajemen tidak menampilkan filter wilayah. Pencarian
+  tabel generik berjalan pada event `input`.
 - Modal autentikasi hanya ditutup oleh klik backdrop yang dimulai dan berakhir
   di backdrop. Interaksi pointer yang dimulai pada input/dialog tidak boleh
   menutup modal, agar pemilihan atau pengeditan password tetap aman.
-- Setelah mengubah `app.js`/`style.css`, perbarui cache-buster `20261019-16`
+- Setelah mengubah `app.js`/`style.css`, perbarui cache-buster `20261019-19`
   pada halaman publik/panel. Validasi semua file PHP yang berubah dengan
   `php -l`, pemeriksaan JavaScript bila runtime tersedia, dan uji route bila
   database lokal lolos prasyarat skema. Jangan jalankan migrasi database.
+
+## Handoff sesi 2026-10-19 — UI terpadu dan folder Chat
+
+- Implementasi permintaan UI gabungan ada di worktree, belum di-commit.
+  Perubahan mencakup pilihan Tabel/Kartu Gedung, kartu akun/penghuni,
+  penggabungan booking dan konfirmasi pembayaran, penghapusan Log sesuai filter,
+  pemadatan toolbar/tabel/tombol serta layout, dan palet/sidebar responsif.
+  File implementasi utama: `properties/buildings.php`,
+  `properties/tenants.php`, `admin/accounts.php`, `bookings/operator_list.php`,
+  `reports/activity_log.php`, `core/activity_log.php`, `admin/act.php`,
+  `app.js`, `style.css`, `index.php`, `payments/act.php`, dan
+  `payments/form.php`. Periksa `git status` sebelum mengubah atau men-stage
+  apa pun: worktree berisi perubahan lain dan file upload lokal yang tidak
+  boleh dihapus/revert atau ikut commit tanpa permintaan.
+- Chat kini memiliki folder personal Kotak Masuk/Arsip/Sampah untuk semua role.
+  Arsip dan Hapus memindahkan salinan akun tanpa konfirmasi; pengosongan Sampah
+  minta konfirmasi. Sampah kedaluwarsa 30 hari. Filter Chat Admin langsung
+  submit saat mengetik/mengubah pilihan. Styles Chat, cache-buster frontend,
+  README, dan catatan handoff ikut diperbarui.
+- **Status migrasi sudah terverifikasi aktif pada 2026-10-19.** Tabel
+  `chat_conversation_user_state` ada; pengguna menjalankan SQL pembuatan event
+  melalui MariaDB admin. Output `SHOW EVENTS` yang diberikan pengguna
+  menunjukkan `chat_purge_expired_trash_event` berstatus `ENABLED`, mulai
+  2026-10-20 22:55:56 dan berulang harian. Pemeriksaan koneksi aplikasi
+  menunjukkan `@@event_scheduler=ON`; root lokal merespons HTTP 200.
+  Jangan jalankan ulang `migration_chat_personal_folders.sql` atau membuat
+  event duplikat. Catatan sebelumnya bahwa event belum ada sudah digantikan
+  status ini. Scheduler global ON belum dibuktikan bertahan setelah MariaDB
+  restart; jika dibutuhkan, pengguna perlu mengaktifkannya permanen pada
+  konfigurasi MariaDB.
+- Pembersihan fisik hanya dilakukan bila semua state pengguna yang tercatat
+  sudah `purged`; percakapan tidak ikut dihapus selagi ada salinan user lain
+  yang belum dibersihkan. Event berlaku untuk entri Trash yang mencapai 30
+  hari; pengosongan manual tetap tersedia. Jangan melakukan uji destruktif
+  terhadap data percakapan database.
+- Validasi selesai: `php -l` untuk semua file PHP berubah dan
+  `git -c core.whitespace=cr-at-eol diff --check` lulus. Browser menerima
+  sintaks `app.js`; uji filter Chat Admin mengonfirmasi satu submit untuk
+  perubahan input dan satu untuk pilihan select; stylesheet Chat berhasil
+  dimuat. Homepage menghasilkan HTTP 200 setelah perubahan skema.
+  Pemeriksaan halaman terautentikasi/visual per role dan alur chat terhadap
+  database belum dilakukan. Node.js tidak tersedia; validasi sintaks JS
+  memakai browser.
+- README kini menjelaskan migrasi folder Chat, expiry/event scheduler,
+  penggabungan daftar booking/pembayaran dan perubahan UI. Pertahankan cache
+  asset `koskosan-ui-20261019-19` kecuali dinaikkan saat mengubah CSS/JS.
+- Besok, lanjutkan dengan meninjau perubahan dari `git status` dan menguji
+  route yang sudah login untuk Admin, Owner, dan User serta folder Chat
+  (Arsip, Sampah, restore, empty trash) tanpa menghapus data sungguhan.
+  Jangan jalankan migration ulang. Jika UI berjalan, verifikasi tampilan ponsel
+  dan alur booking/pembayaran/log; pertahankan semua file upload dan perubahan
+  lokal yang tidak berkaitan.
+
+## Handoff sesi 2026-10-23 — UI, pembayaran, Keuangan, dan WhatsApp
+
+- Permintaan UI dan fitur pengguna telah diimplementasikan: kartu kamar lebih
+  ringkas dengan carousel dan satu kolom kelompok tipe; selector Kartu/Tabel
+  diratakan ke kanan; kartu penghuni menempatkan foto di kiri dan ID, username,
+  serta email di kanan; kartu booking/penghuni dipersempit; filter Log, Chat
+  Admin, dan Keuangan diterapkan otomatis. Filter galeri dan pemilih gedung
+  yang sudah langsung submit dipertahankan.
+- Riwayat pembayaran menyediakan struk transaksi terkonfirmasi, cetak/simpan
+  PDF melalui dialog browser, serta tautan email/WhatsApp. Email membuka
+  aplikasi email dan meminta pengguna melampirkan PDF; WhatsApp membuka chat
+  berisi ringkasan transaksi, bukan mengirim lampiran otomatis.
+- Menu Keuangan Owner menampilkan pembayaran terkonfirmasi, sisa tagihan,
+  pengeluaran rutin/lainnya, dan filter periode. Sebelum dipakai, backup lalu
+  jalankan `migration_owner_finances.sql` satu kali. Migrasi ini belum
+  diterapkan pada database.
+- Tautan WhatsApp memakai `wa.me` untuk membuka aplikasi atau WhatsApp Web.
+  Penautan sesi/QR login, WhatsApp Web tidak resmi, Cloud API, dan pengiriman
+  pesan otomatis sengaja tidak dibuat.
+- Chat menampilkan avatar bulat dan popup profil ringkas; halaman profil chat
+  hanya memaparkan nama, ID, username, dan email, tanpa nomor telepon/alamat.
+  Aksi Arsip/Hapus berada di sisi kanan daftar chat. Tema biru dan tipografi
+  diperbarui. README menjelaskan perilaku WhatsApp dan struk.
+- Validasi pada sesi ini: `php -l` lulus untuk seluruh berkas PHP yang
+  disentuh; helper WhatsApp diuji untuk normalisasi nomor dan input invalid;
+  `git -c core.whitespace=cr-at-eol diff --check` lulus. Node.js tidak
+  tersedia dan uji visual/browser serta end-to-end database belum dilakukan.
+- Perubahan implementasi belum diverifikasi dengan migrasi/database lokal.
+  Pertahankan file upload lokal, hapusan upload yang telah ada, serta file
+  sementara/bernama tidak biasa yang tidak terkait; jangan ikut commit sebagai
+  kode fitur. Periksa status Git setelah commit/push untuk memastikan hanya
+  commit yang dimaksud yang terkirim.

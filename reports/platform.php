@@ -39,15 +39,6 @@ $monthRows = rows(
         ) months
      ) calendar ORDER BY month_start"
 );
-$latestActivity = rows(
-    $pdo,
-    "SELECT ae.event_type,ae.search_query,ae.occurred_at,b.name AS building_name,
-            u.name AS visitor_name
-     FROM property_activity_events ae
-     LEFT JOIN kos_buildings b ON b.id=ae.building_id
-     LEFT JOIN users u ON u.id=ae.user_id
-     ORDER BY ae.occurred_at DESC LIMIT 30"
-);
 $platformCards = [
     ['Owner', $platformMetrics['operators'], '♙', 'purple', '?page=platform_operator_accounts'],
     ['Booking tercatat', $platformMetrics['bookings'], '▣', 'purple', '?page=platform_dashboard#platform-booking-activity'],
@@ -67,7 +58,7 @@ $platformCards = [
 <?php endforeach; ?>
 </div>
 <section class="panel" id="platform-booking-activity">
-    <div class="panel-heading"><div><h2>Aktivitas 12 bulan terakhir</h2><p>Grafik bulanan untuk booking, hasil pencarian, dan pengunjung unik.</p></div></div>
+    <div class="panel-heading"><div><h2>Aktivitas 12 bulan terakhir</h2><p>Grafik bulanan untuk booking, hasil pencarian, dan pengunjung unik.</p></div><a class="text-link" href="index.php?page=activity">Lihat aktivitas →</a></div>
     <div style="display:grid;grid-template-columns:repeat(12,minmax(34px,1fr));gap:8px;align-items:end;min-height:240px;padding:12px 8px 0;overflow-x:auto">
     <?php foreach ($monthRows as $monthRow):
         $peak = max(1, ...array_map(static fn(array $row): int => max((int) $row['bookings'], (int) $row['searches'], (int) $row['visitors']), $monthRows));
@@ -84,9 +75,3 @@ $platformCards = [
     </div>
     <p class="muted">■ Booking &nbsp; <span style="color:#3185d6">■</span> Pencarian &nbsp; <span style="color:#36a579">■</span> Pengunjung</p>
 </section>
-<section class="panel"><div class="panel-heading"><div><h2>Aktivitas terbaru</h2><p>Aktivitas publik dicatat tanpa menyimpan alamat IP.</p></div></div><div class="table-scroll"><table><thead><tr><th>Waktu</th><th>Aktivitas</th><th>Kos</th><th>Pengunjung</th><th>Kata pencarian</th></tr></thead><tbody>
-<?php foreach ($latestActivity as $activity): ?>
-<tr><td><?= e(date_id($activity['occurred_at'])) ?></td><td><?= e(['visit'=>'Kunjungan','property_view'=>'Melihat kos','room_view'=>'Melihat kamar','search_result'=>'Hasil pencarian'][$activity['event_type']] ?? $activity['event_type']) ?></td><td><?= e($activity['building_name'] ?: '—') ?></td><td><?= e($activity['visitor_name'] ?: 'Anonim') ?></td><td><?= e($activity['search_query'] ?: '—') ?></td></tr>
-<?php endforeach; ?>
-<?php if (!$latestActivity): ?><tr><td colspan="5" class="no-data">Belum ada aktivitas tercatat.</td></tr><?php endif; ?>
-</tbody></table></div></section>

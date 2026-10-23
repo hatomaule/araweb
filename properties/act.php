@@ -511,6 +511,9 @@ if ($action === 'save_building') {
                 set_flash('error', 'Anda hanya dapat mengelola kos milik akun Anda.');
                 redirect('buildings');
             }
+            $previousBuilding = $id > 0
+                ? one($pdo, 'SELECT status FROM kos_buildings WHERE id=:id', ['id' => $id])
+                : null;
             $status = $user['role'] === 'admin' ? (post_value('status') ?: 'active') : 'active';
             if (!in_array($status, ['active', 'inactive'], true)) {
                 set_flash('error', 'Status gedung tidak valid.');
@@ -602,6 +605,20 @@ if ($action === 'save_building') {
                 }
                 throw $exception;
             }
+            if (!$previousBuilding || $previousBuilding['status'] !== $status) {
+                activity_log_record(
+                    $pdo,
+                    $user,
+                    'business',
+                    $status === 'active' ? 'property_listing_published' : 'property_listing_hidden',
+                    $name . ($status === 'active' ? ' ditampilkan pada pencarian pengguna.' : ' disembunyikan dari pencarian pengguna.'),
+                    'success',
+                    'buildings',
+                    'property',
+                    $id,
+                    $id
+                );
+            }
             set_flash('success', $photos
                 ? count($photos) . ' foto galeri berhasil disimpan bersama perubahan gedung.'
                 : 'Data gedung berhasil disimpan.');
@@ -623,8 +640,23 @@ if ($action === 'save_building') {
                 set_flash('error', 'Status gedung tidak valid.');
                 redirect('buildings');
             }
+            $previousStatus = one($pdo, 'SELECT name,status FROM kos_buildings WHERE id=:id', ['id' => $buildingId]);
             $building = $pdo->prepare('UPDATE kos_buildings SET status=:status WHERE id=:id');
             $building->execute(['status' => $status, 'id' => $buildingId]);
+            if ($previousStatus && $previousStatus['status'] !== $status) {
+                activity_log_record(
+                    $pdo,
+                    $user,
+                    'business',
+                    $status === 'active' ? 'property_listing_published' : 'property_listing_hidden',
+                    $previousStatus['name'] . ($status === 'active' ? ' ditampilkan pada pencarian pengguna.' : ' disembunyikan dari pencarian pengguna.'),
+                    'success',
+                    'buildings',
+                    'property',
+                    $buildingId,
+                    $buildingId
+                );
+            }
             set_flash('success', 'Status gedung diperbarui.');
             redirect('buildings');
         }

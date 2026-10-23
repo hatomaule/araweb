@@ -18,6 +18,20 @@ function handle_admin_action(PDO $pdo, array $user, string $action): void
         return;
     }
 
+    if ($action === 'delete_activity_logs') {
+        if (post_value('confirm_delete_logs') !== 'yes') {
+            set_flash('error', 'Konfirmasi penghapusan log wajib diberikan.');
+            redirect('activity_log');
+        }
+        [$where, $params] = activity_log_filter_query($_POST, $user);
+        $delete = $pdo->prepare("DELETE al FROM activity_logs al {$where}");
+        $delete->execute($params);
+        set_flash('success', number_format($delete->rowCount(), 0, ',', '.')
+            . ' log audit dihapus. Statistik pencarian dan kunjungan tetap tersimpan.');
+        $filterQuery = http_build_query(array_intersect_key($_POST, array_flip(['role', 'actor_id', 'category', 'outcome', 'q'])));
+        redirect('activity_log' . ($filterQuery !== '' ? '&' . $filterQuery : ''));
+    }
+
     if ($action === 'admin_reset_account_password') {
         $targetId = (int) post_value('user_id');
         $newPassword = post_value('new_password');

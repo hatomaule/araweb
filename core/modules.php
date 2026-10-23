@@ -32,10 +32,12 @@ const PAGE_MODULES = [
     'platform_reports' => 'reports',
     'operator_reports' => 'reports',
     'user_reports' => 'reports',
+    'activity' => 'reports',
     'activity_log' => 'reports',
     'reviews' => 'reviews',
     'chat' => 'chat',
     'admin_chat' => 'chat',
+    'chat_profile' => 'chat',
     'notifications' => 'notifications',
     'dashboard' => 'properties',
     'buildings' => 'properties',
@@ -55,11 +57,13 @@ const PAGE_MODULES = [
     'invoice_form' => 'payments',
     'operator_payment' => 'payments',
     'payments' => 'payments',
+    'payment_receipt' => 'payments',
     'payment_confirmations' => 'payments',
     'bank_settings' => 'payments',
     'payment_proof' => 'payments',
     'my_payments' => 'payments',
     'tenant_payments' => 'payments',
+    'finance' => 'finance',
 ];
 
 function page_module(string $page): string

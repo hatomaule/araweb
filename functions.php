@@ -16,12 +16,37 @@ function theme_switcher(): string
         . '</div></details>';
 }
 
+function whatsapp_url(string $phone, string $message = ''): ?string
+{
+    $number = preg_replace('/\D+/', '', $phone);
+    if (!is_string($number) || $number === '') {
+        return null;
+    }
+    if (str_starts_with($number, '0')) {
+        $number = '62' . substr($number, 1);
+    } elseif (str_starts_with($number, '8')) {
+        $number = '62' . $number;
+    }
+    if (strlen($number) < 8 || strlen($number) > 15) {
+        return null;
+    }
+
+    return 'https://wa.me/' . $number
+        . ($message !== '' ? '?text=' . rawurlencode($message) : '');
+}
+
+function site_contact_whatsapp_url(string $message = ''): ?string
+{
+    return whatsapp_url('081342122105', $message);
+}
+
 function avatar_markup(array $user, string $class = 'profile-avatar'): string
 {
     $photo = $user['profile_photo_path'] ?? null;
     if ($photo) {
         return '<img class="' . e($class) . ' has-photo" src="' . e($photo) . '" alt="">';
     }
+
     $gender = $user['gender'] ?? null;
     if (in_array($gender, ['male', 'female'], true)) {
         $label = $gender === 'male' ? 'Avatar pria' : 'Avatar wanita';

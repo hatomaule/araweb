@@ -21,7 +21,7 @@ $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wal
     </div>
     <div class="table-scroll">
         <table>
-            <thead><tr><th>Tanggal</th><th>Tagihan</th><th>Pembayar / kos / kamar</th><th>Metode</th><th>Nominal</th><th>Status</th></tr></thead>
+            <thead><tr><th>Tanggal</th><th>Tagihan</th><th>Pembayar / kos / kamar</th><th>Metode</th><th>Nominal</th><th>Status</th><th>Struk</th></tr></thead>
             <tbody>
                 <?php foreach ($payments as $payment): ?>
                     <tr>
@@ -33,9 +33,10 @@ $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wal
                         <td><?= e($paymentMethods[$payment['payment_method']] ?? $payment['payment_method']) ?></td>
                         <td><?= e(money($payment['amount'])) ?></td>
                         <td><span class="badge <?= e($payment['status']) ?>"><?= e(status_label($payment['status'])) ?></span></td>
+                        <td><?php if ($payment['status'] === 'confirmed'): ?><a class="button secondary compact-button" href="index.php?page=payment_receipt&amp;id=<?= (int) $payment['id'] ?>">Lihat struk</a><?php else: ?>—<?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
-                <?php if (!$payments): ?><tr><td colspan="6" class="no-data">Belum ada histori pembayaran.</td></tr><?php endif; ?>
+                <?php if (!$payments): ?><tr><td colspan="7" class="no-data">Belum ada histori pembayaran.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>
