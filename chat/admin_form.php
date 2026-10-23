@@ -33,7 +33,7 @@ $chatQuery = http_build_query(array_filter([
             <label class="field"><span>Jenis percakapan</span><select name="type">
                 <option value="all" <?= $filterType === 'all' ? 'selected' : '' ?>>Semua chat</option>
                 <option value="support" <?= $filterType === 'support' ? 'selected' : '' ?>>Bantuan admin</option>
-                <option value="property" <?= $filterType === 'property' ? 'selected' : '' ?>>User dan operator</option>
+                <option value="property" <?= $filterType === 'property' ? 'selected' : '' ?>>User dan Owner</option>
             </select></label>
             <label class="field"><span>Status</span><select name="status">
                 <option value="active" <?= $filterStatus === 'active' ? 'selected' : '' ?>>Aktif</option>
@@ -51,7 +51,7 @@ $chatQuery = http_build_query(array_filter([
                     : ($conversation['seeker_name'] ?: 'Pengguna') . ' · ' . ($conversation['building_name'] ?: 'Kos');
                 $subtitle = $isSupport
                     ? ucfirst((string) ($conversation['requester_role'] ?: 'user')) . ' · Bantuan admin'
-                    : 'User ↔ operator';
+                    : 'User ↔ Owner';
                 ?>
                 <div class="chat-conversation-entry">
                     <a class="chat-conversation-link <?= (int) $conversation['id'] === $conversationId ? 'active' : '' ?>"
@@ -118,7 +118,7 @@ $chatQuery = http_build_query(array_filter([
                     <div><h2><?= e($threadTitle) ?></h2>
                     <small><?= e($isSupport
                         ? ucfirst((string) ($activeConversation['requester_role'] ?: 'user')) . ' · Bantuan admin'
-                        : 'Percakapan privat User dan operator' . ($activeConversation['room_number'] ? ' · Kamar ' . $activeConversation['room_number'] : '')) ?></small></div>
+                        : 'Percakapan privat User dan Owner' . ($activeConversation['room_number'] ? ' · Kamar ' . $activeConversation['room_number'] : '')) ?></small></div>
                 </div>
                 <div class="chat-admin-actions">
                     <?php if ($activeConversation['personal_status'] === 'active'): ?>
@@ -146,7 +146,7 @@ $chatQuery = http_build_query(array_filter([
                     <div class="dialog-actions"><button class="button secondary" type="button" data-dialog-close>Tutup</button><a class="button primary" href="index.php?page=chat_profile&amp;conversation_id=<?= $conversationId ?>&amp;status=<?= e($filterStatus) ?>">Lihat profil</a></div>
                 </div>
             </dialog>
-            <?php if (!$isSupport): ?><p class="chat-admin-readonly-note">Chat ini hanya dapat ditinjau admin. Balasan tetap dilakukan oleh User dan operator.</p><?php endif; ?>
+            <?php if (!$isSupport): ?><p class="chat-admin-readonly-note">Chat ini hanya dapat ditinjau admin. Balasan tetap dilakukan oleh User dan Owner.</p><?php endif; ?>
             <?php if ($activeConversation['personal_status'] !== 'active'): ?><p class="chat-admin-readonly-note">Chat ini berada di <?= $activeConversation['personal_status'] === 'trash' ? 'Sampah' : 'Arsip' ?> admin. Status percakapan peserta lain tidak berubah.</p><?php endif; ?>
             <div class="chat-message-list chat-admin-message-list" aria-live="polite">
                 <?php foreach ($messages as $message): ?>

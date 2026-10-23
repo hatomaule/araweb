@@ -759,8 +759,9 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   berisi ringkasan transaksi, bukan mengirim lampiran otomatis.
 - Menu Keuangan Owner menampilkan pembayaran terkonfirmasi, sisa tagihan,
   pengeluaran rutin/lainnya, dan filter periode. Sebelum dipakai, backup lalu
-  jalankan `migration_owner_finances.sql` satu kali. Migrasi ini belum
-  diterapkan pada database.
+  jalankan `migration_owner_finances.sql` satu kali. Pada 2026-10-23 pengguna
+  mengonfirmasi tabel `owner_expense_categories` dan `owner_expenses` sudah
+  tersedia setelah migrasi dijalankan dengan hak admin MariaDB.
 - Tautan WhatsApp memakai `wa.me` untuk membuka aplikasi atau WhatsApp Web.
   Penautan sesi/QR login, WhatsApp Web tidak resmi, Cloud API, dan pengiriman
   pesan otomatis sengaja tidak dibuat.
@@ -780,3 +781,14 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   juga tidak dilanjutkan karena verifikasi host GitHub belum tersedia.
   Setelah autentikasi Git diatur dengan aman, push commit lokal ke `origin/main`
   lalu pastikan branch remote memuat commit tersebut.
+- Tindak lanjut setelah commit: kartu penghuni Owner kini memakai lebar penuh
+  untuk baris aksi agar tombol merata dan label Reset password/Pindahkan/
+  Keluarkan tidak terpecah; panel daftar akun Admin memakai pola serupa. Teks
+  chat Admin User–Owner menggantikan User–operator. Teks panduan dan demo
+  diperbarui ke Owner untuk sebutan peran; identifier route, kolom, dan nilai
+  migrasi lama yang bernama `operator` sengaja dipertahankan agar kompatibel.
+  Cache asset untuk panel, publik, dan autentikasi dinaikkan ke
+  `koskosan-ui-20261023-2`. Perubahan tindak lanjut ini akan dicatat dalam
+  commit terpisah; akses GitHub saat ini masih gagal autentikasi saat push.
+  Pengguna mengirim pesan bernomor “3” tanpa uraian; minta rincian sebelum
+  menambahkan perubahan lain.

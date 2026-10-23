@@ -533,7 +533,7 @@ if ($action === 'save_operator_payment') {
                           status,notes,created_by,booking_status)
                          VALUES (:tenant_id,:room_id,CURDATE(),:rate,:billing_day,
                           DATE_ADD(CURDATE(),INTERVAL 1 MONTH),'active',
-                          'Hunian dibuat melalui input pembayaran operator.',:operator_id,'not_applicable')"
+                          'Hunian dibuat melalui input pembayaran Owner.',:operator_id,'not_applicable')"
                     );
                     $rental->execute([
                         'tenant_id' => $tenantId, 'room_id' => $roomId,

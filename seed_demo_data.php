@@ -142,7 +142,7 @@ try {
             'owner_id' => $operatorId,
             'name' => $operator['kos'],
             'address' => 'Gambesi, Ternate Selatan, Kota Ternate, Maluku Utara',
-            'description' => 'Listing contoh KosKosan di sekitar Tiara Kost. Foto properti dapat dilengkapi operator.',
+            'description' => 'Listing contoh KosKosan di sekitar Tiara Kost. Foto properti dapat dilengkapi Owner.',
             'facilities' => 'Area parkir, Wi-Fi bersama, dapur bersama, ruang santai',
             'rules' => 'Jaga kebersihan dan ketenangan bersama.',
             'latitude' => $operator['lat'], 'longitude' => $operator['lon'],
@@ -237,6 +237,6 @@ try {
     throw $exception;
 }
 
-echo "Created 3 demo operators, 3 approved kos, 15 rooms, 9 seeker accounts, 9 active rentals, and 54 paid invoices/payments.\n";
+echo "Created 3 demo owners, 3 approved kos, 15 rooms, 9 seeker accounts, 9 active rentals, and 54 paid invoices/payments.\n";
 echo "Demo password for all demo users: {$demoPassword}\n";
 echo "Use the operator.kenanga/cempaka/lestari@araweb.test accounts to manage each kos.\n";

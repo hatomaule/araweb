@@ -2141,6 +2141,14 @@ html[data-theme="dark"] .receipt-total{background:#263f56;color:#f3f7fb}
     .data-table-card-view table.tenant-list-table tbody,
     .data-table-card-view:not(.building-table-view) table:not(.tenant-list-table) tbody{grid-template-columns:minmax(0,1fr)}
 }
+.data-table-card-view table.tenant-list-table tbody tr:not([data-table-group-heading]) td:last-child,
+.data-table-card-view table.account-management-table tbody tr:not([data-table-group-heading]) td:last-child{grid-template-columns:minmax(0,1fr);gap:8px}
+.data-table-card-view table.tenant-list-table tbody tr:not([data-table-group-heading]) td:last-child::before,
+.data-table-card-view table.account-management-table tbody tr:not([data-table-group-heading]) td:last-child::before{grid-column:1/-1}
+.data-table-card-view .tenant-management-actions,
+.data-table-card-view .account-row-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,80px),1fr));width:100%;min-width:0;gap:6px}
+.data-table-card-view .tenant-management-actions>.button,
+.data-table-card-view .account-row-actions .button{width:100%;min-width:0;padding-inline:3px;font-size:9px;white-space:nowrap;overflow-wrap:normal;word-break:normal}
 .room-carousel-track>.room-vcard,.room-carousel-section-exclusive .room-carousel-track>.room-vcard{flex:0 0 245px;min-width:0}
 .chat-widget-whatsapp{text-decoration:none}
 .chat-widget-whatsapp:hover{background:var(--purple-light)}
