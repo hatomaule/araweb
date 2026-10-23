@@ -773,7 +773,10 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   `git -c core.whitespace=cr-at-eol diff --check` lulus. Node.js tidak
   tersedia dan uji visual/browser serta end-to-end database belum dilakukan.
 - Perubahan implementasi belum diverifikasi dengan migrasi/database lokal.
-  Pertahankan file upload lokal, hapusan upload yang telah ada, serta file
-  sementara/bernama tidak biasa yang tidak terkait; jangan ikut commit sebagai
-  kode fitur. Periksa status Git setelah commit/push untuk memastikan hanya
-  commit yang dimaksud yang terkirim.
+  Commit `97669c4` dibuat di branch `main`, berisi perubahan kode, migrasi, dan
+  dokumentasi; berkas upload serta berkas lokal bernama tidak biasa sengaja
+  tidak dimasukkan. Push ke `origin/main` gagal karena HTTPS Git tidak
+  memperoleh kredensial (`unable to get password from user`). Percobaan SSH
+  juga tidak dilanjutkan karena verifikasi host GitHub belum tersedia.
+  Setelah autentikasi Git diatur dengan aman, push commit lokal ke `origin/main`
+  lalu pastikan branch remote memuat commit tersebut.
