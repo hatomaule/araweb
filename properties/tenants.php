@@ -108,7 +108,7 @@ $availableRooms = $user['role'] === 'owner'
             <thead>
                 <tr>
                     <th data-card-label=""><?= $user['role'] === 'owner' ? 'Penghuni' : 'Pelanggan' ?></th><th>ID</th><th>Telepon</th>
-                    <th>Sewa aktif</th><th>Status</th><th>Aksi</th>
+                    <th>Sewa aktif</th><th>Status</th><th data-card-label="">Kontak</th>
                     <?php if ($user['role'] === 'owner'): ?><th>Aktivitas akun</th><th data-card-label="">Akun pengguna</th><?php endif; ?>
                 </tr>
             </thead>
@@ -168,11 +168,13 @@ $availableRooms = $user['role'] === 'owner'
                                     <button class="text-button" type="submit"><?= $row['status'] === 'active' ? 'Nonaktifkan' : 'Aktifkan' ?></button>
                                 </form>
                             <?php endif; ?>
-                            <a class="button secondary compact-button" href="index.php?page=tenant_payments&amp;id=<?= (int) $row['id'] ?>">Histori</a>
-                            <?php if ($user['role'] === 'owner' && ($tenantWhatsappUrl = whatsapp_url(
-                                (string) $row['phone'],
-                                'Halo ' . $row['full_name'] . ', saya pengelola kos ingin menghubungi Anda terkait hunian.'
-                            ))): ?><a class="button secondary compact-button" href="<?= e($tenantWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">WhatsApp</a><?php endif; ?>
+                            <div class="tenant-contact-actions">
+                                <a class="button secondary compact-button" href="index.php?page=tenant_payments&amp;id=<?= (int) $row['id'] ?>">Histori</a>
+                                <?php if ($user['role'] === 'owner' && ($tenantWhatsappUrl = whatsapp_url(
+                                    (string) $row['phone'],
+                                    'Halo ' . $row['full_name'] . ', saya pengelola kos ingin menghubungi Anda terkait hunian.'
+                                ))): ?><a class="button secondary compact-button" href="<?= e($tenantWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">WhatsApp</a><?php endif; ?>
+                            </div>
                         </td>
                         <?php if ($user['role'] === 'owner'): ?>
                             <td><?= $row['account_user_id'] && $row['account_last_seen_at']

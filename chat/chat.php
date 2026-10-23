@@ -172,28 +172,30 @@ function chat_start_support_conversation(PDO $pdo, array $user): int
         throw new ChatAccessDeniedException('Admins cannot open a support request.');
     }
 
-    $statement = $pdo->prepare(
-        "INSERT INTO chat_conversations
-            (conversation_type, requester_user_id)
-         VALUES ('support', :requester_user_id)
-         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
-    );
-    $statement->execute(['requester_user_id' => $userId]);
-    $conversationId = (int) $pdo->lastInsertId();
-    if ($conversationId < 1) {
-        $find = $pdo->prepare(
-            "SELECT id FROM chat_conversations
-             WHERE conversation_type='support' AND requester_user_id=:requester_user_id"
+    return chat_transaction($pdo, static function () use ($pdo, $userId): int {
+        $statement = $pdo->prepare(
+            "INSERT INTO chat_conversations
+                (conversation_type, requester_user_id)
+             VALUES ('support', :requester_user_id)
+             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
         );
-        $find->execute(['requester_user_id' => $userId]);
-        $conversationId = (int) $find->fetchColumn();
-    }
-    if ($conversationId < 1) {
-        throw new RuntimeException('Unable to open support conversation.');
-    }
-    chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
+        $statement->execute(['requester_user_id' => $userId]);
+        $conversationId = (int) $pdo->lastInsertId();
+        if ($conversationId < 1) {
+            $find = $pdo->prepare(
+                "SELECT id FROM chat_conversations
+                 WHERE conversation_type='support' AND requester_user_id=:requester_user_id"
+            );
+            $find->execute(['requester_user_id' => $userId]);
+            $conversationId = (int) $find->fetchColumn();
+        }
+        if ($conversationId < 1) {
+            throw new RuntimeException('Unable to open support conversation.');
+        }
+        chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
 
-    return $conversationId;
+        return $conversationId;
+    });
 }
 
 function chat_insert_message(PDO $pdo, int $conversationId, int $senderUserId, string $body): int
@@ -454,7 +456,10 @@ function chat_admin_list_conversations(PDO $pdo, string $type, string $status, s
                 c.archived_at, b.name AS building_name, rm.room_number,
                 s.name AS seeker_name, requester.name AS requester_name,
                 requester.email AS requester_email, requester.role AS requester_role,
-                o.name AS operator_name,
+                requester.profile_photo_path AS requester_photo,
+                requester.gender AS requester_gender, requester.avatar_key AS requester_avatar,
+                s.profile_photo_path AS seeker_photo, s.gender AS seeker_gender,
+                s.avatar_key AS seeker_avatar, o.name AS operator_name,
                 COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT m.body FROM chat_messages m WHERE m.conversation_id = c.id
                  ORDER BY m.id DESC LIMIT 1) AS last_message,

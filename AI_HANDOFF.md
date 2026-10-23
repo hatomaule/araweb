@@ -788,7 +788,69 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   diperbarui ke Owner untuk sebutan peran; identifier route, kolom, dan nilai
   migrasi lama yang bernama `operator` sengaja dipertahankan agar kompatibel.
   Cache asset untuk panel, publik, dan autentikasi dinaikkan ke
-  `koskosan-ui-20261023-2`. Perubahan tindak lanjut ini akan dicatat dalam
-  commit terpisah; akses GitHub saat ini masih gagal autentikasi saat push.
+  `koskosan-ui-20261023-2`. Perubahan tindak lanjut disimpan dalam commit
+  `ce789aa`, tetapi push gagal karena autentikasi GitHub belum tersedia.
   Pengguna mengirim pesan bernomor “3” tanpa uraian; minta rincian sebelum
   menambahkan perubahan lain.
+- **Instruksi pengguna 2026-10-23:** jangan mengeksekusi perubahan lanjutan
+  sampai pengguna secara eksplisit mengatakan “gas eksekusi”. Untuk permintaan
+  perubahan berikutnya, catat/bahas dahulu tanpa mengedit implementasi,
+  menjalankan migrasi, commit, atau push sampai izin tersebut diberikan.
+- **Permintaan chat yang sebelumnya ditahan, kini dieksekusi setelah izin
+  “oke gas eksekusi”:**
+  1. Pembukaan percakapan Pusat Bantuan kini satu transaksi sehingga percakapan
+     dan state inbox peminta tidak tersimpan sebagian. Jalur chat yang ada
+     menerima Owner maupun User, notifikasi pesan bantuan diarahkan ke Admin,
+     dan daftar Kelola Chat Admin sudah menampilkan tipe `support` secara
+     default. Laporan chat Owner Sitra Pakat belum dapat direproduksi karena
+     database aplikasi pengguna tidak tersedia di lingkungan ini; data lokal
+     yang diperiksa tidak memuat akun tersebut. Status folder personal Admin
+     tetap dipertahankan.
+  2. Panel chat mengambang diperkecil dari 760px menjadi 680px dan tinggi
+     maksimalnya dari 500px menjadi 480px agar menutupi lebih sedikit halaman,
+     dengan lebar penuh tetap responsif pada ponsel.
+  3. Launcher Chat mempertahankan desain awal, tetapi kini dapat digeser
+     memakai Pointer Events, dijepit ke tepi layar dengan transisi halus, dan
+     dibatasi di viewport. Posisi hanya disimpan di memori halaman dan kembali
+     ke default setelah reload/navigasi.
+  4. Cache asset CSS/JS dinaikkan ke `koskosan-chat-20261023-1`.
+  Validasi yang berhasil: `php -l chat/chat.php`, `php -l index.php`.
+  `node --check app.js` belum dapat dijalankan karena Node.js tidak tersedia.
+  Pemeriksaan browser dan uji database end-to-end masih perlu dilakukan pada
+  lingkungan aplikasi yang aktif.
+- **Instruksi terbaru pengguna (2026-10-23):** untuk perubahan berikutnya,
+  bahas dan catat permintaan saja; jangan mengubah kode, menjalankan migrasi,
+  commit, atau push sampai pengguna kembali memberi instruksi eksplisit
+  “gas eksekusi”. Instruksi ini memperbarui izin eksekusi sebelumnya dan
+  berlaku untuk semua permintaan baru.
+- **Permintaan 10 perubahan UI/chat/keuangan disetujui dan dieksekusi
+  (2026-10-23):**
+  1. Daftar percakapan Admin menampilkan avatar profil yang dapat dibuka di
+     samping nama, dengan aksi Arsipkan/Hapus rata kanan.
+  2. Panel chat widget tetap di tengah viewport pada HP, termasuk setelah
+     launcher digeser. Posisi launcher menggunakan `left/top` sementara, bukan
+     transform pada ancestor panel `position: fixed`.
+  3. Submenu sidebar di HP terbuka menurun di bawah menu induk.
+  4. Popup notifikasi HP dibatasi ukuran dan posisinya ke viewport.
+  5. Kartu penghuni menghilangkan label kolom Kontak/Aksi dan menempatkan
+     WhatsApp serta Histori sejajar.
+  6. Nominal pengeluaran mendukung nilai positif hingga dua angka desimal,
+     termasuk nominal yang bukan kelipatan Rp1.000.
+  7. Form pengeluaran hanya menampilkan field rutin atau jenis manual sesuai
+     pilihan.
+  8. Pengelolaan kategori rutin dipindah ke `finance_settings`; Owner dapat
+     menambah, mengubah, dan menghapus kategori. Riwayat tetap memakai snapshot
+     nama kategori. Kategori awal Listrik, Air, dan Wifi di-seed pada saat Owner
+     mendaftar dan lewat migrasi untuk Owner yang sudah ada.
+  9. Enter mengirim pesan pada form chat, sedangkan Shift+Enter membuat baris
+     baru.
+  10. CSS mobile terkait diatur ulang; cache CSS/JS dinaikkan ke
+      `koskosan-mobile-finance-20261023-1`.
+  Migrasi `migration_owner_expense_category_defaults.sql` berhasil dijalankan
+  pada database `manajemen_kos`; verifikasi menemukan masing-masing kategori
+  awal pada lima akun Owner. `php -l` berhasil untuk berkas PHP yang diubah,
+  `git -c core.whitespace=cr-at-eol diff --check` bersih, dan nilai pengeluaran
+  200000 serta 200000.50 lolos validasi. Browser pada viewport 390px tidak
+  menunjukkan overflow horizontal pada halaman publik. Uji browser penuh untuk
+  interaksi autentikasi/chat/keuangan belum dilakukan. Perubahan lokal dan
+  uploads yang tidak terkait dikecualikan dari commit.

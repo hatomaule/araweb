@@ -179,7 +179,9 @@ if ($action === 'setup') {
                     'password_hash' => password_hash($password, PASSWORD_DEFAULT),
                 ]);
                 $userId = (int) $pdo->lastInsertId();
-                if ($role === 'seeker') {
+                if ($role === 'owner') {
+                    seed_default_owner_expense_categories($pdo, $userId);
+                } else {
                     $tenant = $pdo->prepare(
                         'INSERT INTO tenants (user_id, full_name, phone, email) VALUES (:user_id, :full_name, :phone, :email)'
                     );

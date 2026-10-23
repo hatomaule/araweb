@@ -52,11 +52,29 @@ $chatQuery = http_build_query(array_filter([
                 $subtitle = $isSupport
                     ? ucfirst((string) ($conversation['requester_role'] ?: 'user')) . ' · Bantuan admin'
                     : 'User ↔ Owner';
+                $listProfile = $isSupport
+                    ? [
+                        'id' => $conversation['requester_user_id'],
+                        'name' => $conversation['requester_name'],
+                        'profile_photo_path' => $conversation['requester_photo'],
+                        'gender' => $conversation['requester_gender'],
+                        'avatar_key' => $conversation['requester_avatar'],
+                    ]
+                    : [
+                        'id' => $conversation['seeker_user_id'],
+                        'name' => $conversation['seeker_name'],
+                        'profile_photo_path' => $conversation['seeker_photo'],
+                        'gender' => $conversation['seeker_gender'],
+                        'avatar_key' => $conversation['seeker_avatar'],
+                    ];
                 ?>
                 <div class="chat-conversation-entry">
+                    <a class="chat-admin-entry-avatar" href="index.php?page=chat_profile&amp;conversation_id=<?= (int) $conversation['id'] ?>&amp;status=<?= e($filterStatus) ?>"
+                        aria-label="Lihat profil <?= e($listProfile['name'] ?: 'pengguna') ?>" title="Lihat profil">
+                        <?= avatar_markup($listProfile, 'profile-avatar chat-avatar') ?>
+                    </a>
                     <a class="chat-conversation-link <?= (int) $conversation['id'] === $conversationId ? 'active' : '' ?>"
                         href="index.php?<?= e($chatQuery) ?>&amp;id=<?= (int) $conversation['id'] ?>">
-                        <span class="chat-avatar"><?= $isSupport ? '?' : e(function_exists('mb_substr') ? mb_substr($name, 0, 1, 'UTF-8') : substr($name, 0, 1)) ?></span>
                         <span><strong><?= e($name) ?></strong><small><?= e($subtitle) ?></small>
                             <?php if ($conversation['last_message']): ?><small class="chat-admin-preview"><?= e($conversation['last_message']) ?></small><?php endif; ?>
                         </span>

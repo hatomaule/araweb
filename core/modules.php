@@ -64,6 +64,7 @@ const PAGE_MODULES = [
     'my_payments' => 'payments',
     'tenant_payments' => 'payments',
     'finance' => 'finance',
+    'finance_settings' => 'finance',
 ];
 
 function page_module(string $page): string

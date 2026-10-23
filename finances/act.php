@@ -1,9 +1,28 @@
 <?php
 declare(strict_types=1);
 
+function seed_default_owner_expense_categories(PDO $pdo, int $ownerId): void
+{
+    if ($ownerId < 1) {
+        throw new InvalidArgumentException('A valid owner account is required.');
+    }
+    $statement = $pdo->prepare(
+        'INSERT IGNORE INTO owner_expense_categories (owner_user_id,name)
+         VALUES (:owner_id,:name)'
+    );
+    foreach (['Listrik', 'Air', 'Wifi'] as $name) {
+        $statement->execute(['owner_id' => $ownerId, 'name' => $name]);
+    }
+}
+
 function handle_finance_action(PDO $pdo, ?array $user, string $action): void
 {
-    if (!in_array($action, ['save_owner_expense', 'save_expense_category'], true)) {
+    if (!in_array($action, [
+        'save_owner_expense',
+        'save_expense_category',
+        'update_expense_category',
+        'delete_expense_category',
+    ], true)) {
         return;
     }
     if (!$user || $user['role'] !== 'owner') {
@@ -29,7 +48,57 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
         );
         $statement->execute(['owner_id' => $user['id'], 'name' => $name]);
         set_flash('success', 'Jenis pengeluaran rutin berhasil ditambahkan.');
-        redirect('finance');
+        redirect('finance_settings');
+    }
+
+    if ($action === 'update_expense_category') {
+        $categoryId = (int) post_value('category_id');
+        $name = trim(post_value('category_name'));
+        if ($categoryId < 1 || $name === '' || mb_strlen($name) > 100) {
+            throw new RuntimeException('Pilih jenis pengeluaran rutin dan isi nama maksimal 100 karakter.');
+        }
+        if (one(
+            $pdo,
+            'SELECT id FROM owner_expense_categories
+             WHERE owner_user_id=:owner_id AND name=:name AND id<>:category_id',
+            ['owner_id' => $user['id'], 'name' => $name, 'category_id' => $categoryId]
+        )) {
+            throw new RuntimeException('Jenis pengeluaran rutin tersebut sudah terdaftar.');
+        }
+        $statement = $pdo->prepare(
+            'UPDATE owner_expense_categories SET name=:name
+             WHERE id=:category_id AND owner_user_id=:owner_id'
+        );
+        $statement->execute([
+            'name' => $name,
+            'category_id' => $categoryId,
+            'owner_id' => $user['id'],
+        ]);
+        if ($statement->rowCount() === 0 && !one(
+            $pdo,
+            'SELECT id FROM owner_expense_categories WHERE id=:category_id AND owner_user_id=:owner_id',
+            ['category_id' => $categoryId, 'owner_id' => $user['id']]
+        )) {
+            throw new RuntimeException('Jenis pengeluaran rutin tidak ditemukan.');
+        }
+        set_flash('success', 'Jenis pengeluaran rutin berhasil diperbarui.');
+        redirect('finance_settings');
+    }
+
+    if ($action === 'delete_expense_category') {
+        $categoryId = (int) post_value('category_id');
+        if ($categoryId < 1) {
+            throw new RuntimeException('Pilih jenis pengeluaran rutin yang akan dihapus.');
+        }
+        $statement = $pdo->prepare(
+            'DELETE FROM owner_expense_categories WHERE id=:category_id AND owner_user_id=:owner_id'
+        );
+        $statement->execute(['category_id' => $categoryId, 'owner_id' => $user['id']]);
+        if ($statement->rowCount() !== 1) {
+            throw new RuntimeException('Jenis pengeluaran rutin tidak ditemukan.');
+        }
+        set_flash('success', 'Jenis pengeluaran rutin berhasil dihapus. Riwayat pengeluaran tetap tersimpan.');
+        redirect('finance_settings');
     }
 
     $type = post_value('expense_type');
@@ -37,7 +106,8 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
     $date = post_value('expense_date');
     $notes = post_value('notes');
     if (!in_array($type, ['routine', 'other'], true)
-        || !is_numeric($amount) || (float) $amount <= 0 || (float) $amount > 9999999999.99
+        || !preg_match('/^\d{1,10}(?:\.\d{1,2})?$/', $amount)
+        || (float) $amount <= 0 || (float) $amount > 9999999999.99
         || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
         || $notes !== '' && mb_strlen($notes) > 500) {
         throw new RuntimeException('Jenis, nominal, tanggal, atau keterangan pengeluaran tidak valid.');
@@ -76,7 +146,7 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
         'category_id' => $categoryId,
         'expense_type' => $type,
         'category_name' => $categoryName,
-        'amount' => $amount,
+        'amount' => number_format((float) $amount, 2, '.', ''),
         'expense_date' => $date,
         'notes' => $notes !== '' ? $notes : null,
     ]);

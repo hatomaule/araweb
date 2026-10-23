@@ -117,6 +117,7 @@ migrasi yang sudah diterapkan.
 31. Setelah backup yang dapat dipulihkan, jalankan `migration_shared_owner_bank_accounts.sql` satu kali. Migrasi ini mempertahankan detail rekening per gedung, menambahkan katalog rekening bersama per Owner, dan menghubungkan rekening lama ke katalog tanpa mengubah petunjuk transfer per kos. Jangan jalankan ulang setelah kolom `bank_transfer_settings.bank_account_id` tersedia.
 32. Setelah langkah 30 dan backup yang dapat dipulihkan, jalankan `migration_chat_personal_folders.sql` satu kali. Migrasi ini menambah status Kotak Masuk/Arsip/Sampah per akun dan event kedaluwarsa Sampah 30 hari. Aktifkan MySQL/MariaDB `event_scheduler` untuk pembersihan harian; request Chat juga menjalankan pembersihan sebagai fallback. Percakapan baru dihapus dari database setelah seluruh salinan yang tercatat sudah dibersihkan. Jangan jalankan ulang.
 33. Setelah backup, jalankan `migration_owner_finances.sql` satu kali untuk membuat pencatatan pengeluaran Owner. Migrasi ini membutuhkan tabel `users`; jangan jalankan ulang jika kedua tabel pengeluaran sudah tersedia.
+34. Setelah migrasi keuangan tersedia, jalankan `migration_owner_expense_category_defaults.sql` untuk menambahkan pilihan awal Listrik, Air, dan Wifi pada akun Owner lama. Migrasi ini idempotent dan tidak mengubah kategori atau riwayat pengeluaran yang sudah ada; akun Owner baru mendapat pilihan awal saat mendaftar.
 
 ## Struktur modul
 

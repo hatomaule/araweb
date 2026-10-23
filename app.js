@@ -14,6 +14,13 @@ const initializeApp = () => {
             });
         });
     });
+    document.querySelectorAll('.chat-compose textarea, [data-chat-compose] textarea').forEach((textarea) => {
+        textarea.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+            event.preventDefault();
+            if (textarea.value.trim()) textarea.closest('form')?.requestSubmit();
+        });
+    });
     document.querySelectorAll('[data-expense-type]').forEach((select) => {
         const form = select.closest('form');
         const routineField = form?.querySelector('[data-expense-routine]');
@@ -1809,6 +1816,8 @@ const initializeApp = () => {
         let listItems = [];
         let loadingMessages = false;
         const conversationDrafts = new Map();
+        let dragState = null;
+        let suppressToggleClick = false;
 
         const requestJson = async (url, options) => {
             const response = await fetch(url, {
@@ -2020,7 +2029,72 @@ const initializeApp = () => {
             toggle.setAttribute('aria-expanded', 'false');
             clearInterval(refreshTimer);
         };
-        toggle?.addEventListener('click', () => panel?.hidden ? openPanel() : closePanel());
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const finishLauncherDrag = (event) => {
+            if (!dragState || dragState.pointerId !== event.pointerId) return;
+            const state = dragState;
+            dragState = null;
+            chatWidget.classList.remove('is-dragging');
+            if (!state.moved) return;
+
+            const bounds = chatWidget.getBoundingClientRect();
+            const dockLeft = bounds.left + bounds.width / 2 < window.innerWidth / 2;
+            const left = dockLeft ? 8 : window.innerWidth - bounds.width - 8;
+            const top = clamp(bounds.top, 8, window.innerHeight - bounds.height - 8);
+            chatWidget.style.left = `${left}px`;
+            chatWidget.style.top = `${top}px`;
+            chatWidget.style.right = 'auto';
+            chatWidget.style.bottom = 'auto';
+            suppressToggleClick = true;
+            window.setTimeout(() => {
+                suppressToggleClick = false;
+            }, 400);
+        };
+        toggle?.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0 || !toggle) return;
+            const bounds = chatWidget.getBoundingClientRect();
+            dragState = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                startLeft: bounds.left,
+                startTop: bounds.top,
+                width: bounds.width,
+                height: bounds.height,
+                moved: false,
+            };
+            chatWidget.classList.add('is-dragging');
+            toggle.setPointerCapture(event.pointerId);
+        });
+        toggle?.addEventListener('pointermove', (event) => {
+            if (!dragState || dragState.pointerId !== event.pointerId) return;
+            const deltaX = event.clientX - dragState.startX;
+            const deltaY = event.clientY - dragState.startY;
+            if (!dragState.moved && Math.hypot(deltaX, deltaY) < 6) return;
+            dragState.moved = true;
+            const left = clamp(dragState.startLeft + deltaX, 8, window.innerWidth - dragState.width - 8);
+            const top = clamp(dragState.startTop + deltaY, 8, window.innerHeight - dragState.height - 8);
+            chatWidget.style.left = `${left}px`;
+            chatWidget.style.top = `${top}px`;
+            chatWidget.style.right = 'auto';
+            chatWidget.style.bottom = 'auto';
+        });
+        toggle?.addEventListener('pointerup', finishLauncherDrag);
+        toggle?.addEventListener('pointercancel', finishLauncherDrag);
+        window.addEventListener('resize', () => {
+            if (dragState || !chatWidget.style.left) return;
+            const bounds = chatWidget.getBoundingClientRect();
+            chatWidget.style.left = `${clamp(bounds.left, 8, window.innerWidth - bounds.width - 8)}px`;
+            chatWidget.style.top = `${clamp(bounds.top, 8, window.innerHeight - bounds.height - 8)}px`;
+        });
+        toggle?.addEventListener('click', (event) => {
+            if (suppressToggleClick) {
+                event.preventDefault();
+                suppressToggleClick = false;
+                return;
+            }
+            panel?.hidden ? openPanel() : closePanel();
+        });
         close?.addEventListener('click', closePanel);
         back?.addEventListener('click', () => chatWidget.classList.remove('show-thread'));
         search?.addEventListener('input', renderConversations);

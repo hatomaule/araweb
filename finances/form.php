@@ -62,11 +62,6 @@ $expenseTotal = (float) one(
      WHERE owner_user_id=:owner_id AND {$expenseDateColumn}>=:range_start AND {$expenseDateColumn}<:range_end",
     ['owner_id' => $user['id'], 'range_start' => $expenseStart, 'range_end' => $expenseEnd]
 )['total'];
-foreach (['Listrik', 'Air', 'Wifi'] as $defaultExpenseCategory) {
-    $pdo->prepare(
-        'INSERT IGNORE INTO owner_expense_categories (owner_user_id,name) VALUES (:owner_id,:name)'
-    )->execute(['owner_id' => $user['id'], 'name' => $defaultExpenseCategory]);
-}
 $categories = rows(
     $pdo,
     'SELECT id,name FROM owner_expense_categories WHERE owner_user_id=:owner_id ORDER BY name',
@@ -143,23 +138,24 @@ $installments = rows(
     </tbody></table></div>
 </section>
 <section class="panel finance-panel">
-    <div class="panel-heading"><div><h2>Catat pengeluaran</h2><p>Pilih pengeluaran rutin atau masukkan jenis pengeluaran lainnya.</p></div></div>
+    <div class="panel-heading finance-expense-heading">
+        <div><h2>Catat pengeluaran</h2><p>Pilih pengeluaran rutin atau masukkan jenis pengeluaran lainnya.</p></div>
+        <a class="button secondary finance-settings-link" href="index.php?page=finance_settings" aria-label="Pengaturan jenis pengeluaran rutin" title="Pengaturan pengeluaran">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"/></svg>
+            <span>Pengaturan</span>
+        </a>
+    </div>
     <form method="post" class="form-grid finance-form">
         <?= csrf_field() ?><input type="hidden" name="action" value="save_owner_expense">
         <label class="field"><span>Jenis *</span><select name="expense_type" data-expense-type><option value="routine">Pengeluaran rutin</option><option value="other">Pengeluaran lainnya</option></select></label>
         <label class="field" data-expense-routine><span>Pengeluaran rutin *</span><select name="category_id" <?= $categories ? 'required' : 'disabled' ?>>
             <option value="">Pilih jenis</option><?php foreach ($categories as $category): ?><option value="<?= (int) $category['id'] ?>"><?= e($category['name']) ?></option><?php endforeach; ?>
-        </select><?php if (!$categories): ?><small class="field-help">Tambahkan jenis rutin di bawah terlebih dahulu.</small><?php endif; ?></label>
+        </select></label>
         <label class="field" data-expense-other hidden><span>Jenis pengeluaran *</span><input name="other_category_name" maxlength="100" disabled placeholder="Contoh: perbaikan atap"></label>
-        <label class="field"><span>Nominal (Rp) *</span><input type="number" name="amount" min="1" step="1000" required></label>
+        <label class="field"><span>Nominal (Rp) *</span><input type="number" name="amount" min="0.01" step="0.01" required></label>
         <label class="field"><span>Tanggal *</span><input type="date" name="expense_date" value="<?= e(date('Y-m-d')) ?>" required></label>
         <label class="field full-span"><span>Keterangan</span><input name="notes" maxlength="500" placeholder="Opsional"></label>
         <div class="form-actions full-span"><button class="button primary" type="submit">Simpan pengeluaran</button></div>
-    </form>
-    <form method="post" class="finance-category-form">
-        <?= csrf_field() ?><input type="hidden" name="action" value="save_expense_category">
-        <label class="field"><span>Tambah pengeluaran rutin</span><input name="category_name" maxlength="100" required placeholder="Contoh: Internet"></label>
-        <button class="button secondary" type="submit">Tambah jenis rutin</button>
     </form>
     <div class="table-scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nominal</th><th>Keterangan</th></tr></thead><tbody>
     <?php foreach ($expenses as $expense): ?><tr>

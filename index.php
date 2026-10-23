@@ -31,7 +31,7 @@ $allowedPages = [
     'platform_listings', 'platform_property_verification',
     'platform_reports', 'operator_reports', 'user_reports', 'change_password',
     'account_settings', 'chat', 'admin_chat', 'chat_profile', 'notifications', 'saved_properties',
-    'activity', 'activity_log', 'reviews', 'finance',
+    'activity', 'activity_log', 'reviews', 'finance', 'finance_settings',
     'operator_bookings', 'tenant_profile', 'facebook_login',
     'facebook_callback', 'login', 'register', 'setup', 'forgot_password', 'reset_password',
 ];
@@ -258,6 +258,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'save_profile') {
             redirect('profile');
         }
+        if (in_array($action, ['save_expense_category', 'update_expense_category', 'delete_expense_category'], true)) {
+            redirect('finance_settings');
+        }
+        if ($action === 'save_owner_expense') {
+            redirect('finance');
+        }
         redirect($page);
     } catch (PDOException $exception) {
         error_log('Kos application database operation failed: ' . $exception->getMessage());
@@ -283,6 +289,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'save_profile') {
             redirect('profile');
+        }
+        if (in_array($action, ['save_expense_category', 'update_expense_category', 'delete_expense_category'], true)) {
+            redirect('finance_settings');
+        }
+        if ($action === 'save_owner_expense') {
+            redirect('finance');
         }
         if ($action === 'update_building_profile_photo') {
             redirect('building_form&id=' . max(0, (int) post_value('building_id')));
@@ -588,7 +600,7 @@ if ($user && $user['role'] === 'admin'
 if ($user && $user['role'] === 'admin' && $page === 'platform_reports') {
     redirect('platform_dashboard');
 }
-if ($user && $user['role'] === 'admin' && $page === 'finance') {
+if ($user && $user['role'] === 'admin' && in_array($page, ['finance', 'finance_settings'], true)) {
     redirect('platform_dashboard');
 }
 if ($user && $user['role'] === 'seeker'
@@ -605,6 +617,7 @@ if ($user && $user['role'] === 'owner'
         'room_form', 'tenants', 'tenant_form', 'tenant_payments', 'invoices',
         'invoice_form', 'operator_payment', 'payments', 'finance', 'payment_receipt', 'tenant_profile',
         'operator_bookings', 'payment_confirmations', 'bank_settings', 'profile', 'payment_proof',
+        'finance_settings',
         'property', 'room', 'change_password', 'account_settings', 'chat', 'chat_profile', 'notifications',
         'activity', 'activity_log', 'reviews'], true)) {
     redirect('dashboard');
@@ -645,6 +658,7 @@ function page_title(string $page): string
         'rental_form' => 'Sewa baru', 'invoices' => 'Tagihan', 'invoice_form' => 'Buat tagihan',
         'payments' => 'Histori pembayaran', 'operator_payment' => 'Input Pembayaran',
         'finance' => 'Keuangan', 'payment_receipt' => 'Struk pembayaran',
+        'finance_settings' => 'Pengaturan pengeluaran',
         'payment_confirmations' => 'Konfirmasi Pembayaran', 'bank_settings' => 'Rekening',
         'my_bookings' => 'Pesanan saya', 'booking_form' => 'Pesan kamar',
         'profile' => 'Profil akun', 'platform_operator_profile' => 'Profil Owner',
@@ -722,7 +736,7 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="<?= e(csrf_token()) ?>"><link rel="manifest" href="site.webmanifest"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261023-2"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="<?= e(csrf_token()) ?>"><link rel="manifest" href="site.webmanifest"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-mobile-finance-20261023-1"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
         <a class="brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos</small></span></a>
@@ -766,7 +780,7 @@ require __DIR__ . '/portal/public.php';
                     <a class="<?= in_array($page, ['tenants', 'tenant_form', 'tenant_profile', 'tenant_payments'], true) ? 'active' : '' ?>" href="index.php?page=tenants"><span class="nav-icon">♙</span>Penghuni</a>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'owner' && $target === 'payments'): ?>
-                    <a class="<?= $page === 'finance' ? 'active' : '' ?>" href="index.php?page=finance"><span class="nav-icon">▥</span>Keuangan</a>
+                    <a class="<?= in_array($page, ['finance', 'finance_settings'], true) ? 'active' : '' ?>" href="index.php?page=finance"><span class="nav-icon">▥</span>Keuangan</a>
                     <a class="<?= in_array($page, ['operator_bookings', 'payment_confirmations'], true) ? 'active' : '' ?>" href="index.php?page=operator_bookings"><span class="nav-icon">▣</span>Booking</a>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'admin' && $target === 'platform_dashboard'): ?>
@@ -848,8 +862,10 @@ require __DIR__ . '/portal/public.php';
             ?>
             <?php elseif ($pageModule === 'properties'):
                 require __DIR__ . '/properties/form.php';
-            elseif ($page === 'finance' && $user['role'] === 'owner'):
-                require __DIR__ . '/finances/form.php';
+            elseif (in_array($page, ['finance', 'finance_settings'], true) && $user['role'] === 'owner'):
+                require __DIR__ . ($page === 'finance_settings'
+                    ? '/finances/settings.php'
+                    : '/finances/form.php');
             elseif ($pageModule === 'payments'):
                 require __DIR__ . '/payments/form.php';
             endif; ?>
@@ -864,4 +880,4 @@ require __DIR__ . '/portal/public.php';
     </form>
 </dialog>
 <?php require __DIR__ . '/chat/widget.php'; ?>
-<script src="app.js?v=koskosan-ui-20261023-2"></script></body></html>
+<script src="app.js?v=koskosan-mobile-finance-20261023-1"></script></body></html>
