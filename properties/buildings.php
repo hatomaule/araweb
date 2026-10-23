@@ -25,7 +25,7 @@ $buildings = rows($pdo, "SELECT b.*,
             <button class="button secondary compact-button" type="button" data-building-card-previous>Sebelumnya</button>
             <button class="button secondary compact-button" type="button" data-building-card-next>Berikutnya</button>
         </div>
-        <details class="data-table-view-switch data-view-picker building-view-switch" data-building-view-switch aria-label="Pilih tampilan gedung"></details>
+        <div class="data-table-view-switch data-view-picker building-view-switch" data-building-view-switch role="group" aria-label="Pilih tampilan gedung"></div>
     </div>
     <div class="building-card-grid" data-building-card-grid>
         <?php foreach ($buildings as $building):

@@ -103,13 +103,10 @@ foreach ($list as $room) {
                 <button class="button secondary compact-button" type="button" data-room-next>Berikutnya</button>
             </div>
         </div>
-        <details class="data-table-view-switch data-view-picker room-view-switch" data-room-view-switch aria-label="Pilih tampilan kamar">
-            <summary class="data-view-picker-trigger"><span class="data-view-current-icon" data-view-current-icon aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg></span><span data-view-current-label>Tabel</span><span class="data-view-picker-chevron" aria-hidden="true">⌄</span></summary>
-            <div class="data-view-picker-menu" role="group" aria-label="Pilihan tampilan">
-                <button class="data-view-option" type="button" data-room-view="table" aria-pressed="true"><span class="data-view-option-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg></span><span>Tabel</span><span class="data-view-option-check" aria-hidden="true">✓</span></button>
-                <button class="data-view-option" type="button" data-room-view="cards" aria-pressed="false"><span class="data-view-option-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/></svg></span><span>Kartu</span><span class="data-view-option-check" aria-hidden="true">✓</span></button>
-            </div>
-        </details>
+        <div class="data-table-view-switch data-view-picker room-view-switch" data-room-view-switch role="group" aria-label="Pilih tampilan kamar">
+            <button class="data-view-option" type="button" data-room-view="table" aria-label="Tampilan tabel" title="Tabel" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg></button>
+            <button class="data-view-option" type="button" data-room-view="cards" aria-label="Tampilan kartu" title="Kartu" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/></svg></button>
+        </div>
     </div>
     <div class="room-view-content" data-room-table-view>
       <div class="panel">

@@ -8,12 +8,10 @@ function e($value): string
 
 function theme_switcher(): string
 {
-    return '<details class="theme-switcher" data-theme-switcher>'
-        . '<summary aria-label="Pilih tema tampilan"><span class="theme-choice-icon" data-theme-current-icon aria-hidden="true">☀</span><span data-theme-label>Light</span><span class="theme-switcher-chevron" aria-hidden="true">⌄</span></summary>'
-        . '<div class="theme-switcher-menu" role="group" aria-label="Tema tampilan">'
-        . '<button type="button" aria-pressed="true" data-theme-choice="light"><span class="theme-choice-icon" aria-hidden="true">☀</span>Light<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
-        . '<button type="button" aria-pressed="false" data-theme-choice="dark"><span class="theme-choice-icon" aria-hidden="true">☾</span>Dark<span class="theme-choice-check" aria-hidden="true">✓</span></button>'
-        . '</div></details>';
+    return '<div class="theme-switcher" data-theme-switcher role="group" aria-label="Tema tampilan">'
+        . '<button type="button" aria-label="Tema terang" title="Tema terang" aria-pressed="true" data-theme-choice="light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg></button>'
+        . '<button type="button" aria-label="Tema gelap" title="Tema gelap" aria-pressed="false" data-theme-choice="dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.2A8.6 8.6 0 0 1 8.8 3.8 8.7 8.7 0 1 0 20.2 15.2Z"/></svg></button>'
+        . '</div>';
 }
 
 function whatsapp_url(string $phone, string $message = ''): ?string

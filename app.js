@@ -50,49 +50,30 @@ const initializeApp = () => {
     };
     const tableViewLabels = { table: 'Tabel', cards: 'Kartu' };
     const createDataViewPicker = (ariaLabel) => {
-        const picker = document.createElement('details');
+        const picker = document.createElement('div');
         picker.className = 'data-table-view-switch data-view-picker';
         picker.setAttribute('aria-label', ariaLabel);
-        picker.innerHTML = '<summary class="data-view-picker-trigger"><span class="data-view-current-icon" data-view-current-icon aria-hidden="true"></span><span data-view-current-label></span><span class="data-view-picker-chevron" aria-hidden="true">⌄</span></summary><div class="data-view-picker-menu" role="group" aria-label="Pilihan tampilan"></div>';
-        const menu = picker.querySelector('.data-view-picker-menu');
+        picker.setAttribute('role', 'group');
         const buttons = new Map();
         Object.entries(tableViewLabels).forEach(([view, label]) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'data-view-option';
             button.dataset.viewValue = view;
+            button.title = label;
+            button.setAttribute('aria-label', `Tampilan ${label.toLocaleLowerCase('id')}`);
             button.setAttribute('aria-pressed', 'false');
-            button.innerHTML = `<span class="data-view-option-icon" aria-hidden="true">${tableViewIcons[view]}</span><span>${label}</span><span class="data-view-option-check" aria-hidden="true">✓</span>`;
+            button.innerHTML = tableViewIcons[view];
             buttons.set(view, button);
-            menu.append(button);
+            picker.append(button);
         });
         return { picker, buttons };
     };
-    const syncDataViewPicker = (picker, buttons, view) => {
-        const selectedButton = buttons.get(view);
-        if (!selectedButton) return;
-        const currentIcon = picker.querySelector('[data-view-current-icon]');
-        const currentLabel = picker.querySelector('[data-view-current-label]');
-        const optionIcon = selectedButton.querySelector('.data-view-option-icon');
-        const optionLabel = selectedButton.querySelector('span:nth-child(2)');
-        if (currentIcon && optionIcon) currentIcon.innerHTML = optionIcon.innerHTML;
-        if (currentLabel && optionLabel) currentLabel.textContent = optionLabel.textContent;
+    const syncDataViewPicker = (buttons, view) => {
         buttons.forEach((button, buttonView) => {
             button.setAttribute('aria-pressed', String(buttonView === view));
         });
     };
-    document.addEventListener('click', (event) => {
-        document.querySelectorAll('.data-view-picker[open]').forEach((picker) => {
-            if (event.target instanceof Node && !picker.contains(event.target)) picker.open = false;
-        });
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        document.querySelectorAll('.data-view-picker[open]').forEach((picker) => {
-            picker.open = false;
-            picker.querySelector('summary')?.focus();
-        });
-    });
     const notificationMenu = document.querySelector('[data-notification-menu]');
     const messageMenu = document.querySelector('[data-message-menu]');
     [notificationMenu, messageMenu].filter(Boolean).forEach((menu) => {
@@ -712,30 +693,19 @@ const initializeApp = () => {
         console.error('Saved display theme could not be read:', error);
     }
     document.documentElement.dataset.theme = savedTheme;
+    const syncThemeSwitch = (switcher, theme) => {
+        switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
+            choice.setAttribute('aria-pressed', String(choice.dataset.themeChoice === theme));
+        });
+    };
     themeSwitchers.forEach((switcher) => {
-        const syncThemeMenu = (theme) => {
-            const label = switcher.querySelector('[data-theme-label]');
-            const icon = switcher.querySelector('[data-theme-current-icon]');
-            if (label) label.textContent = theme === 'dark' ? 'Dark' : 'Light';
-            if (icon) icon.textContent = theme === 'dark' ? '☾' : '☀';
-            switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
-                choice.setAttribute('aria-pressed', String(choice.dataset.themeChoice === theme));
-            });
-        };
-        syncThemeMenu(savedTheme);
+        syncThemeSwitch(switcher, savedTheme);
         switcher.querySelectorAll('[data-theme-choice]').forEach((choice) => {
             choice.addEventListener('click', () => {
                 const selectedTheme = choice.dataset.themeChoice === 'dark' ? 'dark' : 'light';
                 document.documentElement.dataset.theme = selectedTheme;
                 themeSwitchers.forEach((otherSwitcher) => {
-                    const label = otherSwitcher.querySelector('[data-theme-label]');
-                    const icon = otherSwitcher.querySelector('[data-theme-current-icon]');
-                    if (label) label.textContent = selectedTheme === 'dark' ? 'Dark' : 'Light';
-                    if (icon) icon.textContent = selectedTheme === 'dark' ? '☾' : '☀';
-                    otherSwitcher.querySelectorAll('[data-theme-choice]').forEach((otherChoice) => {
-                        otherChoice.setAttribute('aria-pressed', String(otherChoice.dataset.themeChoice === selectedTheme));
-                    });
-                    otherSwitcher.open = false;
+                    syncThemeSwitch(otherSwitcher, selectedTheme);
                 });
                 try {
                     localStorage.setItem(themeStorageKey, selectedTheme);
@@ -743,19 +713,6 @@ const initializeApp = () => {
                     console.error('Display theme preference could not be saved:', error);
                 }
             });
-        });
-    });
-    document.addEventListener('click', (event) => {
-        themeSwitchers.forEach((switcher) => {
-            if (event.target instanceof Node && !switcher.contains(event.target)) switcher.open = false;
-        });
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        themeSwitchers.forEach((switcher) => {
-            if (!switcher.open) return;
-            switcher.open = false;
-            switcher.querySelector('summary')?.focus();
         });
     });
 
@@ -982,7 +939,7 @@ const initializeApp = () => {
         if (!(search instanceof HTMLInputElement) || !(pageSizeSelect instanceof HTMLSelectElement)
             || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
             || !(empty instanceof HTMLElement) || !(cardGrid instanceof HTMLElement)
-            || !(tableView instanceof HTMLElement) || !(pickerHost instanceof HTMLDetailsElement)
+            || !(tableView instanceof HTMLElement) || !(pickerHost instanceof HTMLElement)
             || !summary) return;
 
         const { picker, buttons } = createDataViewPicker('Pilih tampilan gedung');
@@ -1002,7 +959,7 @@ const initializeApp = () => {
             cardGrid.hidden = !cardView;
             tableView.hidden = cardView;
             list.classList.toggle('building-cards-active', cardView);
-            syncDataViewPicker(pickerHost, buttons, view);
+            syncDataViewPicker(buttons, view);
             try {
                 localStorage.setItem(storageKey, view);
             } catch (error) {
@@ -1052,10 +1009,9 @@ const initializeApp = () => {
         buttons.forEach((button, view) => {
             button.addEventListener('click', () => {
                 setView(view);
-                pickerHost.open = false;
             });
         });
-        syncDataViewPicker(pickerHost, buttons, selectedView);
+        syncDataViewPicker(buttons, selectedView);
         setView(selectedView);
         render();
     });
@@ -1081,7 +1037,7 @@ const initializeApp = () => {
             || !(search instanceof HTMLInputElement) || !pagination
             || !(pageSizeSelect instanceof HTMLSelectElement) || !summary
             || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
-            || !(viewPicker instanceof HTMLDetailsElement) || !viewButtons.size) return;
+            || !(viewPicker instanceof HTMLElement) || !viewButtons.size) return;
 
         const tbody = table.tBodies[0];
         const rows = Array.from(tbody.querySelectorAll('[data-room-row]'));
@@ -1171,7 +1127,7 @@ const initializeApp = () => {
             tableView.hidden = view !== 'table';
             cardView.hidden = view !== 'cards';
             pagination.hidden = view !== 'table';
-            syncDataViewPicker(viewPicker, viewButtons, view);
+            syncDataViewPicker(viewButtons, view);
             try {
                 localStorage.setItem(storageKey, view);
             } catch (error) {
@@ -1193,7 +1149,6 @@ const initializeApp = () => {
         viewButtons.forEach((button, view) => {
             button.addEventListener('click', () => {
                 setView(view);
-                viewPicker.open = false;
             });
         });
 
@@ -1330,7 +1285,7 @@ const initializeApp = () => {
         const applyView = (view) => {
             const cardView = view === 'cards';
             const selectedView = cardView ? 'cards' : 'table';
-            syncDataViewPicker(viewSwitch, viewButtons, selectedView);
+            syncDataViewPicker(viewButtons, selectedView);
             tableContainer.classList.toggle('data-table-card-view', cardView);
             tableContainer.classList.toggle('floating-card-table', cardView);
             tools.classList.toggle('floating-card-tools', cardView);
@@ -1359,7 +1314,6 @@ const initializeApp = () => {
             button.addEventListener('click', () => {
                 applyView(view);
                 render();
-                viewSwitch.open = false;
             });
         });
         tableControls.append(navigation, pageSizeLabel, viewSwitch);
