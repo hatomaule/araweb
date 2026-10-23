@@ -13,6 +13,18 @@ if ($user && in_array($user['role'], ['seeker', 'owner', 'admin'], true)):
     <section class="chat-widget-panel" id="chat-widget-panel" aria-label="Chat KosKosan" hidden>
         <header class="chat-widget-header">
             <div><strong>Chat</strong><small data-chat-status>Memuat percakapan...</small></div>
+            <?php if ($user['role'] !== 'admin'): ?>
+                <nav class="chat-widget-header-support" aria-label="Bantuan">
+                    <button class="chat-widget-support chat-widget-header-support-link" type="button" data-chat-start-support>
+                        <span aria-hidden="true">?</span><strong>Bantuan</strong>
+                    </button>
+                    <?php if ($adminWhatsappUrl = site_contact_whatsapp_url('Halo Admin KosKosan, saya memerlukan bantuan.')): ?>
+                        <a class="chat-widget-support chat-widget-header-support-link chat-widget-whatsapp" href="<?= e($adminWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">
+                            <span aria-hidden="true">↗</span><strong>WA Admin</strong>
+                        </a>
+                    <?php endif; ?>
+                </nav>
+            <?php endif; ?>
             <div class="chat-widget-header-actions">
                 <a href="index.php?page=<?= $user['role'] === 'admin' ? 'admin_chat' : 'chat' ?>"
                     aria-label="Buka halaman chat penuh" title="Buka halaman penuh">↗</a>
@@ -30,12 +42,6 @@ if ($user && in_array($user['role'], ['seeker', 'owner', 'admin'], true)):
                     <button type="button" data-chat-folder="trash" aria-pressed="false">Sampah</button>
                 </nav>
                 <button type="button" class="chat-widget-empty-trash" data-chat-empty-trash hidden>Kosongkan Sampah sekarang</button>
-                <?php if ($user['role'] !== 'admin'): ?>
-                    <button class="chat-widget-support" type="button" data-chat-start-support>
-                        <span aria-hidden="true">?</span><span><strong>Bantuan KosKosan</strong><small>Hubungi admin</small></span>
-                    </button>
-                    <?php if ($adminWhatsappUrl = site_contact_whatsapp_url('Halo Admin KosKosan, saya memerlukan bantuan.')): ?><a class="chat-widget-support chat-widget-whatsapp" href="<?= e($adminWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span><span><strong>WhatsApp Admin</strong><small>Buka WhatsApp / WhatsApp Web</small></span></a><?php endif; ?>
-                <?php endif; ?>
                 <div class="chat-widget-conversations" data-chat-conversations aria-live="polite"></div>
             </aside>
             <section class="chat-widget-thread">

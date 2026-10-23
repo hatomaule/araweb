@@ -2371,3 +2371,147 @@ if (document.readyState === 'loading') {
 } else {
     initializeApp();
 }
+    const renderReceiptImage = async () => {
+        const receipt = document.querySelector('.payment-receipt');
+        if (!receipt) throw new Error('Struk pembayaran tidak ditemukan.');
+
+        const width = 800;
+        const padding = 40;
+        const details = [...receipt.querySelectorAll('.receipt-details > div')].map((item) => ({
+            label: item.querySelector('dt')?.textContent?.trim() || '',
+            value: item.querySelector('dd')?.textContent?.trim() || '',
+        }));
+        const detailTop = 260;
+        const rowHeight = 70;
+        const totalTop = detailTop + details.length * rowHeight + 16;
+        const height = totalTop + 166;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Browser tidak dapat membuat gambar struk.');
+
+        const computed = window.getComputedStyle(receipt);
+        const colors = {
+            card: computed.backgroundColor,
+            ink: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#243044',
+            muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#768196',
+            line: getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#e5e9f0',
+        };
+        const roundRect = (x, y, rectWidth, rectHeight, radius, fill) => {
+            context.beginPath();
+            context.moveTo(x + radius, y);
+            context.arcTo(x + rectWidth, y, x + rectWidth, y + rectHeight, radius);
+            context.arcTo(x + rectWidth, y + rectHeight, x, y + rectHeight, radius);
+            context.arcTo(x, y + rectHeight, x, y, radius);
+            context.arcTo(x, y, x + rectWidth, y, radius);
+            context.closePath();
+            context.fillStyle = fill;
+            context.fill();
+        };
+        const fitText = (value, maxWidth) => {
+            let text = value;
+            while (text && context.measureText(text).width > maxWidth) text = `${text.slice(0, -2)}…`;
+            return text;
+        };
+
+        context.fillStyle = '#edf1f6';
+        context.fillRect(0, 0, width, height);
+        roundRect(32, 32, width - 64, height - 64, 24, colors.card);
+        context.strokeStyle = colors.line;
+        context.lineWidth = 2;
+        context.stroke();
+
+        roundRect(padding, 70, 64, 64, 18, '#6958dc');
+        context.fillStyle = '#fff';
+        context.font = '700 38px Manrope, Arial, sans-serif';
+        context.textAlign = 'center';
+        context.fillText('K', padding + 32, 115);
+        context.textAlign = 'left';
+        context.fillStyle = colors.ink;
+        context.font = '700 28px Manrope, Arial, sans-serif';
+        context.fillText('KosKosan', padding + 82, 96);
+        context.fillStyle = colors.muted;
+        context.font = '18px Arial, sans-serif';
+        context.fillText('Struk pembayaran sewa', padding + 82, 124);
+
+        const status = receipt.querySelector('.receipt-status')?.textContent?.trim() || 'Dikonfirmasi';
+        roundRect(width - 250, 82, 164, 40, 20, '#e7f6ef');
+        context.fillStyle = '#247b55';
+        context.font = '700 16px Arial, sans-serif';
+        context.textAlign = 'center';
+        context.fillText(status, width - 168, 108);
+        context.textAlign = 'left';
+
+        context.strokeStyle = colors.line;
+        context.beginPath();
+        context.moveTo(padding, 160);
+        context.lineTo(width - padding, 160);
+        context.stroke();
+        const receiptNumber = receipt.querySelector('.receipt-number strong')?.textContent?.trim() || '';
+        context.fillStyle = colors.muted;
+        context.font = '16px Arial, sans-serif';
+        context.fillText('Nomor struk', padding, 202);
+        context.fillStyle = colors.ink;
+        context.font = '700 20px Manrope, Arial, sans-serif';
+        context.textAlign = 'right';
+        context.fillText(receiptNumber, width - padding, 202);
+        context.textAlign = 'left';
+
+        details.forEach((detail, index) => {
+            const y = detailTop + index * rowHeight;
+            context.strokeStyle = colors.line;
+            context.beginPath();
+            context.moveTo(padding, y + rowHeight - 8);
+            context.lineTo(width - padding, y + rowHeight - 8);
+            context.stroke();
+            context.fillStyle = colors.muted;
+            context.font = '15px Arial, sans-serif';
+            context.fillText(fitText(detail.label, 180), padding, y + 30);
+            context.fillStyle = colors.ink;
+            context.font = '700 17px Manrope, Arial, sans-serif';
+            context.textAlign = 'right';
+            context.fillText(fitText(detail.value, width - padding * 2 - 195), width - padding, y + 30);
+            context.textAlign = 'left';
+        });
+
+        const amount = receipt.querySelector('.receipt-total strong')?.textContent?.trim() || '';
+        roundRect(padding, totalTop, width - padding * 2, 88, 16, '#294258');
+        context.fillStyle = '#fff';
+        context.font = '18px Arial, sans-serif';
+        context.fillText('Jumlah dibayarkan', padding + 24, totalTop + 53);
+        context.font = '700 30px Manrope, Arial, sans-serif';
+        context.textAlign = 'right';
+        context.fillText(amount, width - padding - 24, totalTop + 56);
+        context.textAlign = 'left';
+        context.fillStyle = colors.muted;
+        context.font = '15px Arial, sans-serif';
+        const note = receipt.querySelector('.receipt-note')?.textContent?.trim() || '';
+        context.fillText(fitText(note, width - padding * 2), padding, totalTop + 126);
+
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((image) => {
+                if (image) resolve(image);
+                else reject(new Error('Gambar struk gagal dibuat.'));
+            }, 'image/png');
+        });
+        return new File([blob], `struk-koskosan-${receiptNumber || 'pembayaran'}.png`, { type: 'image/png' });
+    };
+    const downloadReceiptImage = (file) => {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    document.querySelectorAll('[data-download-receipt-image]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                downloadReceiptImage(await renderReceiptImage());
+            } catch (error) {
+                console.error('Unable to create receipt image.', error);
+                window.alert(error instanceof Error ? error.message : 'Gambar struk tidak dapat dibuat.');
+            }
+        });
+    });

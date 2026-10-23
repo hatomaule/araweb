@@ -34,31 +34,42 @@ if ($receipt['status'] !== 'confirmed') {
     return;
 }
 $paymentMethods = ['cash' => 'Tunai', 'bank_transfer' => 'Transfer bank', 'e_wallet' => 'E-wallet', 'other' => 'Lainnya'];
-$receiptMessage = implode("\n", [
-    'Bukti pembayaran sewa KosKosan',
-    'Nomor struk: KS-' . str_pad((string) $receipt['id'], 8, '0', STR_PAD_LEFT),
-    'Penghuni: ' . $receipt['full_name'],
-    'Kos/kamar: ' . $receipt['building_name'] . ' · ' . $receipt['room_number'],
-    'Tagihan: ' . $receipt['invoice_number'],
-    'Periode: ' . date_id($receipt['period_start']) . ' - ' . date_id($receipt['period_end']),
-    'Tanggal bayar: ' . ($receipt['paid_at'] ? date_id($receipt['paid_at']) : '—'),
-    'Nominal: ' . money($receipt['amount']),
-    'Metode: ' . ($paymentMethods[$receipt['payment_method']] ?? $receipt['payment_method']),
-    'Status: ' . status_label($receipt['status']),
-]);
+$receiptRows = [
+    'Nomor struk' => 'KS-' . str_pad((string) $receipt['id'], 8, '0', STR_PAD_LEFT),
+    'Penghuni' => $receipt['full_name'],
+    'Kos / kamar' => $receipt['building_name'] . ' · ' . $receipt['room_number'],
+    'Tagihan' => $receipt['invoice_number'],
+    'Periode' => date_id($receipt['period_start']) . ' - ' . date_id($receipt['period_end']),
+    'Tanggal bayar' => $receipt['paid_at'] ? date_id($receipt['paid_at']) : '—',
+    'Nominal' => money($receipt['amount']),
+    'Metode' => $paymentMethods[$receipt['payment_method']] ?? $receipt['payment_method'],
+];
+if ($receipt['transaction_reference']) {
+    $receiptRows['Referensi'] = $receipt['transaction_reference'];
+}
+$receiptRows['Status'] = status_label($receipt['status']);
+$receiptMessage = "*BUKTI PEMBAYARAN SEWA KOSKOSAN*\n"
+    . "```\n"
+    . implode("\n", array_map(
+        static fn (string $label, $value): string => str_pad($label, 16) . ' : ' . (string) $value,
+        array_keys($receiptRows),
+        array_values($receiptRows)
+    ))
+    . "\n```";
 $whatsappReceiptUrl = $user['role'] !== 'seeker' && $receipt['phone']
     ? whatsapp_url((string) $receipt['phone'], $receiptMessage) : null;
 $emailReceiptUrl = $user['role'] !== 'seeker' && $receipt['email']
     ? 'mailto:' . rawurlencode((string) $receipt['email'])
         . '?subject=' . rawurlencode('Struk pembayaran ' . $receipt['invoice_number'])
-        . '&body=' . rawurlencode($receiptMessage . "\n\nLampirkan PDF struk yang telah disimpan.")
+        . '&body=' . rawurlencode(strip_tags(str_replace(['```', '*'], '', $receiptMessage)) . "\n\nLampirkan PDF struk yang telah disimpan.")
     : null;
 ?>
 <div class="receipt-page">
     <div class="receipt-actions">
         <button class="button primary" type="button" data-print-page>Cetak / Simpan PDF</button>
+        <button class="button secondary" type="button" data-download-receipt-image>Unduh gambar struk</button>
         <?php if ($emailReceiptUrl): ?><a class="button secondary" href="<?= e($emailReceiptUrl) ?>">Kirim via Email</a><?php endif; ?>
-        <?php if ($whatsappReceiptUrl): ?><a class="button secondary" href="<?= e($whatsappReceiptUrl) ?>" target="_blank" rel="noopener noreferrer">Kirim via WhatsApp</a><?php endif; ?>
+        <?php if ($whatsappReceiptUrl): ?><a class="button secondary" href="<?= e($whatsappReceiptUrl) ?>" target="_blank" rel="noopener noreferrer">Kirim teks struk via WhatsApp</a><?php endif; ?>
         <a class="button secondary" href="index.php?page=<?= $user['role'] === 'seeker' ? 'my_payments' : 'payments' ?>">Kembali ke histori</a>
     </div>
     <article class="payment-receipt">

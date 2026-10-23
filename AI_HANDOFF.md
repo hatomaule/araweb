@@ -1071,3 +1071,8 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   gelap yang tegas, sehingga tidak lagi menyilaukan atau sulit dibaca saat
   tema gelap. Cache CSS/JS diperbarui pada aplikasi, autentikasi, serta halaman
   publik. Tidak ada perubahan skema database.
+- Tombol bantuan pada widget Chat untuk pengguna non-admin berada di header:
+  “Bantuan” memulai percakapan dukungan, sedangkan “WA Admin” menggunakan
+  tautan `wa.me` agar ponsel dapat membuka aplikasi WhatsApp dan desktop dapat
+  membuka WhatsApp Web. Struk pembayaran memakai pesan teks terformat yang
+  menyerupai tabel; unduhan gambar PNG tetap merupakan aksi terpisah.
