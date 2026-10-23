@@ -41,7 +41,8 @@ if ($user && in_array($user['role'], ['seeker', 'owner', 'admin'], true)):
             <section class="chat-widget-thread">
                 <header class="chat-widget-thread-header" data-chat-thread-header>
                     <button type="button" data-chat-back aria-label="Kembali ke daftar chat">‹</button>
-                    <div><strong>Pilih percakapan</strong><small>Pesan tersimpan aman di akun masing-masing.</small></div>
+                    <div class="chat-widget-thread-identity" data-chat-thread-identity><strong>Pilih percakapan</strong><small>Pesan tersimpan aman di akun masing-masing.</small></div>
+                    <div class="chat-widget-thread-actions" data-chat-thread-actions></div>
                 </header>
                 <div class="chat-widget-messages" data-chat-messages aria-live="polite">
                     <div class="chat-widget-empty">Pilih percakapan di sebelah kiri untuk mulai chat.</div>

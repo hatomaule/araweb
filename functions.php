@@ -84,6 +84,22 @@ function post_value(string $key): string
         : '';
 }
 
+function post_money_value(string $key): string
+{
+    $value = post_value($key);
+    if (str_contains($value, ',')) {
+        if (!preg_match('/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/', $value)) {
+            return $value;
+        }
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+    } elseif (preg_match('/^\d{1,3}(?:\.\d{3})+$/', $value)) {
+        $value = str_replace('.', '', $value);
+    }
+
+    return $value;
+}
+
 function normalize_username(string $username): string
 {
     return strtolower(trim($username));
@@ -470,6 +486,12 @@ function date_id(?string $date): string
 
 function field(string $label, string $name, string $value = '', string $type = 'text', array $attributes = []): void
 {
+    $moneyFields = ['monthly_rate', 'deposit_amount', 'amount_due', 'custom_amount'];
+    if ($type === 'number' && in_array($name, $moneyFields, true)) {
+        $type = 'text';
+        $attributes['inputmode'] = 'decimal';
+        $attributes['data-money-input'] = '';
+    }
     echo '<label class="field"><span>' . e($label) . '</span><input type="' . e($type)
         . '" name="' . e($name) . '" value="' . e($value) . '"';
     foreach ($attributes as $attribute => $attributeValue) {

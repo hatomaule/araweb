@@ -141,7 +141,7 @@ if ($page === 'room') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="site.webmanifest">
     <meta name="description" content="<?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> di <?= e($room['building_name']) ?>. Tarif <?= e(money($room['monthly_rate'])) ?> per bulan.">
-    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261023-2">
+    <title><?= e($room['room_type'] ?: 'Kamar ' . $room['room_number']) ?> — <?= e($room['building_name']) ?> | KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-finance-chat-money-20261023-2">
     <?php if ($room['latitude'] !== null && $room['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page property-page"><header class="public-header" id="top"><nav class="public-nav">
@@ -277,7 +277,7 @@ if ($page === 'room') {
         </div>
     </dialog>
     <?php require __DIR__ . '/../chat/widget.php'; ?>
-    <script src="app.js?v=koskosan-ui-20261023-2"></script></body></html>
+    <script src="app.js?v=koskosan-finance-chat-money-20261023-2"></script></body></html>
     <?php
     exit;
 }
@@ -496,7 +496,7 @@ if ($page === 'property') {
     ?>
     <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="site.webmanifest">
     <meta name="description" content="<?= e($property['name']) ?> — foto, kamar, fasilitas, lokasi, ulasan dan informasi pemilik kos.">
-    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-ui-20261023-2">
+    <title><?= e($property['name']) ?> — KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-finance-chat-money-20261023-2">
     <?php if ($property['latitude'] !== null && $property['longitude'] !== null): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head><body class="public-page property-page">
     <header class="public-header"><nav class="public-nav"><a class="tiara-brand koskosan-brand" href="index.php" aria-label="KosKosan, beranda"><span class="tiara-brand-icon">K</span><span>KosKosan<small>HUNIAN NYAMAN</small></span></a><?php if ($user): ?><?= notification_bell_markup($notificationUnreadCount, $pdo) ?><?= message_menu_markup($user['role']) ?><?php endif; ?><?= theme_switcher() ?><form class="public-search" action="index.php" method="get"><input type="hidden" name="page" value="home"><input name="q" placeholder="Cari nama kos atau alamat" aria-label="Cari nama kos atau alamat"><button class="button primary">Cari</button></form><?php if ($user): ?><a class="public-nav-cta" href="index.php?page=<?= $user['role'] === 'seeker' ? 'profile' : ($user['role'] === 'admin' ? 'platform_dashboard' : 'dashboard') ?>"><?= e($user['name']) ?></a><?php else: ?><button class="public-nav-cta" type="button" data-dialog-open="public-login-dialog">Masuk / Daftar</button><?php endif; ?></nav>
@@ -633,7 +633,7 @@ if ($page === 'property') {
     <dialog class="photo-lightbox" id="photo-lightbox" aria-label="Pratinjau foto"><button class="photo-lightbox-close" type="button" data-photo-preview-close aria-label="Tutup foto">×</button><img src="" alt=""></dialog>
     <?php if (!$user): render_public_login_dialog(); endif; ?>
     <?php require __DIR__ . '/../chat/widget.php'; ?>
-    <script src="app.js?v=koskosan-ui-20261023-2"></script>
+    <script src="app.js?v=koskosan-finance-chat-money-20261023-2"></script>
     </body></html><?php
     exit;
 }
@@ -941,7 +941,7 @@ if (in_array($page, ['home', 'search'], true)) {
         <meta name="description" content="Temukan kos dan kamar nyaman di KosKosan. Bandingkan tipe kamar, fasilitas, lokasi, dan harga terbaru.">
         <title>KosKosan — Hunian nyaman, hati tenang</title>
         <link rel="manifest" href="site.webmanifest">
-        <link rel="stylesheet" href="style.css?v=koskosan-ui-20261023-2">
+        <link rel="stylesheet" href="style.css?v=koskosan-finance-chat-money-20261023-2">
         <?php if ($mapBuildings): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""><?php endif; ?>
     </head>
     <body class="public-page">
@@ -1250,7 +1250,7 @@ if (in_array($page, ['home', 'search'], true)) {
         </script><?php endif; ?>
         <?php if (!$user): render_public_login_dialog(); endif; ?>
         <?php require __DIR__ . '/../chat/widget.php'; ?>
-        <script src="app.js?v=koskosan-ui-20261023-2"></script>
+        <script src="app.js?v=koskosan-finance-chat-money-20261023-2"></script>
     </body>
     </html>
     <?php

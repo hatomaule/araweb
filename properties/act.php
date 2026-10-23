@@ -755,7 +755,7 @@ if ($action === 'save_building') {
         if ($action === 'save_room') {
             $id = (int) post_value('id');
             $number = post_value('room_number');
-            $rate = post_value('monthly_rate');
+            $rate = post_money_value('monthly_rate');
             $buildingId = (int) post_value('building_id');
             $quantity = $id > 0 ? 1 : (int) post_value('quantity');
             $roomUploads = collect_photo_uploads('room_photos');
@@ -968,8 +968,8 @@ if ($action === 'create_rental') {
             $roomId = (int) post_value('room_id');
             $start = post_value('start_date');
             $end = post_value('end_date') ?: null;
-            $rate = post_value('monthly_rate');
-            $deposit = post_value('deposit_amount') ?: '0';
+            $rate = post_money_value('monthly_rate');
+            $deposit = post_money_value('deposit_amount') ?: '0';
             $billingDay = (int) post_value('billing_day');
             if (!$tenantId || !$roomId || !$start || !is_numeric($rate) || (float) $rate <= 0
                 || !is_numeric($deposit) || (float) $deposit < 0 || $billingDay < 1 || $billingDay > 28

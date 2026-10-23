@@ -152,7 +152,7 @@ $installments = rows(
             <option value="">Pilih jenis</option><?php foreach ($categories as $category): ?><option value="<?= (int) $category['id'] ?>"><?= e($category['name']) ?></option><?php endforeach; ?>
         </select></label>
         <label class="field" data-expense-other hidden><span>Jenis pengeluaran *</span><input name="other_category_name" maxlength="100" disabled placeholder="Contoh: perbaikan atap"></label>
-        <label class="field"><span>Nominal (Rp) *</span><input type="number" name="amount" min="0.01" step="0.01" required></label>
+        <label class="field"><span>Nominal (Rp) *</span><input type="text" name="amount" inputmode="decimal" data-money-input data-money-decimals="2" placeholder="Contoh: 500.000" required></label>
         <label class="field"><span>Tanggal *</span><input type="date" name="expense_date" value="<?= e(date('Y-m-d')) ?>" required></label>
         <label class="field full-span"><span>Keterangan</span><input name="notes" maxlength="500" placeholder="Opsional"></label>
         <div class="form-actions full-span"><button class="button primary" type="submit">Simpan pengeluaran</button></div>

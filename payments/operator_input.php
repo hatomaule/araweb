@@ -102,7 +102,7 @@ $rooms = rows(
             </label>
             <label class="field hidden" id="custom-amount-field">
                 <span>Nominal khusus (Rp) *</span>
-                <input type="number" name="custom_amount" id="custom-amount" min="1" step="1000" inputmode="numeric">
+                <input type="text" name="custom_amount" id="custom-amount" min="1" step="1000" inputmode="numeric" data-money-input>
                 <small class="subline">Harga khusus hanya berlaku untuk pembayaran ini dan tidak mengubah harga kamar.</small>
             </label>
             <label class="field">
@@ -260,7 +260,7 @@ $rooms = rows(
         const roomLabel = roomSelect.selectedOptions[0]?.textContent.trim() || '';
         const periodLabel = form.elements.period.selectedOptions[0]?.textContent.trim() || '';
         const amount = amountType.value === 'custom'
-            ? Number(customAmount.value)
+            ? Number(customAmount.value.replace(/\./g, '').replace(',', '.'))
             : Number(roomSelect.selectedOptions[0]?.dataset.rate || 0);
         document.getElementById('payment-confirmation-summary').textContent =
             `${accountName} · ${roomLabel} · ${periodLabel} · Rp ${amount.toLocaleString('id-ID')}`;

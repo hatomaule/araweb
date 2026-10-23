@@ -857,3 +857,62 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   dalam commit `46c42d7`; push `origin main` gagal karena kredensial GitHub
   tidak tersedia (`unable to get password from user`). Ulangi push setelah
   autentikasi GitHub dikonfigurasi.
+- **Instruksi pengguna terbaru (2026-10-23):** catat permintaan selanjutnya
+  saja dan jangan mengeksekusi perubahan, migrasi, commit, atau push sampai
+  pengguna secara eksplisit mengatakan “gass eksekusi”. Perintah push yang
+  sebelumnya diberikan adalah petunjuk untuk pengguna; jangan jalankan push
+  sendiri tanpa izin baru.
+- **Permintaan lanjutan UI (2026-10-23, dicatat saja; menunggu “gass
+  eksekusi”):**
+  1. Pada semua tampilan kartu akun User/Owner, hilangkan latar dasar/permukaan
+     tabel yang masih terlihat pada screenshot. Buat kartu tampak terangkat
+     terpisah di atas latar halaman, mengikuti gaya kartu kamar.
+  2. Pada daftar percakapan di widget Chat, pindahkan aksi Arsipkan/Hapus ke
+     sisi paling kanan pada baris identitas percakapan, di bawah tombol tutup
+     “X” dan sejajar vertikal dengan nama. Letakkan avatar profil bulat di
+     sebelah kiri nama; avatar menjadi tautan ke profil orang yang bersangkutan.
+     Ikuti susunan yang ditunjukkan screenshot.
+  Pengguna menyetujui eksekusi; perubahan diterapkan pada tampilan kartu tabel
+  akun/penghuni dan daftar percakapan widget. Avatar chat memperoleh tautan
+  profil sesuai peran percakapan. Cache aset dinaikkan ke
+  `koskosan-chat-cards-20261023-1` pada aplikasi utama, autentikasi, dan
+  halaman publik. Tidak diperlukan migrasi. Validasi PHP berhasil untuk semua
+  berkas yang disentuh; query relasi profil berhasil diperiksa pada MariaDB;
+  browser memuat aset versi baru tanpa JavaScript error atau overflow
+  horizontal pada viewport 390px. Pemeriksaan interaksi dengan akun Admin
+  langsung belum dilakukan.
+- **Permintaan UI lanjutan (2026-10-23, menunggu “gass eksekusi”):** pada
+  screenshot, sembunyikan kartu kosong bertuliskan “Tidak ada data yang cocok
+  dengan pencarian atau filter” (card nomor 4). Terapkan perilaku ini ke semua
+  halaman yang menampilkan tabel dalam mode kartu; hasil kosong tidak perlu
+  ditampilkan sebagai kartu.
+- **Perbaikan empat poin disetujui (2026-10-23):**
+  1. HTTP 500 saat menambahkan kategori rutin telah ditelusuri: `mbstring` tidak
+     tersedia pada runtime PHP lokal (`extension_loaded('mbstring')` bernilai
+     false), sedangkan handler kategori memanggil `mb_strlen()`. Handler kini
+     menghitung karakter UTF-8 tanpa ekstensi tersebut, termasuk validasi
+     catatan pengeluaran yang berada pada alur terkait.
+  2. Konfirmasi `data-confirm` dan aksi Kosongkan Sampah pada widget chat
+     menggunakan modal konfirmasi sistem; fitur Kosongkan Sampah dari halaman
+     chat tetap memakai atribut konfirmasi yang sama. Inventarisasi sumber
+     menemukan tidak ada pemanggilan `window.confirm()` tersisa.
+  3. Form harga kamar, tarif sewa, deposit, tagihan, nominal pembayaran manual,
+     dan pengeluaran menerima pemformatan ribuan otomatis (mis. `500.000`).
+     Untuk nominal desimal, koma menjadi pemisah desimal. Sebelum form dikirim,
+     format tampilan diubah menjadi angka polos (titik ribuan dihapus, koma
+     desimal menjadi titik); handler server juga menormalisasi format lokal
+     sebelum validasi/simpan. Nilai domain tersimpan tidak mengandung pemisah
+     ribuan.
+  4. Aksi Arsipkan/Hapus/Pulihkan widget chat dipindahkan dari setiap baris
+     daftar ke sisi kanan header thread yang sedang terbuka. Tombol X tetap di
+     header widget atas; avatar profil tetap berada pada daftar percakapan.
+  Asset JS/CSS memakai query cache baru yang sama pada aplikasi utama,
+  autentikasi, dan halaman publik. Tidak ada migrasi database, commit, atau
+  push yang diminta. Validasi: `php -l` berhasil pada seluruh berkas PHP yang
+  diubah; pengujian helper PHP mencakup format `500.000`, `1.000.000`,
+  desimal, serta hitung teks UTF-8; insert kategori diuji dalam transaksi
+  MariaDB lalu di-rollback (tidak menyisakan baris uji); browser lokal
+  mengonfirmasi pemformatan `1.500.000,5`, nilai submit polos `1500000.5`,
+  serta modal konfirmasi yang dapat dibuka dan dibatalkan. Aksi thread chat
+  sudah disesuaikan di markup/JS/CSS, tetapi belum diuji end-to-end
+  menggunakan sesi chat berakun.

@@ -1610,7 +1610,10 @@ const initializeApp = () => {
     if (room && rate) {
         room.addEventListener('change', () => {
             const option = room.options[room.selectedIndex];
-            if (option && option.dataset.rate) rate.value = option.dataset.rate;
+            if (option && option.dataset.rate) {
+                rate.value = option.dataset.rate;
+                formatMoney(rate);
+            }
         });
     }
 
@@ -1619,7 +1622,10 @@ const initializeApp = () => {
     if (rental && invoiceAmount) {
         rental.addEventListener('change', () => {
             const option = rental.options[rental.selectedIndex];
-            if (option && option.dataset.rate) invoiceAmount.value = option.dataset.rate;
+            if (option && option.dataset.rate) {
+                invoiceAmount.value = option.dataset.rate;
+                formatMoney(invoiceAmount);
+            }
         });
     }
 
@@ -1697,6 +1703,48 @@ const initializeApp = () => {
 
     document.querySelectorAll('dialog.auth-dialog').forEach((dialog) => {
         let backdropPointerDown = false;
+    const confirmationDialog = document.createElement('dialog');
+    confirmationDialog.className = 'action-dialog';
+    confirmationDialog.setAttribute('aria-labelledby', 'app-confirmation-title');
+    confirmationDialog.innerHTML = `
+        <div class="action-dialog-form app-confirmation-content">
+            <button type="button" class="dialog-close" aria-label="Tutup" data-confirmation-cancel>×</button>
+            <span class="dialog-eyebrow">KONFIRMASI TINDAKAN</span>
+            <h2 id="app-confirmation-title">Apakah Anda yakin?</h2>
+            <p data-confirmation-message></p>
+            <div class="dialog-actions">
+                <button class="button secondary" type="button" data-confirmation-cancel>Batal</button>
+                <button class="button danger" type="button" data-confirmation-accept>Ya, lanjutkan</button>
+            </div>
+        </div>`;
+    document.body.append(confirmationDialog);
+    const confirmationMessage = confirmationDialog.querySelector('[data-confirmation-message]');
+    const confirmationCancelButtons = confirmationDialog.querySelectorAll('[data-confirmation-cancel]');
+    const confirmationAcceptButton = confirmationDialog.querySelector('[data-confirmation-accept]');
+    const approvedForms = new WeakSet();
+    let pendingConfirmation = null;
+    const confirmAction = (message) => new Promise((resolve) => {
+        pendingConfirmation = {resolve};
+        if (confirmationMessage) confirmationMessage.textContent = message;
+        confirmationDialog.showModal();
+    });
+    const dismissConfirmation = (confirmed) => {
+        confirmationDialog.close();
+        pendingConfirmation?.resolve(confirmed);
+        pendingConfirmation = null;
+    };
+    confirmationCancelButtons.forEach((button) => {
+        button.addEventListener('click', () => dismissConfirmation(false));
+    });
+    confirmationAcceptButton?.addEventListener('click', () => dismissConfirmation(true));
+    confirmationDialog.addEventListener('click', (event) => {
+        if (event.target === confirmationDialog) dismissConfirmation(false);
+    });
+    confirmationDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        dismissConfirmation(false);
+    });
+
         dialog.addEventListener('pointerdown', (event) => {
             backdropPointerDown = event.target === dialog;
         });
@@ -1786,11 +1834,69 @@ const initializeApp = () => {
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || !form.matches('form[data-confirm]')) return;
-        if (!window.confirm(form.dataset.confirm || 'Lanjutkan tindakan ini?')) {
-            event.preventDefault();
+        if (approvedForms.has(form)) {
+            approvedForms.delete(form);
+            return;
         }
     });
 
+        event.preventDefault();
+        void confirmAction(form.dataset.confirm || 'Lanjutkan tindakan ini?').then((confirmed) => {
+            if (!confirmed || !form.isConnected) return;
+            approvedForms.add(form);
+            form.requestSubmit();
+        });
+    });
+
+    document.addEventListener('submit', (event) => {
+        if (event.defaultPrevented || !(event.target instanceof HTMLFormElement)) return;
+        event.target.querySelectorAll('input[data-money-input]').forEach((input) => {
+            if (!(input instanceof HTMLInputElement)) return;
+            const value = input.value;
+            const groupedInteger = /^\d{1,3}(?:\.\d{3})+$/.test(value);
+            if (input.dataset.moneyDecimals === '2' && !value.includes(',')
+                && /^\d+\.\d{1,2}$/.test(value) && !groupedInteger) return;
+            input.value = value.replace(/\./g, '').replace(',', '.');
+        });
+    });
+
+    const formatMoney = (input) => {
+        const allowDecimals = input.dataset.moneyDecimals === '2';
+        const cursor = input.selectionStart ?? input.value.length;
+        const textBeforeCursor = input.value.slice(0, cursor);
+        const digitsBeforeCursor = textBeforeCursor.replace(/\D/g, '').length;
+        const commaBeforeCursor = allowDecimals && textBeforeCursor.includes(',');
+        const normalized = input.value.replace(allowDecimals ? /[^\d,]/g : /\D/g, '');
+        const commaIndex = normalized.indexOf(',');
+        const hasDecimal = allowDecimals && commaIndex >= 0;
+        let integer = hasDecimal ? normalized.slice(0, commaIndex) : normalized;
+        const decimal = hasDecimal ? normalized.slice(commaIndex + 1).replace(/,/g, '').slice(0, 2) : '';
+        integer = integer.replace(/^0+(?=\d)/, '');
+        const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+            + (hasDecimal ? `,${decimal}` : '');
+        input.value = formatted;
+        if (document.activeElement === input && typeof input.setSelectionRange === 'function') {
+            let nextCursor = 0;
+            let digitsSeen = 0;
+            while (nextCursor < formatted.length && digitsSeen < digitsBeforeCursor) {
+                if (/\d/.test(formatted[nextCursor])) digitsSeen += 1;
+                nextCursor += 1;
+            }
+            if (commaBeforeCursor) {
+                const formattedComma = formatted.indexOf(',');
+                if (formattedComma >= 0) {
+                    const decimalDigitsBeforeCursor = textBeforeCursor.slice(textBeforeCursor.indexOf(',') + 1)
+                        .replace(/\D/g, '').length;
+                    nextCursor = Math.min(formatted.length, formattedComma + 1 + decimalDigitsBeforeCursor);
+                }
+            }
+            input.setSelectionRange(nextCursor, nextCursor);
+        }
+    };
+    document.querySelectorAll('[data-money-input]').forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        input.addEventListener('input', () => formatMoney(input));
+        formatMoney(input);
     const chatWidget = document.querySelector('[data-chat-widget]');
     if (chatWidget) {
         const panel = chatWidget.querySelector('#chat-widget-panel');
@@ -1799,7 +1905,8 @@ const initializeApp = () => {
         const back = chatWidget.querySelector('[data-chat-back]');
         const list = chatWidget.querySelector('[data-chat-conversations]');
         const search = chatWidget.querySelector('[data-chat-search]');
-        const threadHeader = chatWidget.querySelector('[data-chat-thread-header]');
+        const threadIdentity = chatWidget.querySelector('[data-chat-thread-identity]');
+        const threadActions = chatWidget.querySelector('[data-chat-thread-actions]');
         const messages = chatWidget.querySelector('[data-chat-messages]');
         const compose = chatWidget.querySelector('[data-chat-compose]');
         const messageInput = compose?.querySelector('textarea');
@@ -1904,32 +2011,6 @@ const initializeApp = () => {
                     loadMessages();
                 });
                 row.append(button);
-                const addAction = (label, action) => {
-                    const actionButton = document.createElement('button');
-                    actionButton.type = 'button';
-                    actionButton.className = 'chat-widget-conversation-action';
-                    actionButton.textContent = label;
-                    actionButton.setAttribute('aria-label', `${label}: ${conversation.title}`);
-                    actionButton.addEventListener('click', async () => {
-                        try {
-                            await apiPost({chat_action: action, conversation_id: String(conversation.id)});
-                            await loadConversations();
-                            if (Number(conversation.id) === activeConversationId) await loadMessages();
-                        } catch (error) {
-                            showError(error);
-                        }
-                    });
-                    row.append(actionButton);
-                };
-                if (currentFolder === 'inbox') {
-                    addAction('Arsipkan', 'archive');
-                    addAction('Hapus', 'trash');
-                } else if (currentFolder === 'archive') {
-                    addAction('Pulihkan', 'restore');
-                    addAction('Hapus', 'trash');
-                } else {
-                    addAction('Pulihkan', 'restore_trash');
-                }
                 list.append(row);
             });
         };
@@ -1961,15 +2042,49 @@ const initializeApp = () => {
                 const shouldScroll = currentLatestId !== lastMessageId;
                 lastMessageId = currentLatestId;
                 const title = document.createElement('strong');
+        const renderThreadActions = (conversation) => {
+            if (!threadActions) return;
+            threadActions.replaceChildren();
+            if (!conversation) return;
+            const addAction = (label, action, danger = false) => {
+                const actionButton = document.createElement('button');
+                actionButton.type = 'button';
+                actionButton.className = `chat-widget-thread-action${danger ? ' danger' : ''}`;
+                actionButton.textContent = label;
+                actionButton.setAttribute('aria-label', `${label}: ${conversation.title}`);
+                actionButton.addEventListener('click', async () => {
+                    try {
+                        await apiPost({chat_action: action, conversation_id: String(conversation.id)});
+                        await loadConversations();
+                        if (listItems.some((item) => Number(item.id) === Number(conversation.id))) {
+                            await loadMessages();
+                        }
+                    } catch (error) {
+                        showError(error);
+                    }
+                });
+                threadActions.append(actionButton);
+            };
+            if (currentFolder === 'inbox') {
+                addAction('Arsipkan', 'archive');
+                addAction('Hapus', 'trash', true);
+            } else if (currentFolder === 'archive') {
+                addAction('Pulihkan', 'restore');
+                addAction('Hapus', 'trash', true);
+            } else {
+                addAction('Pulihkan', 'restore_trash');
+            }
+        };
                 title.textContent = payload.conversation.title;
                 const subtitle = document.createElement('small');
                 subtitle.textContent = payload.conversation.subtitle;
-                const backButton = threadHeader?.querySelector('[data-chat-back]');
-                threadHeader?.replaceChildren(...(backButton ? [backButton, title, subtitle] : [title, subtitle]));
+                threadIdentity?.replaceChildren(title, subtitle);
+                renderThreadActions(listItems.find((item) => Number(item.id) === activeConversationId));
                 messages.replaceChildren();
                 if (!payload.messages.length) {
                     const empty = document.createElement('div');
                     empty.className = 'chat-widget-empty';
+            renderThreadActions(listItems.find((item) => Number(item.id) === activeConversationId));
                     empty.textContent = 'Belum ada pesan. Tulis pesan untuk memulai.';
                     messages.append(empty);
                 }
@@ -2109,7 +2224,7 @@ const initializeApp = () => {
             });
         });
         emptyTrashButton?.addEventListener('click', async () => {
-            if (!window.confirm('Kosongkan Sampah secara permanen? Salinan peserta lain tetap terjaga.')) return;
+            if (!await confirmAction('Kosongkan Sampah secara permanen? Salinan peserta lain tetap terjaga.')) return;
             try {
                 await apiPost({chat_action: 'empty_trash'});
                 await loadConversations();

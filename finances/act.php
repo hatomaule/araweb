@@ -15,6 +15,16 @@ function seed_default_owner_expense_categories(PDO $pdo, int $ownerId): void
     }
 }
 
+function finance_character_count(string $value): int
+{
+    $count = preg_match_all('/./us', $value);
+    if ($count === false) {
+        throw new RuntimeException('Teks pengeluaran harus berupa UTF-8 yang valid.');
+    }
+
+    return $count;
+}
+
 function handle_finance_action(PDO $pdo, ?array $user, string $action): void
 {
     if (!in_array($action, [
@@ -32,7 +42,7 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
 
     if ($action === 'save_expense_category') {
         $name = trim(post_value('category_name'));
-        if ($name === '' || mb_strlen($name) > 100) {
+        if ($name === '' || finance_character_count($name) > 100) {
             throw new RuntimeException('Nama pengeluaran rutin wajib diisi dan maksimal 100 karakter.');
         }
         if (one(
@@ -54,7 +64,7 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
     if ($action === 'update_expense_category') {
         $categoryId = (int) post_value('category_id');
         $name = trim(post_value('category_name'));
-        if ($categoryId < 1 || $name === '' || mb_strlen($name) > 100) {
+        if ($categoryId < 1 || $name === '' || finance_character_count($name) > 100) {
             throw new RuntimeException('Pilih jenis pengeluaran rutin dan isi nama maksimal 100 karakter.');
         }
         if (one(
@@ -102,14 +112,14 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
     }
 
     $type = post_value('expense_type');
-    $amount = post_value('amount');
+    $amount = post_money_value('amount');
     $date = post_value('expense_date');
     $notes = post_value('notes');
     if (!in_array($type, ['routine', 'other'], true)
         || !preg_match('/^\d{1,10}(?:\.\d{1,2})?$/', $amount)
         || (float) $amount <= 0 || (float) $amount > 9999999999.99
         || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
-        || $notes !== '' && mb_strlen($notes) > 500) {
+        || $notes !== '' && finance_character_count($notes) > 500) {
         throw new RuntimeException('Jenis, nominal, tanggal, atau keterangan pengeluaran tidak valid.');
     }
     $dateValue = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
@@ -131,7 +141,7 @@ function handle_finance_action(PDO $pdo, ?array $user, string $action): void
         $categoryName = $category['name'];
     } else {
         $categoryName = trim(post_value('other_category_name'));
-        if ($categoryName === '' || mb_strlen($categoryName) > 100) {
+        if ($categoryName === '' || finance_character_count($categoryName) > 100) {
             throw new RuntimeException('Jenis pengeluaran lainnya wajib diisi dan maksimal 100 karakter.');
         }
     }

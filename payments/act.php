@@ -330,7 +330,7 @@ if ($action === 'create_invoice') {
             $periodStart = post_value('period_start');
             $periodEnd = post_value('period_end');
             $dueDate = post_value('due_date');
-            $amount = post_value('amount_due');
+            $amount = post_money_value('amount_due');
             $rentalQuery = $pdo->prepare('SELECT id, monthly_rate FROM rentals WHERE id=:id');
             $rentalQuery->execute(['id' => $rentalId]);
             $rental = $rentalQuery->fetch();
@@ -370,7 +370,7 @@ if ($action === 'save_operator_payment') {
             $periodValue = post_value('period');
             $amountType = post_value('amount_type');
             $paymentMethod = post_value('payment_method');
-            $amountValue = post_value('custom_amount');
+            $amountValue = post_money_value('custom_amount');
             $parsedPeriod = preg_match('/^\d{4}-\d{2}$/', $periodValue)
                 ? DateTimeImmutable::createFromFormat('!Y-m', $periodValue)
                 : false;
@@ -642,7 +642,7 @@ if ($action === 'create_payment') {
                 redirect('dashboard');
             }
             $invoiceId = (int) post_value('invoice_id');
-            $amount = post_value('amount');
+            $amount = post_money_value('amount');
             if (!is_numeric($amount) || (float) $amount <= 0) {
                 set_flash('error', 'Pembayaran tidak valid atau melebihi sisa tagihan.');
                 redirect('payments');

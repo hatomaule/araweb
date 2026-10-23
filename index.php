@@ -736,7 +736,7 @@ function collect_photo_uploads(string $field): array
 
 require __DIR__ . '/portal/public.php';
 ?><!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="<?= e(csrf_token()) ?>"><link rel="manifest" href="site.webmanifest"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-mobile-finance-20261023-1"></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="<?= e(csrf_token()) ?>"><link rel="manifest" href="site.webmanifest"><title><?= e(page_title($page)) ?> - KosKosan</title><link rel="stylesheet" href="style.css?v=koskosan-finance-chat-money-20261023-2"></head>
 <body><div class="app-shell">
     <aside class="sidebar">
         <a class="brand" href="index.php"><span class="brand-mark">K</span><span>KosKosan<small>Manajemen kos</small></span></a>
@@ -880,4 +880,4 @@ require __DIR__ . '/portal/public.php';
     </form>
 </dialog>
 <?php require __DIR__ . '/chat/widget.php'; ?>
-<script src="app.js?v=koskosan-mobile-finance-20261023-1"></script></body></html>
+<script src="app.js?v=koskosan-finance-chat-money-20261023-2"></script></body></html>
