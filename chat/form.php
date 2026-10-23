@@ -100,7 +100,7 @@ if ($conversationId > 0) {
                 </div>
             </dialog><?php endif; ?>
             <div class="chat-message-list" aria-live="polite">
-                <?php foreach ($messages as $message): ?><article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>"><p><?= nl2br(e($message['body'])) ?></p><small><?= e(date_id($message['created_at'])) ?></small></article><?php endforeach; ?>
+                <?php foreach ($messages as $message): ?><article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>"><p><?= nl2br(e($message['body'])) ?></p><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div></article><?php endforeach; ?>
                 <?php if (!$messages): ?><p class="chat-empty">Belum ada pesan.</p><?php endif; ?>
             </div>
             <?php if ($activeConversation['personal_status'] === 'active'): ?>

@@ -355,8 +355,13 @@ function chat_list_conversations(PDO $pdo, array $user, string $folder = 'inbox'
         'SELECT c.id, c.conversation_type, c.seeker_user_id, c.requester_user_id,
                 c.building_id, c.room_id, c.created_at, c.updated_at, c.last_message_at,
                 c.archived_at, b.name AS building_name, rm.room_number,
-                s.name AS seeker_name, requester.name AS requester_name,
-                requester.role AS requester_role, o.name AS operator_name,
+                s.id AS seeker_profile_id, s.name AS seeker_name,
+                s.profile_photo_path AS seeker_profile_photo,
+                requester.id AS requester_profile_id, requester.name AS requester_name,
+                requester.profile_photo_path AS requester_profile_photo,
+                requester.role AS requester_role,
+                o.id AS operator_profile_id, o.name AS operator_name,
+                o.profile_photo_path AS operator_profile_photo,
                 COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT m.body FROM chat_messages m WHERE m.conversation_id = c.id
                  ORDER BY m.id DESC LIMIT 1) AS last_message,
@@ -498,13 +503,19 @@ function chat_get_conversation(PDO $pdo, array $user, int $conversationId): arra
                 s.email AS seeker_email, s.username AS seeker_username,
                 s.profile_photo_path AS seeker_photo, s.gender AS seeker_gender,
                 s.avatar_key AS seeker_avatar,
+                (s.last_seen_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)) AS seeker_online,
                 o.name AS operator_name, o.id AS operator_id, o.email AS operator_email,
                 o.username AS operator_username, o.profile_photo_path AS operator_photo,
                 o.gender AS operator_gender, o.avatar_key AS operator_avatar,
+                (o.last_seen_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)) AS operator_online,
                 requester.name AS requester_name, requester.id AS requester_user_id,
                 requester.email AS requester_email, requester.username AS requester_username,
                 requester.profile_photo_path AS requester_photo, requester.gender AS requester_gender,
                 requester.avatar_key AS requester_avatar, requester.role AS requester_role,
+                (requester.last_seen_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)) AS requester_online,
+                (SELECT COUNT(*) FROM users online_admin
+                 WHERE online_admin.role=\'admin\' AND online_admin.status=\'active\'
+                   AND online_admin.last_seen_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)) AS online_admin_count,
                 COALESCE(state.status, \'active\') AS personal_status,
                 (SELECT COUNT(*) FROM chat_messages unread
                  WHERE unread.conversation_id = c.id
@@ -529,6 +540,14 @@ function chat_get_conversation(PDO $pdo, array $user, int $conversationId): arra
     if (!$conversation || $conversation['personal_status'] === 'purged') {
         throw new ChatNotFoundException('Conversation not found.');
     }
+
+    $conversation['recipient_online'] = $conversation['conversation_type'] === 'support'
+        ? ($user['role'] === 'admin'
+            ? (bool) $conversation['requester_online']
+            : (int) $conversation['online_admin_count'] > 0)
+        : ($user['role'] === 'seeker'
+            ? (bool) $conversation['operator_online']
+            : ($user['role'] === 'owner' && (bool) $conversation['seeker_online']));
 
     return $conversation;
 }
@@ -598,6 +617,39 @@ function chat_get_messages(
     $statement = $pdo->prepare($sql);
     $statement->execute($parameters);
     return array_reverse($statement->fetchAll());
+}
+
+function chat_message_delivery_status(array $message, array $conversation, array $user): ?string
+{
+    if ((int) $message['sender_user_id'] !== (int) $user['id']) {
+        return null;
+    }
+    if ($message['read_at'] !== null) {
+        return 'read';
+    }
+
+    return !empty($conversation['recipient_online']) ? 'delivered' : 'sent';
+}
+
+function chat_delivery_status_markup(array $message, array $conversation, array $user): string
+{
+    $deliveryStatus = chat_message_delivery_status($message, $conversation, $user);
+    if ($deliveryStatus === null) {
+        return '';
+    }
+
+    $label = match ($deliveryStatus) {
+        'read' => 'Dibaca',
+        'delivered' => 'Diterima',
+        default => 'Terkirim',
+    };
+    $class = $deliveryStatus === 'read' ? 'chat-delivery-status is-read' : 'chat-delivery-status';
+    $icon = $deliveryStatus === 'sent'
+        ? '<path d="m2 7 4 4L16 1"/>'
+        : '<path d="m1 7 4 4L15 1"/><path d="m7 7 4 4L19 1"/>';
+
+    return '<span class="' . $class . '" role="img" aria-label="' . $label . '" title="' . $label
+        . '"><svg viewBox="0 0 20 14" aria-hidden="true">' . $icon . '</svg></span>';
 }
 
 function chat_mark_read(PDO $pdo, array $user, int $conversationId): int

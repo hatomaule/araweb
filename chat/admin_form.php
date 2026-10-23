@@ -170,7 +170,7 @@ $chatQuery = http_build_query(array_filter([
                 <?php foreach ($messages as $message): ?>
                     <article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>">
                         <strong><?= e($message['sender_name']) ?> · <?= e(['admin' => 'Admin', 'owner' => 'Owner', 'seeker' => 'User'][$message['sender_role']] ?? $message['sender_role']) ?></strong>
-                        <p><?= nl2br(e($message['body'])) ?></p><small><?= e(date_id($message['created_at'])) ?></small>
+                        <p><?= nl2br(e($message['body'])) ?></p><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div>
                     </article>
                 <?php endforeach; ?>
                 <?php if (!$messages): ?><p class="chat-empty">Belum ada pesan di percakapan ini.</p><?php endif; ?>

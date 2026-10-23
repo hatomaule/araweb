@@ -14,14 +14,14 @@ $listings = rows(
 );
 ?>
 <section class="page-heading"><div><span class="eyebrow">PROPERTI TERDAFTAR</span><h2>Daftar kos</h2><p>Properti yang dikelola Owner. Listing aktif dapat langsung ditemukan pengguna.</p></div></section>
-<div class="panel"><div class="table-scroll"><table><thead><tr><th>Nama kos / alamat</th><th>Owner</th><th>Telepon</th><th>Status</th><th>Terdaftar</th></tr></thead><tbody>
+<div class="panel"><div class="table-scroll"><table><thead><tr><th data-card-label="">Nama kos / alamat</th><th>Owner</th><th>Telepon</th><th>Status</th><th>Terdaftar</th></tr></thead><tbody>
 <?php foreach ($listings as $listing):
     $propertyUrl = 'index.php?page=property&amp;id=' . (int) $listing['id'];
     $propertyPhoto = $listing['profile_photo_path']
         ?: ($listing['first_property_photo'] ?: $listing['first_gallery_photo']);
 ?>
 <tr>
-    <td><div class="admin-property-cell">
+    <td class="admin-property-data"><div class="admin-property-cell">
         <a class="admin-property-avatar" href="<?= $propertyUrl ?>" aria-label="Buka profil kos <?= e($listing['name']) ?>">
             <?php if ($propertyPhoto): ?><img src="<?= e($propertyPhoto) ?>" alt=""><?php else: ?><span aria-hidden="true">K</span><?php endif; ?>
         </a>

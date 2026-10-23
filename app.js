@@ -2124,7 +2124,26 @@ const initializeApp = () => {
                     body.textContent = message.body;
                     const time = document.createElement('small');
                     time.textContent = formatMessageTime(message.created_at);
-                    bubble.append(body, time);
+                    const metadata = document.createElement('div');
+                    metadata.className = 'chat-message-meta';
+                    metadata.append(time);
+                    const deliveryStatus = ['sent', 'delivered', 'read'].includes(message.delivery_status)
+                        ? message.delivery_status : null;
+                    if (deliveryStatus) {
+                        const receipt = document.createElement('span');
+                        const isRead = deliveryStatus === 'read';
+                        const isDelivered = deliveryStatus === 'delivered';
+                        const label = isRead ? 'Dibaca' : (isDelivered ? 'Diterima' : 'Terkirim');
+                        receipt.className = `chat-delivery-status${isRead ? ' is-read' : ''}`;
+                        receipt.setAttribute('role', 'img');
+                        receipt.setAttribute('aria-label', label);
+                        receipt.title = label;
+                        receipt.innerHTML = deliveryStatus === 'sent'
+                            ? '<svg viewBox="0 0 20 14" aria-hidden="true"><path d="m2 7 4 4L16 1"/></svg>'
+                            : '<svg viewBox="0 0 20 14" aria-hidden="true"><path d="m1 7 4 4L15 1"/><path d="m7 7 4 4L19 1"/></svg>';
+                        metadata.append(receipt);
+                    }
+                    bubble.append(body, metadata);
                     messages.append(bubble);
                 });
                 if (compose) compose.hidden = !payload.conversation.can_send;

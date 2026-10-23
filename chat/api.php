@@ -29,6 +29,19 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                         $otherParty = $user['role'] === 'seeker'
                             ? ($conversation['operator_name'] ?: $conversation['building_name'] ?: 'Pengelola kos')
                             : ($conversation['seeker_name'] ?: 'Pengguna');
+                        $profile = match ($user['role']) {
+                            'admin' => $isSupport
+                                ? [$conversation['requester_profile_id'], $conversation['requester_name'], $conversation['requester_profile_photo']]
+                                : [$conversation['seeker_profile_id'], $conversation['seeker_name'], $conversation['seeker_profile_photo']],
+                            'seeker' => !$isSupport
+                                ? [$conversation['operator_profile_id'], $conversation['operator_name'], $conversation['operator_profile_photo']]
+                                : [null, null, null],
+                            default => !$isSupport
+                                ? [$conversation['seeker_profile_id'], $conversation['seeker_name'], $conversation['seeker_profile_photo']]
+                                : [null, null, null],
+                        };
+                        $profileId = (int) ($profile[0] ?? 0);
+                        $profileName = $profile[1] ?? null;
                         return [
                             'id' => (int) $conversation['id'],
                             'type' => $conversation['conversation_type'],
@@ -47,6 +60,11 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                             'last_message' => (string) ($conversation['last_message'] ?? ''),
                             'unread_count' => (int) $conversation['unread_count'],
                             'personal_status' => $conversation['personal_status'],
+                            'profile_name' => $profileName,
+                            'profile_photo' => $profile[2] ?: null,
+                            'profile_url' => $profileId > 0
+                                ? 'index.php?page=chat_profile&conversation_id=' . (int) $conversation['id']
+                                : null,
                         ];
                     },
                     array_slice(chat_list_conversations($pdo, $user, $folder), 0, 100)
@@ -80,14 +98,18 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                                 : $user['role'] !== 'admin'),
                         'archived' => $conversation['personal_status'] === 'archived',
                         'personal_status' => $conversation['personal_status'],
+                        'recipient_online' => (bool) $conversation['recipient_online'],
                     ],
                     'messages' => array_map(
-                        static fn (array $message): array => [
-                            'id' => (int) $message['id'],
-                            'sender_user_id' => (int) $message['sender_user_id'],
-                            'body' => $message['body'],
-                            'created_at' => $message['created_at'],
-                        ],
+                        static function (array $message) use ($conversation, $user): array {
+                            return [
+                                'id' => (int) $message['id'],
+                                'sender_user_id' => (int) $message['sender_user_id'],
+                                'body' => $message['body'],
+                                'created_at' => $message['created_at'],
+                                'delivery_status' => chat_message_delivery_status($message, $conversation, $user),
+                            ];
+                        },
                         $messages
                     ),
                     'current_user_id' => (int) $user['id'],

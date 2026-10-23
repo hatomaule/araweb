@@ -1315,6 +1315,12 @@ html[data-theme="dark"] .public-nav-cta:hover{background:linear-gradient(145deg,
 .admin-property-avatar:focus-visible{outline:3px solid #8470ed;outline-offset:3px}
 .admin-property-copy{display:grid;gap:4px;min-width:0}
 .admin-property-copy .subline{max-width:660px}
+.data-table-card-view .admin-property-cell{min-width:0;gap:12px}
+.data-table-card-view .admin-property-data{display:block!important}
+.data-table-card-view .admin-property-data::before{display:none}
+.data-table-card-view .admin-property-avatar{width:66px;height:66px}
+.data-table-card-view .admin-property-copy .subline{display:none}
+.data-table-card-view .admin-property-copy>.text-link{font-size:13px}
 html[data-theme="dark"] .admin-property-avatar{border-color:#445169;background:linear-gradient(145deg,#302a4c,#25243d);color:#d1c9ff}
 .room-type-grid{grid-auto-flow:row}
 @media(max-width:650px){.room-type-grid{grid-template-columns:minmax(0,1fr)}}
@@ -1328,7 +1334,9 @@ html[data-theme="dark"] .admin-property-avatar{border-color:#445169;background:l
 .photo-upload-pending>img{display:block;width:100%;height:88px;object-fit:cover;border-radius:5px}
 .photo-upload-pending .text-button{justify-self:start}
 html[data-theme="dark"] .gallery-upload-field,html[data-theme="dark"] .photo-upload-pending{background:var(--paper);border-color:var(--line)}
-html[data-theme="dark"] .gallery-category-heading h2,html[data-theme="dark"] .gallery-building-banner>div strong{color:var(--ink)}
+html[data-theme="dark"] .gallery-category-heading h2{color:var(--ink)}
+html[data-theme="dark"] .gallery-building-banner>div strong{color:#414531}
+html[data-theme="dark"] .gallery-building-banner>div small{color:#736f5c}
 .property-room-type-list{display:grid;gap:17px}
 .property-room-type{position:relative;min-width:0;padding:15px 14px 10px;border:1px solid #e8e6d8;border-radius:13px;background:#fffefa;box-shadow:0 5px 18px #36321d0a}
 .property-room-type-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
@@ -1459,6 +1467,10 @@ html[data-theme="dark"] .data-table-card-view table tbody tr:not([data-table-gro
 .chat-message.mine{align-self:flex-end;border-color:#d8d2fb;border-radius:14px 14px 4px 14px;background:var(--purple-light)}
 .chat-message p{margin:0 0 5px;line-height:1.55;overflow-wrap:anywhere}
 .chat-message small{color:var(--muted);font-size:9px}
+.chat-message-meta{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.chat-delivery-status{display:inline-flex;align-items:center;width:17px;height:12px;color:#929aaa}
+.chat-delivery-status svg{display:block;width:17px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chat-delivery-status.is-read{color:#39a7ef}
 .chat-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;padding:14px;border-top:1px solid var(--line)}
 .chat-compose .field{margin:0}
 .chat-thread-empty,.chat-empty{display:grid;place-items:center;align-content:center;gap:8px;min-height:180px;padding:22px;color:var(--muted);text-align:center}
@@ -1530,6 +1542,9 @@ html[data-theme="dark"] .data-table-card-view table tbody tr:not([data-table-gro
 .chat-widget-messages .chat-message.mine{align-self:flex-end}
 .chat-widget-messages .chat-message p{font-size:10px}
 .chat-widget-messages .chat-message small{font-size:8px}
+.chat-widget-messages .chat-message-meta{gap:3px}
+.chat-widget-messages .chat-delivery-status{width:15px;height:11px}
+.chat-widget-messages .chat-delivery-status svg{width:15px;height:11px}
 .chat-widget-empty{display:grid;place-items:center;align-self:stretch;flex:1;padding:18px;color:var(--muted);font-size:10px;text-align:center}
 .chat-widget-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px;padding:9px;border-top:1px solid var(--line)}
 .chat-widget-compose textarea{width:100%;min-height:43px;max-height:90px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:10px 'DM Sans',Arial,sans-serif;resize:vertical}

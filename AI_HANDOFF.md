@@ -1041,3 +1041,33 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   CSS kartu diterapkan, sementara baris data tetap tampil sebagai grid. Asset
   cache disegarkan konsisten pada aplikasi utama, autentikasi, dan halaman
   publik. PHP lint dan pemeriksaan diff lulus; tidak ada migrasi.
+- **Eksekusi tiga perubahan UI/chat disetujui (2026-10-23):**
+  1. Kartu daftar kos Admin menyembunyikan label “Nama kos / alamat” dan
+     alamat detail pada mode Kartu, mempertahankan foto serta nama kos sebagai
+     identitas kartu.
+  2. Centang status pesan dikaitkan ke data nyata: `read_at` menentukan status
+     dibaca (dua centang biru); jika belum dibaca, `last_seen_at` penerima
+     dalam lima menit terakhir menentukan diterima/online (dua centang abu);
+     selain itu terkirim/offline (satu centang abu). Chat sistem sudah
+     memperbarui `last_seen_at` pada setiap request, sehingga tidak diperlukan
+     tabel kehadiran atau migrasi tambahan. Logika berlaku di widget chat dan
+     halaman chat penuh.
+  3. Efek cahaya launcher hanya tetap berada pada tepian tombol launcher;
+     tidak ada ring yang ditambahkan ke panel chat.
+  Asset cache JS/CSS disegarkan pada aplikasi utama, autentikasi, dan halaman
+  publik. Validasi: PHP lint untuk seluruh template/API yang disentuh lulus;
+  pengujian helper memastikan satu centang terkirim/offline, dua centang
+  diterima/online, dua centang biru/dibaca, serta tidak menampilkan centang
+  pada pesan lawan bicara. Database lokal mengonfirmasi kolom `users.status`
+  dan `users.last_seen_at` tersedia; query presence diuji hanya-baca, tanpa
+  perubahan data/migrasi. Browser memverifikasi nama kos tetap tampil, label
+  kosong/alamat disembunyikan, avatar kartu 66px, dan rule ring launcher ada
+  sementara tidak ada ring panel. `git diff --check` lulus dengan penanganan
+  CRLF. Perubahan lokal yang lebih dahulu ada di `chat/api.php` dan
+  `chat/chat.php` (data profil di daftar chat) tetap dipertahankan; tidak
+  dijalankan migrasi.
+- **Perbaikan kontras banner galeri gedung pada tema gelap (2026-10-23):**
+  Judul gedung dan label kecil pada banner berwarna krem memakai warna teks
+  gelap yang tegas, sehingga tidak lagi menyilaukan atau sulit dibaca saat
+  tema gelap. Cache CSS/JS diperbarui pada aplikasi, autentikasi, serta halaman
+  publik. Tidak ada perubahan skema database.
