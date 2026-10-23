@@ -9,11 +9,11 @@
                 $occupancy = $stats['rooms'] ? round(($stats['occupied'] / $stats['rooms']) * 100) : 0;
             ?>
                 <div class="welcome-row"><div><h2>Halo, <?= e(explode(' ', $user['name'])[0]) ?> 👋</h2><p>Pantau operasional kos Anda hari ini.</p></div><a class="button primary" href="index.php?page=rental_form">＋ Sewa baru</a></div>
-                <div class="stats-grid">
-                    <article class="stat-card"><div class="stat-icon purple">♙</div><div><span>Pelanggan aktif</span><strong><?= $stats['tenants'] ?></strong><small>terdaftar saat ini</small></div></article>
-                    <article class="stat-card"><div class="stat-icon blue">▦</div><div><span>Total kamar</span><strong><?= $stats['rooms'] ?></strong><small><?= $stats['occupied'] ?> kamar terisi</small></div></article>
-                    <article class="stat-card"><div class="stat-icon green">◔</div><div><span>Okupansi</span><strong><?= $occupancy ?>%</strong><small>dari seluruh kamar</small></div></article>
-                    <article class="stat-card"><div class="stat-icon orange">Rp</div><div><span>Tagihan berjalan</span><strong><?= e(money($stats['outstanding'])) ?></strong><small>belum dibayar</small></div></article>
+                <div class="stats-grid dashboard-stats">
+                    <article class="stat-card"><div class="stat-icon purple">♙</div><div><a class="stat-card-label-link" href="index.php?page=tenants">Pelanggan aktif</a><strong><?= $stats['tenants'] ?></strong><small>terdaftar saat ini</small></div></article>
+                    <article class="stat-card"><div class="stat-icon blue">▦</div><div><a class="stat-card-label-link" href="index.php?page=rooms">Total kamar</a><strong><?= $stats['rooms'] ?></strong><small><?= $stats['occupied'] ?> kamar terisi</small></div></article>
+                    <article class="stat-card"><div class="stat-icon green">◔</div><div><a class="stat-card-label-link" href="index.php?page=rooms">Okupansi</a><strong><?= $occupancy ?>%</strong><small>dari seluruh kamar</small></div></article>
+                    <article class="stat-card"><div class="stat-icon orange">Rp</div><div><a class="stat-card-label-link" href="index.php?page=invoices">Tagihan berjalan</a><strong><?= e(money($stats['outstanding'])) ?></strong><small>belum dibayar</small></div></article>
                 </div>
                 <div class="panel"><div class="panel-heading"><div><h2>Tagihan terbaru</h2><p>Ringkasan tagihan pelanggan</p></div><a class="text-link" href="index.php?page=invoices">Lihat semua →</a></div>
                     <?php if (!$recent): ?><div class="empty-state"><span>▤</span><strong>Belum ada tagihan</strong><p>Tagihan yang dibuat akan muncul di sini.</p><a class="button secondary" href="index.php?page=invoice_form">Buat tagihan</a></div>

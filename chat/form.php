@@ -100,11 +100,11 @@ if ($conversationId > 0) {
                 </div>
             </dialog><?php endif; ?>
             <div class="chat-message-list" aria-live="polite">
-                <?php foreach ($messages as $message): ?><article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>"><p><?= nl2br(e($message['body'])) ?></p><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div></article><?php endforeach; ?>
+                <?php foreach ($messages as $message): ?><article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>"><p><?= nl2br(e($message['body'])) ?></p><?= chat_attachment_markup($message) ?><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div></article><?php endforeach; ?>
                 <?php if (!$messages): ?><p class="chat-empty">Belum ada pesan.</p><?php endif; ?>
             </div>
             <?php if ($activeConversation['personal_status'] === 'active'): ?>
-                <form class="chat-compose" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="send_chat_message"><input type="hidden" name="conversation_id" value="<?= $conversationId ?>"><label class="field"><span>Pesan</span><textarea name="message" rows="2" maxlength="4000" required placeholder="Tulis pesan..."></textarea></label><button class="button primary" type="submit">Kirim</button></form>
+                <form class="chat-compose" method="post" enctype="multipart/form-data" data-chat-attachments><?= csrf_field() ?><input type="hidden" name="action" value="send_chat_message"><input type="hidden" name="conversation_id" value="<?= $conversationId ?>"><label class="field"><span>Pesan</span><textarea name="message" rows="2" maxlength="4000" placeholder="Tulis pesan..."></textarea></label><button class="button primary" type="submit">Kirim</button></form>
             <?php else: ?><p class="chat-admin-readonly-note">Pulihkan percakapan ke Kotak masuk untuk mengirim pesan.</p><?php endif; ?>
         <?php else: ?><div class="chat-thread-empty"><span>✉</span><h2>Pilih percakapan</h2><p>Pilih percakapan di samping untuk membaca dan mengirim pesan.</p></div><?php endif; ?>
     </section>

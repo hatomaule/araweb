@@ -109,7 +109,9 @@ function handle_chat_action(PDO $pdo, array $user, string $action): void
 
     if ($action === 'send_chat_message') {
         $conversationId = (int) post_value('conversation_id');
-        chat_send_message($pdo, $user, $conversationId, post_value('message'));
+        $attachment = isset($_FILES['attachment']) && is_array($_FILES['attachment'])
+            ? $_FILES['attachment'] : null;
+        chat_send_message($pdo, $user, $conversationId, post_value('message'), $attachment);
         $conversation = chat_get_conversation($pdo, $user, $conversationId);
         chat_notify_message_recipients($pdo, $user, $conversation, $conversationId);
         redirect($user['role'] === 'admin'

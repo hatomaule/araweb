@@ -82,7 +82,7 @@ foreach ($galleryPhotos as $galleryPhoto) {
 }
 ?>
 <div class="welcome-row gallery-welcome">
-    <div><h2>Galeri foto</h2><p>Kelola foto gedung, kamar, dan fasilitas per tipe kamar. Setiap foto kamar baru bisa ditautkan ke kamar tertentu.</p></div>
+    <div><h2>Galeri foto</h2><p>Kelola foto gedung, kamar, dan fasilitas per tipe kamar. Foto kamar tersimpan di galeri bersama dan dapat dipilih sebagai foto profil dari kartu foto.</p></div>
 </div>
 <div class="panel gallery-filter-panel">
     <form method="get" class="gallery-filter-form">
@@ -170,9 +170,6 @@ foreach ($galleryPhotos as $galleryPhoto) {
                     <div class="photo-upload-preview-grid" data-photo-upload-grid></div>
                 </div>
             </div>
-            <?php if ($category === 'room'): ?>
-                <label class="field gallery-room-target"><span>Simpan foto baru untuk kamar</span><select form="gallery-upload-form" name="gallery_room_ids[room]"><option value="">Galeri bersama tipe kamar</option><?php foreach ($matchingRooms as $matchingRoom): ?><option value="<?= (int) $matchingRoom['id'] ?>">Kamar <?= e($matchingRoom['room_number']) ?></option><?php endforeach; ?></select><small class="field-help">Foto profil kamar yang sudah ada dapat diganti dari kartu foto dengan memilih kamar tujuan.</small></label>
-            <?php endif; ?>
         </section>
     <?php endforeach; ?>
     <div class="gallery-save-bottom"><button class="button primary gallery-save-button" type="submit" form="gallery-upload-form">Simpan</button></div>

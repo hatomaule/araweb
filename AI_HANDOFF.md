@@ -103,9 +103,9 @@ gedung, foto kamar, fasilitas kamar, dan fasilitas umum. Perubahan skema
 memerlukan `migration_room_type_gallery.sql` satu kali; lihat urutan migrasi di
 README sebelum memperbarui database target.
 Pemilih galeri hanya mencantumkan tipe kamar yang benar-benar tersedia pada
-gedung terpilih. Pilih foto pada satu atau beberapa kategori, tautkan foto
-kamar yang baru diunggah ke unit tertentu jika diperlukan, lalu kirim semuanya
-dengan tombol **Simpan**; handler membaca
+gedung terpilih. Pilih foto pada satu atau beberapa kategori, lalu kirim
+semuanya dengan tombol **Simpan**; foto kategori kamar yang baru diunggah
+menjadi foto galeri bersama. Handler membaca
 `gallery_photos_{category}` dan memvalidasi maksimal empat foto per kategori.
 Foto galeri kategori kamar dapat langsung dijadikan foto profil dari kartu
 galeri dengan memilih unit tujuan; halaman Edit Kamar menyediakan aksi yang
@@ -317,6 +317,17 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
 - Pengguna mendorong commit dari terminal Linux secara manual; bila perlu,
   berikan perintah `cd ~/projects/ekosan && git push origin main`. Jangan
   mencoba push tanpa diminta.
+- Tombol bantuan pada widget Chat untuk pengguna non-admin berada di header:
+  “Bantuan” memulai percakapan dukungan, sedangkan “WA Admin” menggunakan
+  tautan `wa.me` agar ponsel dapat membuka aplikasi WhatsApp dan desktop dapat
+  membuka WhatsApp Web. Struk pembayaran memakai pesan teks terformat yang
+  menyerupai tabel; unduhan gambar PNG tetap merupakan aksi terpisah. Pemilih
+  tema dan tampilan tabel/kartu kini berupa switch ikon dua pilihan tanpa menu;
+  panel galeri foto tidak lagi memiliki latar, sementara kartu tambah foto
+  dipertahankan.
+- Kolom tulis pesan pada chat sistem dan widget chat menyediakan pemilih emoji
+  standar yang menyisipkan emoji pada posisi kursor; tombol kirim dan Enter
+  tetap menggunakan alur pengiriman pesan yang sama.
 - Perubahan lokal di `uploads/` pernah tampak sebagai penghapusan/berkas baru
   dan bukan bagian perubahan fitur. Selalu periksa status sebelum stage; jangan
   masukkan, hapus, atau pulihkan data upload ini tanpa instruksi.
@@ -464,6 +475,21 @@ diuji di browser; ulangi pengujian sesuai ruang lingkup tugas.
   samping.
 - Pencarian akun pada input pembayaran Operator menampilkan daftar pilihan
   dropdown berisi nama, email, dan telepon setelah hasil tersedia.
+- Chat mendukung lampiran foto/video dan pesan lampiran saja. Foto diubah ke
+  WebP di browser (maksimum 8 MB setelah kompresi); video disimpan dalam format
+  asli tanpa kompresi, maksimal 20 MB. Format video yang diterima MP4, WebM,
+  dan MOV; FFmpeg tidak diperlukan. Atur `upload_max_filesize=20M` dan
+  `post_max_size=24M`. File tersimpan di direktori privat di luar document
+  root (`CHAT_UPLOAD_DIR` dapat mengubah lokasi).
+- Migrasi lampiran telah diterapkan dan diverifikasi pada database aplikasi
+  `manajemen_kos`: kelima kolom `attachment_*` dan indeks
+  `idx_chat_messages_attachment` tersedia. Jangan jalankan ulang
+  `migration_chat_attachments.sql`.
+- Tampilan pesan foto/video chat tidak menggunakan latar bubble, dan kontrol
+  emoji/foto/video berada sejajar pada toolbar di bawah kolom pesan. Widget
+  sebelumnya gagal menampilkan pesan karena menambahkan variabel `body` yang
+  tidak selalu dideklarasikan; rendering kini menambahkan isi teks secara
+  kondisional agar chat terbang tetap dapat digunakan untuk mengetik.
 - `migration_chat_support_admin.sql` menambahkan tipe support, requester,
   metadata arsip, dan unique thread bantuan per requester melalui unique
   `(conversation_type, requester_user_id)`; requester kosong untuk chat
@@ -1071,8 +1097,70 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   gelap yang tegas, sehingga tidak lagi menyilaukan atau sulit dibaca saat
   tema gelap. Cache CSS/JS diperbarui pada aplikasi, autentikasi, serta halaman
   publik. Tidak ada perubahan skema database.
-- Tombol bantuan pada widget Chat untuk pengguna non-admin berada di header:
-  “Bantuan” memulai percakapan dukungan, sedangkan “WA Admin” menggunakan
-  tautan `wa.me` agar ponsel dapat membuka aplikasi WhatsApp dan desktop dapat
-  membuka WhatsApp Web. Struk pembayaran memakai pesan teks terformat yang
-  menyerupai tabel; unduhan gambar PNG tetap merupakan aksi terpisah.
+- **Edit/hapus pengeluaran dan cahaya launcher (2026-10-23):**
+  Tabel pengeluaran Owner kini menyediakan tautan edit yang memuat data
+  tersimpan ke formulir, serta hapus melalui dialog keamanan dengan checkbox.
+  Handler membatasi perubahan/penghapusan pada catatan milik Owner aktif,
+  memverifikasi checkbox di server, dan memakai validasi nominal, tanggal,
+  kategori, serta CSRF yang sama seperti pencatatan baru. Efek launcher Chat
+  kini berupa ring bergradasi yang mengitari seluruh tepian, bukan segmen
+  terang seperti garis. Cache CSS/JS disegarkan; tidak ada migrasi database.
+- **Ringkasan dan kartu dashboard lintas role (2026-10-23):**
+  Header shell menjadi satu-satunya judul halaman; heading pembuka di konten
+  disembunyikan secara konsisten tanpa menghilangkan tombol aksi. Ikon/logo
+  kartu dashboard hanya disembunyikan pada lebar mobile, dengan label kartu
+  menjadi tautan, sedangkan desktop tetap memakai ikon. Ringkasan Admin
+  dikelompokkan menjadi Properti serta Akun dan aktivitas; dashboard Owner
+  memisahkan Properti, Keuangan, dan Akun/aktivitas. Total pemasukan Owner
+  menghitung pembayaran confirmed sepanjang tahun kalender berjalan, total
+  pengeluaran menjumlah owner_expenses pada tahun kalender yang sama, dan
+  pendapatan bersih adalah selisih keduanya. Kartu bulanan memakai periode bulan
+  berjalan; Menunggu Pembayaran diletakkan setelah kartu bulanan, lalu Tunggakan
+  setelah kartu total tahunan. Ringkasan Bulanan menggunakan diagram batang
+  berkelompok Januari–Desember tahun berjalan untuk membandingkan pemasukan dan
+  pengeluaran, menampilkan pendapatan bersih per bulan, serta membiarkan nilai
+  bulan tanpa catatan tetap kosong. Rekap Pemasukan per Kos hanya menghitung
+  pembayaran confirmed dari tanggal pertama hingga awal bulan berikutnya dan
+  menampilkan Menunggu bulan ini secara terpisah. Grafik bulanan dan tahunan
+  sejajar di atas Pemasukan per kos pada desktop. Tidak ada perubahan skema
+  database.
+- **Penyempurnaan dashboard Owner, banner galeri, launcher Chat, dan struk
+  WhatsApp (2026-10-23):**
+  Launcher Chat kini mendapat aura hijau lembut yang berdenyut mengikuti bentuk
+  tombol, bukan outline persegi yang berputar; animasi tetap menghormati
+  `prefers-reduced-motion`. Label kartu Keuangan Owner mencantumkan periode
+  secara langsung (bulan pada metrik bulanan, tahun pada metrik total tahunan);
+  tunggakan diberi label saat ini. Keterangan panjang pada judul grafik
+  dipangkas.
+  Grafik Pemasukan per Kos membandingkan pembayaran confirmed bulan berjalan
+  dengan target jumlah tarif bulanan semua kamar di kos tersebut. Skala dimulai
+  dari Rp0, menampilkan nilai target di ujung kanan, dan batang dibatasi agar
+  tidak melewati 100%. Banner Galeri Gedung menggunakan latar biru yang lebih
+  lembut dan teks kontras pada tema terang maupun gelap.
+  Struk kini dapat diunduh sebagai PNG yang dirender dari data struk dan
+  dibagikan sebagai file melalui Web Share API pada browser/perangkat yang
+  mendukung. Jika berbagi file tidak tersedia, PNG diunduh dan tautan langsung
+  ke `web.whatsapp.com/send` dibuka dengan teks yang telah diisi agar pengguna
+  dapat melampirkan gambar. URL langsung melewati halaman perantara `wa.me`;
+  browser tidak mengizinkan situs mengendalikan atau memfokuskan tab WhatsApp
+  Web arbitrer yang sudah dibuka pengguna. Pengiriman otomatis file tanpa
+  interaksi pengguna membutuhkan WhatsApp Business Platform/API resmi, yang
+  belum diintegrasikan. Fitur email/OTP tidak termasuk perubahan ini. Cache
+  aset diperbarui dan tidak ada migrasi database.
+- **Penyelesaian lampiran chat dan perbaikan composer (2026-10-23):**
+  Video chat kini disimpan sebagai MP4/WebM/MOV asli tanpa kompresi/FFmpeg,
+  maksimal 20 MB; foto tetap dikompres di browser ke WebP maksimal 8 MB.
+  Composer chat penuh dan widget menempatkan emoji/foto/video sejajar pada
+  toolbar di bawah kolom pesan. Bubble yang memuat lampiran transparan, tanpa
+  panel/latar gelap pada gambar/video. Widget chat sebelumnya menimbulkan
+  `body is not defined` karena teks pesan ditambahkan dengan variabel yang
+  hanya dibuat kondisional; isi teks kini dirender hanya untuk pesan tanpa
+  lampiran, sementara metadata dan media dirender sesuai jenis pesan. Pesan
+  teks, foto, dan video kembali dapat ditampilkan dan kolom chat dapat dipakai.
+  Migrasi lampiran telah dijalankan pengguna melalui akun admin MariaDB dan
+  diverifikasi pada database aplikasi: lima kolom lampiran serta indeks
+  `idx_chat_messages_attachment` tersedia. Jangan jalankan ulang migrasi.
+  Validasi browser menggunakan fixture chat memastikan 3 jenis pesan dapat
+  dirender, composer terlihat dan menerima teks, tombol video aktif, file video
+  asli tidak berubah, tombol emoji/foto/video sejajar di bawah textarea, dan
+  latar bubble lampiran transparan. PHP lint dan pemeriksaan diff juga lulus.

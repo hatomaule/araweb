@@ -170,16 +170,16 @@ $chatQuery = http_build_query(array_filter([
                 <?php foreach ($messages as $message): ?>
                     <article class="chat-message <?= (int) $message['sender_user_id'] === (int) $user['id'] ? 'mine' : '' ?>">
                         <strong><?= e($message['sender_name']) ?> · <?= e(['admin' => 'Admin', 'owner' => 'Owner', 'seeker' => 'User'][$message['sender_role']] ?? $message['sender_role']) ?></strong>
-                        <p><?= nl2br(e($message['body'])) ?></p><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div>
+                        <p><?= nl2br(e($message['body'])) ?></p><?= chat_attachment_markup($message) ?><div class="chat-message-meta"><small><?= e(date_id($message['created_at'])) ?></small><?= chat_delivery_status_markup($message, $activeConversation, $user) ?></div>
                     </article>
                 <?php endforeach; ?>
                 <?php if (!$messages): ?><p class="chat-empty">Belum ada pesan di percakapan ini.</p><?php endif; ?>
             </div>
             <?php if ($canAdminReply): ?>
-                <form class="chat-compose" method="post">
+                <form class="chat-compose" method="post" enctype="multipart/form-data" data-chat-attachments>
                     <?= csrf_field() ?><input type="hidden" name="action" value="send_chat_message">
                     <input type="hidden" name="conversation_id" value="<?= $conversationId ?>">
-                    <label class="field"><span>Balas permintaan bantuan</span><textarea name="message" rows="2" maxlength="4000" required placeholder="Tulis balasan..."></textarea></label>
+                    <label class="field"><span>Balas permintaan bantuan</span><textarea name="message" rows="2" maxlength="4000" placeholder="Tulis balasan..."></textarea></label>
                     <button class="button primary" type="submit">Kirim</button>
                 </form>
             <?php endif; ?>

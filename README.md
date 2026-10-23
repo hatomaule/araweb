@@ -46,14 +46,16 @@ php -r 'require "config.php"; db(); echo "Koneksi database berhasil\n";'
 Jika tes berhasil, mulai server dari direktori proyek pada terminal yang sama:
 
 ```bash
-php -d upload_max_filesize=4M -d post_max_size=20M -S 127.0.0.1:8000 -t .
+php -d upload_max_filesize=20M -d post_max_size=24M -S 127.0.0.1:8000 -t .
 ```
 
-Batas upload PHP harus sesuai dengan batas aplikasi: 4 MB per foto dan hingga
-4 foto galeri dalam satu kali penyimpanan. `post_max_size` dibuat 20 MB agar
-seluruh foto beserta data formulir dapat dikirim sekaligus. Jika menjalankan
-server dengan konfigurasi PHP lain, atur `upload_max_filesize` minimal `4M`
-dan `post_max_size` minimal `20M`, lalu mulai ulang server PHP.
+Batas upload PHP harus sesuai dengan fitur yang digunakan: video chat maksimal
+20 MB per file, sedangkan foto galeri maksimal 4 MB per foto dan dapat diunggah
+hingga empat foto per formulir. Atur `upload_max_filesize` minimal `20M` dan
+`post_max_size` minimal `24M`, lalu mulai ulang server PHP. Foto chat dikompres
+menjadi WebP di browser, sedangkan video chat maksimal 20 MB disimpan dalam
+format asli tanpa kompresi. Jika `CHAT_UPLOAD_DIR` diatur, arahkan ke direktori
+privat di luar document root yang dapat ditulis oleh PHP.
 
 Biarkan server PHP tetap berjalan, lalu buka `http://localhost:8000/` dari
 browser Windows atau WSL. PHP development server hanya untuk pengembangan
@@ -118,6 +120,7 @@ migrasi yang sudah diterapkan.
 32. Setelah langkah 30 dan backup yang dapat dipulihkan, jalankan `migration_chat_personal_folders.sql` satu kali. Migrasi ini menambah status Kotak Masuk/Arsip/Sampah per akun dan event kedaluwarsa Sampah 30 hari. Aktifkan MySQL/MariaDB `event_scheduler` untuk pembersihan harian; request Chat juga menjalankan pembersihan sebagai fallback. Percakapan baru dihapus dari database setelah seluruh salinan yang tercatat sudah dibersihkan. Jangan jalankan ulang.
 33. Setelah backup, jalankan `migration_owner_finances.sql` satu kali untuk membuat pencatatan pengeluaran Owner. Migrasi ini membutuhkan tabel `users`; jangan jalankan ulang jika kedua tabel pengeluaran sudah tersedia.
 34. Setelah migrasi keuangan tersedia, jalankan `migration_owner_expense_category_defaults.sql` untuk menambahkan pilihan awal Listrik, Air, dan Wifi pada akun Owner lama. Migrasi ini idempotent dan tidak mengubah kategori atau riwayat pengeluaran yang sudah ada; akun Owner baru mendapat pilihan awal saat mendaftar.
+35. Setelah migrasi chat pada langkah 30 dan 32 serta backup yang dapat dipulihkan, jalankan `migration_chat_attachments.sql` satu kali untuk menambahkan metadata lampiran pada `chat_messages`. Foto dikompres di browser; video disimpan dalam format asli tanpa kompresi, maksimal 20 MB. Pastikan batas PHP upload minimal `20M`/`24M` seperti petunjuk di atas. Jangan jalankan ulang jika kolom lampiran atau indeksnya sudah tersedia.
 
 ## Struktur modul
 

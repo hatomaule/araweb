@@ -9,7 +9,7 @@ final class ChatNotFoundException extends RuntimeException
 {
 }
 
-final class ChatValidationException extends InvalidArgumentException
+final class ChatValidationException extends RuntimeException
 {
 }
 
@@ -36,6 +36,123 @@ function chat_validate_message(string $message): string
     }
 
     return $message;
+}
+
+function chat_attachment_directory(): string
+{
+    $configuredDirectory = getenv('CHAT_UPLOAD_DIR');
+    return $configuredDirectory !== false && trim($configuredDirectory) !== ''
+        ? rtrim($configuredDirectory, DIRECTORY_SEPARATOR)
+        : dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'private_uploads' . DIRECTORY_SEPARATOR . 'chat';
+}
+
+function chat_attachment_path(string $filename): string
+{
+    if (preg_match('/^[a-f0-9]{40}\\.(?:webp|mp4|webm|mov)$/', $filename) !== 1) {
+        throw new ChatNotFoundException('Attachment not found.');
+    }
+
+    return chat_attachment_directory() . DIRECTORY_SEPARATOR . $filename;
+}
+
+function chat_attachment_url(int $messageId): string
+{
+    return 'index.php?chat_api=1&chat_action=attachment&message_id=' . $messageId;
+}
+
+function chat_attachment_markup(array $message): string
+{
+    $messageId = (int) ($message['id'] ?? 0);
+    $type = $message['attachment_type'] ?? null;
+    if ($messageId < 1 || !in_array($type, ['image', 'video'], true)) {
+        return '';
+    }
+
+    $url = e(chat_attachment_url($messageId));
+    if ($type === 'image') {
+        return '<img class="chat-message-attachment" src="' . $url . '" alt="Foto lampiran chat" loading="lazy">';
+    }
+
+    return '<video class="chat-message-attachment" controls preload="metadata" src="' . $url . '">'
+        . 'Browser tidak mendukung pemutaran video.</video>';
+}
+
+function chat_store_attachment(?array $upload): ?array
+{
+    if ($upload === null || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+        || !isset($upload['tmp_name'], $upload['size'])
+        || !is_uploaded_file((string) $upload['tmp_name'])) {
+        if (in_array($upload['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            throw new ChatValidationException('Berkas melewati batas upload server. Atur upload_max_filesize minimal 20M dan post_max_size minimal 24M.');
+        }
+        throw new ChatValidationException('Berkas lampiran gagal diunggah. Silakan coba lagi.');
+    }
+
+    $size = (int) $upload['size'];
+    if ($size < 1) {
+        throw new ChatValidationException('Berkas lampiran kosong.');
+    }
+    if ($size > 20 * 1024 * 1024) {
+        throw new ChatValidationException('Ukuran lampiran maksimum 20 MB per file.');
+    }
+
+    $fileInfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = $fileInfo->file((string) $upload['tmp_name']);
+    $imageTypes = ['image/webp' => 'webp'];
+    $videoTypes = [
+        'video/mp4' => 'mp4',
+        'video/webm' => 'webm',
+        'video/quicktime' => 'mov',
+    ];
+    if (isset($imageTypes[$mimeType])) {
+        if ($size > 8 * 1024 * 1024) {
+            throw new ChatValidationException('Ukuran foto maksimum 8 MB setelah dikompres.');
+        }
+        $attachmentType = 'image';
+        $attachmentMime = 'image/webp';
+        $extension = 'webp';
+    } elseif (isset($videoTypes[$mimeType])) {
+        $attachmentType = 'video';
+        $attachmentMime = $mimeType;
+        $extension = $videoTypes[$mimeType];
+    } else {
+        throw new ChatValidationException('Lampiran harus berupa foto WebP atau video MP4, WebM, atau MOV.');
+    }
+
+    $directory = chat_attachment_directory();
+    if (!is_dir($directory) && !mkdir($directory, 0750, true) && !is_dir($directory)) {
+        throw new RuntimeException('Folder lampiran chat tidak dapat dibuat. Periksa izin penyimpanan privat.');
+    }
+    $filename = bin2hex(random_bytes(20)) . '.' . $extension;
+    $destination = chat_attachment_path($filename);
+
+    if (!move_uploaded_file((string) $upload['tmp_name'], $destination)) {
+        throw new RuntimeException(
+            $attachmentType === 'image'
+                ? 'Foto chat gagal disimpan ke penyimpanan privat.'
+                : 'Video chat gagal disimpan ke penyimpanan privat.'
+        );
+    }
+
+    $originalName = basename((string) ($upload['name'] ?? 'lampiran'));
+    $originalName = preg_replace('/[\\x00-\\x1F\\x7F]/u', '', $originalName) ?: 'lampiran';
+    $originalName = pathinfo($originalName, PATHINFO_FILENAME) . '.' . $extension;
+    if (function_exists('mb_substr')) {
+        $originalName = mb_substr($originalName, 0, 120, 'UTF-8');
+    } else {
+        $originalName = substr($originalName, 0, 120);
+    }
+
+    return [
+        'path' => $filename,
+        'type' => $attachmentType,
+        'mime' => $attachmentMime,
+        'name' => $originalName,
+        'size' => (int) filesize($destination),
+    ];
 }
 
 function chat_transaction(PDO $pdo, callable $operation): mixed
@@ -198,16 +315,31 @@ function chat_start_support_conversation(PDO $pdo, array $user): int
     });
 }
 
-function chat_insert_message(PDO $pdo, int $conversationId, int $senderUserId, string $body): int
+function chat_insert_message(
+    PDO $pdo,
+    int $conversationId,
+    int $senderUserId,
+    string $body,
+    ?array $attachment = null
+): int
 {
     $statement = $pdo->prepare(
-        'INSERT INTO chat_messages (conversation_id, sender_user_id, body)
-         VALUES (:conversation_id, :sender_user_id, :body)'
+        'INSERT INTO chat_messages
+            (conversation_id, sender_user_id, body, attachment_path, attachment_type,
+             attachment_mime, attachment_name, attachment_size)
+         VALUES
+            (:conversation_id, :sender_user_id, :body, :attachment_path, :attachment_type,
+             :attachment_mime, :attachment_name, :attachment_size)'
     );
     $statement->execute([
         'conversation_id' => $conversationId,
         'sender_user_id' => $senderUserId,
         'body' => $body,
+        'attachment_path' => $attachment['path'] ?? null,
+        'attachment_type' => $attachment['type'] ?? null,
+        'attachment_mime' => $attachment['mime'] ?? null,
+        'attachment_name' => $attachment['name'] ?? null,
+        'attachment_size' => $attachment['size'] ?? null,
     ]);
 
     $update = $pdo->prepare(
@@ -290,37 +422,71 @@ function chat_start_conversation(
     });
 }
 
-function chat_send_message(PDO $pdo, array $user, int $conversationId, string $message): int
+function chat_send_message(
+    PDO $pdo,
+    array $user,
+    int $conversationId,
+    string $message,
+    ?array $upload = null
+): int
 {
     $userId = chat_actor_id($user);
-    $body = chat_validate_message($message);
+    $hasUpload = $upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+    $body = trim($message) === '' && $hasUpload
+        ? 'Lampiran'
+        : chat_validate_message($message);
+    $storedAttachment = null;
 
-    return chat_transaction($pdo, static function () use ($pdo, $user, $userId, $conversationId, $body): int {
-        $conversation = chat_participant_conversation($pdo, $user, $conversationId, true);
-        if (chat_conversation_state($pdo, $conversationId, $userId) !== 'active') {
-            throw new ChatAccessDeniedException('Restore this conversation to your inbox before sending a message.');
-        }
-        if ($conversation['conversation_type'] === 'support') {
-            if ($user['role'] === 'admin') {
-                $messageId = chat_insert_message($pdo, $conversationId, $userId, $body);
+    try {
+        return chat_transaction($pdo, static function () use (
+            $pdo,
+            $user,
+            $userId,
+            $conversationId,
+            $body,
+            $upload,
+            &$storedAttachment
+        ): int {
+            $conversation = chat_participant_conversation($pdo, $user, $conversationId, true);
+            if (chat_conversation_state($pdo, $conversationId, $userId) !== 'active') {
+                throw new ChatAccessDeniedException('Restore this conversation to your inbox before sending a message.');
+            }
+            if ($conversation['conversation_type'] === 'support') {
+                if ($user['role'] !== 'admin'
+                    && (int) $conversation['requester_user_id'] !== $userId) {
+                    throw new ChatAccessDeniedException('Only the support requester or an admin may reply.');
+                }
+            } else {
+                if ($user['role'] === 'admin') {
+                    throw new ChatAccessDeniedException('Admins may only reply to support conversations.');
+                }
+                if ($user['role'] === 'owner'
+                    && ($conversation['owner_user_id'] === null || (int) $conversation['owner_user_id'] !== $userId)) {
+                    throw new ChatAccessDeniedException('Only the building owner may reply.');
+                }
+            }
+
+            $storedAttachment = chat_store_attachment($upload);
+            $messageBody = $body === 'Lampiran'
+                ? ($storedAttachment['type'] === 'image' ? 'Foto' : 'Video')
+                : $body;
+            if ($conversation['conversation_type'] === 'support' && $user['role'] === 'admin') {
+                $messageId = chat_insert_message($pdo, $conversationId, $userId, $messageBody, $storedAttachment);
                 chat_set_conversation_state($pdo, $conversationId, $userId, 'active');
                 return $messageId;
             }
-            if ((int) $conversation['requester_user_id'] !== $userId) {
-                throw new ChatAccessDeniedException('Only the support requester or an admin may reply.');
-            }
-        } else {
-            if ($user['role'] === 'admin') {
-                throw new ChatAccessDeniedException('Admins may only reply to support conversations.');
-            }
-            if ($user['role'] === 'owner'
-                && ($conversation['owner_user_id'] === null || (int) $conversation['owner_user_id'] !== $userId)) {
-                throw new ChatAccessDeniedException('Only the building owner may reply.');
+
+            return chat_insert_message($pdo, $conversationId, $userId, $messageBody, $storedAttachment);
+        });
+    } catch (Throwable $exception) {
+        if ($storedAttachment !== null) {
+            $storedPath = chat_attachment_path($storedAttachment['path']);
+            if (is_file($storedPath) && !unlink($storedPath)) {
+                error_log('Unable to remove unsaved chat attachment: ' . $storedPath);
             }
         }
-
-        return chat_insert_message($pdo, $conversationId, $userId, $body);
-    });
+        throw $exception;
+    }
 }
 
 function chat_list_conversations(PDO $pdo, array $user, string $folder = 'inbox'): array
@@ -603,6 +769,7 @@ function chat_get_messages(
     }
     $limit = max(1, min($limit, 100));
     $sql = 'SELECT m.id, m.conversation_id, m.sender_user_id, m.body, m.created_at, m.read_at,
+                   m.attachment_path, m.attachment_type, m.attachment_mime, m.attachment_name, m.attachment_size,
                    u.name AS sender_name, u.role AS sender_role
             FROM chat_messages
             m JOIN users u ON u.id = m.sender_user_id

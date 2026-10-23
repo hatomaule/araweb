@@ -150,16 +150,6 @@ if ($action === 'upload_room_type_gallery_photos') {
                 set_flash('error', 'Pilih minimal satu foto untuk diunggah.');
                 redirect($returnToGallery);
             }
-            $roomTargetId = (int) ($_POST['gallery_room_ids']['room'] ?? 0);
-            if (isset($categoryUploads['room']) && $roomTargetId > 0
-                && !one($pdo, 'SELECT id FROM rooms WHERE id=:id AND building_id=:building_id AND room_type=:room_type', [
-                    'id' => $roomTargetId,
-                    'building_id' => $buildingId,
-                    'room_type' => $roomType,
-                ])) {
-                set_flash('error', 'Pilih kamar yang termasuk gedung dan tipe kamar pada galeri.');
-                redirect($returnToGallery);
-            }
             $movedFiles = [];
             $uploadedCount = 0;
             $pdo->beginTransaction();
@@ -189,7 +179,7 @@ if ($action === 'upload_room_type_gallery_photos') {
                             'room_type' => $roomType,
                             'category' => $category,
                             'photo_path' => 'uploads/' . $uploadSubdirectory . '/' . $filename,
-                            'room_id' => $category === 'room' && $roomTargetId > 0 ? $roomTargetId : null,
+                            'room_id' => null,
                         ]);
                         $uploadedCount++;
                     }

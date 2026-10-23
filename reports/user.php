@@ -27,10 +27,10 @@ $accountSummary = one(
     ]
 );
 ?>
-<section class="page-heading"><div><span class="eyebrow">DASHBOARD AKUN</span><h2>Dashboard</h2><p>Ringkasan pembayaran, tagihan tersisa, dan cicilan pada akun Anda.</p></div></section>
-<div class="stats-grid">
-    <article class="stat-card"><a class="stat-icon green stat-icon-link" href="index.php?page=my_payments" aria-label="Buka riwayat pembayaran">Rp</a><div><span>Total dibayar</span><strong><?= e(money($accountSummary['paid_total'])) ?></strong></div></article>
-    <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=my_payments" aria-label="Buka riwayat pembayaran dan tagihan">◷</a><div><span>Total sisa tagihan</span><strong><?= e(money($accountSummary['outstanding'])) ?></strong></div></article>
-    <article class="stat-card"><a class="stat-icon red stat-icon-link" href="index.php?page=my_payments" aria-label="Buka tagihan yang lewat jatuh tempo">!</a><div><span>Tunggakan lewat jatuh tempo</span><strong><?= e(money($accountSummary['overdue'])) ?></strong></div></article>
-    <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=my_payments" aria-label="Buka pembayaran">◌</a><div><span>Pembayaran menunggu verifikasi</span><strong><?= e(money($accountSummary['pending_total'])) ?></strong></div></article>
+<h2 class="dashboard-section-title">Akun dan aktivitas</h2>
+<div class="stats-grid dashboard-stats">
+    <article class="stat-card"><a class="stat-icon green stat-icon-link" href="index.php?page=my_payments" aria-label="Buka riwayat pembayaran">Rp</a><div><a class="stat-card-label-link" href="index.php?page=my_payments">Total dibayar</a><strong><?= e(money($accountSummary['paid_total'])) ?></strong></div></article>
+    <article class="stat-card"><a class="stat-icon orange stat-icon-link" href="index.php?page=my_payments" aria-label="Buka riwayat pembayaran dan tagihan">◷</a><div><a class="stat-card-label-link" href="index.php?page=my_payments">Total sisa tagihan</a><strong><?= e(money($accountSummary['outstanding'])) ?></strong></div></article>
+    <article class="stat-card"><a class="stat-icon red stat-icon-link" href="index.php?page=my_payments" aria-label="Buka tagihan yang lewat jatuh tempo">!</a><div><a class="stat-card-label-link" href="index.php?page=my_payments">Tunggakan</a><strong><?= e(money($accountSummary['overdue'])) ?></strong></div></article>
+    <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=my_payments" aria-label="Buka pembayaran">◌</a><div><a class="stat-card-label-link" href="index.php?page=my_payments">Menunggu Pembayaran</a><strong><?= e(money($accountSummary['pending_total'])) ?></strong></div></article>
 </div>

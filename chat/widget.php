@@ -53,10 +53,10 @@ if ($user && in_array($user['role'], ['seeker', 'owner', 'admin'], true)):
                 <div class="chat-widget-messages" data-chat-messages aria-live="polite">
                     <div class="chat-widget-empty">Pilih percakapan di sebelah kiri untuk mulai chat.</div>
                 </div>
-                <form class="chat-widget-compose" data-chat-compose hidden>
+                <form class="chat-widget-compose" data-chat-compose data-chat-attachments enctype="multipart/form-data" hidden>
                     <label class="visually-hidden" for="chat-widget-message">Tulis pesan</label>
                     <textarea id="chat-widget-message" name="message" rows="2" maxlength="4000"
-                        placeholder="Tulis pesan..." required></textarea>
+                        placeholder="Tulis pesan..."></textarea>
                     <button type="submit" aria-label="Kirim pesan">Kirim</button>
                 </form>
                 <p class="chat-widget-readonly" data-chat-readonly hidden></p>

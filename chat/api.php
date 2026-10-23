@@ -21,6 +21,80 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $action = isset($_GET['chat_action']) && is_string($_GET['chat_action'])
                 ? $_GET['chat_action'] : 'list';
+            if ($action === 'attachment') {
+                $messageId = max(0, (int) ($_GET['message_id'] ?? 0));
+                $statement = $pdo->prepare(
+                    'SELECT m.id,m.conversation_id,m.attachment_path,m.attachment_type,
+                            m.attachment_mime,m.attachment_name
+                     FROM chat_messages m
+                     WHERE m.id=:message_id AND m.attachment_path IS NOT NULL'
+                );
+                $statement->execute(['message_id' => $messageId]);
+                $attachment = $statement->fetch();
+                if (!$attachment) {
+                    throw new ChatNotFoundException('Attachment not found.');
+                }
+                $conversationId = (int) $attachment['conversation_id'];
+                chat_participant_conversation($pdo, $user, $conversationId);
+                if (chat_conversation_state($pdo, $conversationId, (int) $user['id']) === 'purged') {
+                    throw new ChatNotFoundException('Attachment not found.');
+                }
+                $filePath = chat_attachment_path((string) $attachment['attachment_path']);
+                if (!is_file($filePath)) {
+                    throw new ChatNotFoundException('Attachment not found.');
+                }
+                $fileSize = filesize($filePath);
+                $start = 0;
+                $end = $fileSize - 1;
+                $status = 200;
+                if (isset($_SERVER['HTTP_RANGE'])
+                    && preg_match('/^bytes=(\d*)-(\d*)$/', (string) $_SERVER['HTTP_RANGE'], $range) === 1) {
+                    if ($range[1] === '' && $range[2] === '') {
+                        http_response_code(416);
+                        header('Content-Range: bytes */' . $fileSize);
+                        exit;
+                    }
+                    if ($range[1] === '') {
+                        $start = max(0, $fileSize - (int) $range[2]);
+                    } else {
+                        $start = (int) $range[1];
+                        $end = $range[2] === '' ? $end : min($end, (int) $range[2]);
+                    }
+                    if ($start > $end || $start >= $fileSize) {
+                        http_response_code(416);
+                        header('Content-Range: bytes */' . $fileSize);
+                        exit;
+                    }
+                    $status = 206;
+                }
+                $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) $attachment['attachment_name']) ?: 'lampiran';
+                http_response_code($status);
+                header('Content-Type: ' . $attachment['attachment_mime']);
+                header('Content-Disposition: inline; filename="' . $safeName . '"');
+                header('X-Content-Type-Options: nosniff');
+                header('Cache-Control: private, no-store');
+                header('Accept-Ranges: bytes');
+                header('Content-Length: ' . ($end - $start + 1));
+                if ($status === 206) {
+                    header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+                }
+                $handle = fopen($filePath, 'rb');
+                if ($handle === false) {
+                    throw new RuntimeException('Chat attachment could not be opened.');
+                }
+                fseek($handle, $start);
+                $remaining = $end - $start + 1;
+                while ($remaining > 0 && !feof($handle)) {
+                    $chunk = fread($handle, min(8192, $remaining));
+                    if ($chunk === false || $chunk === '') {
+                        break;
+                    }
+                    echo $chunk;
+                    $remaining -= strlen($chunk);
+                }
+                fclose($handle);
+                exit;
+            }
             if ($action === 'list') {
                 $folder = isset($_GET['folder']) && is_string($_GET['folder']) ? $_GET['folder'] : 'inbox';
                 $conversations = array_map(
@@ -107,6 +181,10 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
                                 'sender_user_id' => (int) $message['sender_user_id'],
                                 'body' => $message['body'],
                                 'created_at' => $message['created_at'],
+                                'attachment_type' => $message['attachment_type'],
+                                'attachment_name' => $message['attachment_name'],
+                                'attachment_url' => $message['attachment_type'] !== null
+                                    ? chat_attachment_url((int) $message['id']) : null,
                                 'delivery_status' => chat_message_delivery_status($message, $conversation, $user),
                             ];
                         },
@@ -154,7 +232,9 @@ function chat_api_dispatch(PDO $pdo, ?array $user): never
         }
         if ($action === 'send') {
             $conversationId = (int) post_value('conversation_id');
-            chat_send_message($pdo, $user, $conversationId, post_value('message'));
+            $attachment = isset($_FILES['attachment']) && is_array($_FILES['attachment'])
+                ? $_FILES['attachment'] : null;
+            chat_send_message($pdo, $user, $conversationId, post_value('message'), $attachment);
             $conversation = chat_get_conversation($pdo, $user, $conversationId);
             chat_notify_message_recipients($pdo, $user, $conversation, $conversationId);
             chat_api_respond(['ok' => true]);

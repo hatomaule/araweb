@@ -14,6 +14,201 @@ const initializeApp = () => {
             });
         });
     });
+    const chatEmojis = [
+        ['😀', 'Senang'], ['😃', 'Senyum lebar'], ['😄', 'Tertawa'], ['😁', 'Senyum'],
+        ['😊', 'Ramah'], ['🙂', 'Senyum tipis'], ['😉', 'Kedip'], ['😍', 'Jatuh cinta'],
+        ['🥰', 'Sayang'], ['😘', 'Cium'], ['😋', 'Lezat'], ['😎', 'Keren'],
+        ['🤔', 'Berpikir'], ['😅', 'Tertawa canggung'], ['😂', 'Tertawa terbahak'], ['🥹', 'Terharu'],
+        ['😭', 'Menangis'], ['😢', 'Sedih'], ['😮', 'Terkejut'], ['😴', 'Mengantuk'],
+        ['🙏', 'Terima kasih'], ['👏', 'Tepuk tangan'], ['👍', 'Jempol'], ['👎', 'Tidak setuju'],
+        ['🤝', 'Setuju'], ['❤️', 'Hati'], ['💕', 'Dua hati'], ['🎉', 'Perayaan'],
+        ['✨', 'Berkilau'], ['🔥', 'Semangat'], ['✅', 'Selesai'], ['🙌', 'Hore'],
+    ];
+    document.querySelectorAll('.chat-compose textarea, [data-chat-compose] textarea').forEach((textarea) => {
+        const form = textarea.closest('form');
+        if (!form || form.querySelector('[data-chat-emoji-picker]')) return;
+
+        const picker = document.createElement('div');
+        picker.className = 'chat-emoji-picker';
+        picker.dataset.chatEmojiPicker = '';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'chat-emoji-trigger';
+        trigger.setAttribute('aria-label', 'Pilih emoji');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.textContent = '☺';
+
+        const menu = document.createElement('div');
+        menu.className = 'chat-emoji-menu';
+        menu.setAttribute('role', 'group');
+        menu.setAttribute('aria-label', 'Pilih emoji');
+        menu.hidden = true;
+
+        chatEmojis.forEach(([emoji, label]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'chat-emoji-option';
+            button.textContent = emoji;
+            button.title = label;
+            button.setAttribute('aria-label', label);
+            button.addEventListener('click', () => {
+                const start = textarea.selectionStart ?? textarea.value.length;
+                const end = textarea.selectionEnd ?? start;
+                textarea.setRangeText(emoji, start, end, 'end');
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                textarea.focus();
+                menu.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            menu.append(button);
+        });
+
+        trigger.addEventListener('click', () => {
+            menu.hidden = !menu.hidden;
+            trigger.setAttribute('aria-expanded', String(!menu.hidden));
+            if (!menu.hidden) menu.querySelector('button')?.focus();
+        });
+        picker.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || menu.hidden) return;
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.focus();
+        });
+        document.addEventListener('click', (event) => {
+            if (!(event.target instanceof Node) || picker.contains(event.target)) return;
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+
+        picker.append(trigger, menu);
+        form.insertBefore(picker, form.querySelector('button[type="submit"]'));
+    });
+    const compressChatImage = async (file) => {
+        if (typeof createImageBitmap !== 'function') {
+            throw new Error('Browser ini tidak mendukung kompresi foto. Gunakan browser versi terbaru.');
+        }
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const context = canvas.getContext('2d');
+        if (!context) {
+            bitmap.close();
+            throw new Error('Foto tidak dapat diproses pada browser ini.');
+        }
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        const compressed = await new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('Kompresi foto gagal. Coba file foto lain.'));
+            }, 'image/webp', 0.78);
+        });
+        const selected = new File([compressed], `${file.name.replace(/\.[^.]+$/, '')}.webp`, {
+            type: 'image/webp',
+            lastModified: Date.now(),
+        });
+        if (selected.size > 8 * 1024 * 1024) {
+            throw new Error('Foto masih lebih dari 8 MB setelah kompresi. Pilih foto yang lebih kecil.');
+        }
+        return {file: selected, compressed: selected !== file};
+    };
+    document.querySelectorAll('.chat-compose[data-chat-attachments], [data-chat-compose][data-chat-attachments]').forEach((form) => {
+        const textarea = form.querySelector('textarea[name="message"]');
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (!(textarea instanceof HTMLTextAreaElement) || !(submitButton instanceof HTMLButtonElement)) return;
+
+        const input = document.createElement('input');
+        input.className = 'visually-hidden chat-attachment-input';
+        input.type = 'file';
+        input.name = 'attachment';
+        input.accept = 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
+        input.tabIndex = -1;
+        input.setAttribute('aria-label', 'Lampiran foto atau video');
+
+        const controls = document.createElement('div');
+        controls.className = 'chat-attachment-controls';
+        const status = document.createElement('small');
+        status.className = 'chat-attachment-status';
+        status.setAttribute('aria-live', 'polite');
+
+        const createMediaButton = (type, label, icon) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'chat-attachment-trigger';
+            button.dataset.chatMediaType = type;
+            button.setAttribute('aria-label', label);
+            button.title = label;
+            button.innerHTML = icon;
+            button.addEventListener('click', () => {
+                input.accept = type === 'image'
+                    ? 'image/jpeg,image/png,image/webp'
+                    : 'video/mp4,video/webm,video/quicktime';
+                input.click();
+            });
+            return button;
+        };
+        const photoButton = createMediaButton(
+            'image',
+            'Lampirkan foto',
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>'
+        );
+        const videoButton = createMediaButton(
+            'video',
+            'Lampirkan video',
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>'
+        );
+        controls.append(input, photoButton, videoButton, status);
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'chat-compose-toolbar';
+        const emojiPicker = form.querySelector('[data-chat-emoji-picker]');
+        if (emojiPicker) toolbar.append(emojiPicker);
+        toolbar.append(controls);
+        form.insertBefore(toolbar, submitButton);
+
+        input.addEventListener('change', async () => {
+            const selectedFile = input.files?.[0];
+            if (!selectedFile) {
+                status.textContent = '';
+                return;
+            }
+            const isImage = selectedFile.type.startsWith('image/');
+            const isVideo = selectedFile.type.startsWith('video/');
+            const maximumSize = isImage ? 40 * 1024 * 1024 : 20 * 1024 * 1024;
+            if ((!isImage && !isVideo) || selectedFile.size < 1 || selectedFile.size > maximumSize) {
+                input.value = '';
+                status.textContent = isImage
+                    ? 'Ukuran foto asli maksimum 40 MB sebelum dikompres.'
+                    : 'Ukuran video maksimum 20 MB.';
+                return;
+            }
+            status.textContent = isImage ? 'Mengompres foto...' : 'Video akan dikirim dalam format asli.';
+            photoButton.disabled = true;
+            videoButton.disabled = true;
+            try {
+                if (isImage) {
+                    const result = await compressChatImage(selectedFile);
+                    const transfer = new DataTransfer();
+                    transfer.items.add(result.file);
+                    input.files = transfer.files;
+                    status.textContent = result.compressed
+                        ? `Foto dikompres otomatis (${(selectedFile.size / 1048576).toFixed(1)} → ${(result.file.size / 1048576).toFixed(1)} MB).`
+                        : `Foto siap dilampirkan (${(result.file.size / 1048576).toFixed(1)} MB).`;
+                } else {
+                    status.textContent = `Video siap dikirim tanpa kompresi (${(selectedFile.size / 1048576).toFixed(1)} MB).`;
+                }
+            } catch (error) {
+                input.value = '';
+                status.textContent = error instanceof Error ? error.message : 'Lampiran tidak dapat diproses.';
+            } finally {
+                photoButton.disabled = false;
+                videoButton.disabled = false;
+            }
+        });
+    });
     document.querySelectorAll('.chat-compose textarea, [data-chat-compose] textarea').forEach((textarea) => {
         textarea.addEventListener('keydown', (event) => {
             if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
@@ -41,8 +236,163 @@ const initializeApp = () => {
         select.addEventListener('change', update);
         update();
     });
+    document.querySelectorAll('[data-expense-delete]').forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            const dialog = document.getElementById(trigger.dataset.dialogOpen || '');
+            const expenseId = dialog?.querySelector('input[name="expense_id"]');
+            if (expenseId instanceof HTMLInputElement) {
+                expenseId.value = trigger.dataset.expenseId || '';
+            }
+            const confirmation = dialog?.querySelector('input[name="confirm_delete_expense"]');
+            if (confirmation instanceof HTMLInputElement) confirmation.checked = false;
+        });
+    });
     document.querySelectorAll('[data-print-page]').forEach((button) => {
         button.addEventListener('click', () => window.print());
+    });
+    const renderReceiptImage = async () => {
+        const receipt = document.querySelector('.payment-receipt');
+        if (!receipt) throw new Error('Struk pembayaran tidak ditemukan.');
+
+        const width = 800;
+        const padding = 40;
+        const details = [...receipt.querySelectorAll('.receipt-details > div')].map((item) => ({
+            label: item.querySelector('dt')?.textContent?.trim() || '',
+            value: item.querySelector('dd')?.textContent?.trim() || '',
+        }));
+        const detailTop = 260;
+        const rowHeight = 70;
+        const totalTop = detailTop + details.length * rowHeight + 16;
+        const height = totalTop + 166;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Browser tidak dapat membuat gambar struk.');
+
+        const computed = window.getComputedStyle(receipt);
+        const colors = {
+            card: computed.backgroundColor,
+            ink: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#243044',
+            muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#768196',
+            line: getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#e5e9f0',
+        };
+        const roundRect = (x, y, rectWidth, rectHeight, radius, fill) => {
+            context.beginPath();
+            context.moveTo(x + radius, y);
+            context.arcTo(x + rectWidth, y, x + rectWidth, y + rectHeight, radius);
+            context.arcTo(x + rectWidth, y + rectHeight, x, y + rectHeight, radius);
+            context.arcTo(x, y + rectHeight, x, y, radius);
+            context.arcTo(x, y, x + rectWidth, y, radius);
+            context.closePath();
+            context.fillStyle = fill;
+            context.fill();
+        };
+        const fitText = (value, maxWidth) => {
+            let text = value;
+            while (text && context.measureText(text).width > maxWidth) text = `${text.slice(0, -2)}…`;
+            return text;
+        };
+
+        context.fillStyle = '#edf1f6';
+        context.fillRect(0, 0, width, height);
+        roundRect(32, 32, width - 64, height - 64, 24, colors.card);
+        context.strokeStyle = colors.line;
+        context.lineWidth = 2;
+        context.stroke();
+
+        roundRect(padding, 70, 64, 64, 18, '#6958dc');
+        context.fillStyle = '#fff';
+        context.font = '700 38px Manrope, Arial, sans-serif';
+        context.textAlign = 'center';
+        context.fillText('K', padding + 32, 115);
+        context.textAlign = 'left';
+        context.fillStyle = colors.ink;
+        context.font = '700 28px Manrope, Arial, sans-serif';
+        context.fillText('KosKosan', padding + 82, 96);
+        context.fillStyle = colors.muted;
+        context.font = '18px Arial, sans-serif';
+        context.fillText('Struk pembayaran sewa', padding + 82, 124);
+
+        const status = receipt.querySelector('.receipt-status')?.textContent?.trim() || 'Dikonfirmasi';
+        roundRect(width - 250, 82, 164, 40, 20, '#e7f6ef');
+        context.fillStyle = '#247b55';
+        context.font = '700 16px Arial, sans-serif';
+        context.textAlign = 'center';
+        context.fillText(status, width - 168, 108);
+        context.textAlign = 'left';
+
+        context.strokeStyle = colors.line;
+        context.beginPath();
+        context.moveTo(padding, 160);
+        context.lineTo(width - padding, 160);
+        context.stroke();
+        const receiptNumber = receipt.querySelector('.receipt-number strong')?.textContent?.trim() || '';
+        context.fillStyle = colors.muted;
+        context.font = '16px Arial, sans-serif';
+        context.fillText('Nomor struk', padding, 202);
+        context.fillStyle = colors.ink;
+        context.font = '700 20px Manrope, Arial, sans-serif';
+        context.textAlign = 'right';
+        context.fillText(receiptNumber, width - padding, 202);
+        context.textAlign = 'left';
+
+        details.forEach((detail, index) => {
+            const y = detailTop + index * rowHeight;
+            context.strokeStyle = colors.line;
+            context.beginPath();
+            context.moveTo(padding, y + rowHeight - 8);
+            context.lineTo(width - padding, y + rowHeight - 8);
+            context.stroke();
+            context.fillStyle = colors.muted;
+            context.font = '15px Arial, sans-serif';
+            context.fillText(fitText(detail.label, 180), padding, y + 30);
+            context.fillStyle = colors.ink;
+            context.font = '700 17px Manrope, Arial, sans-serif';
+            context.textAlign = 'right';
+            context.fillText(fitText(detail.value, width - padding * 2 - 195), width - padding, y + 30);
+            context.textAlign = 'left';
+        });
+
+        const amount = receipt.querySelector('.receipt-total strong')?.textContent?.trim() || '';
+        roundRect(padding, totalTop, width - padding * 2, 88, 16, '#294258');
+        context.fillStyle = '#fff';
+        context.font = '18px Arial, sans-serif';
+        context.fillText('Jumlah dibayarkan', padding + 24, totalTop + 53);
+        context.font = '700 30px Manrope, Arial, sans-serif';
+        context.textAlign = 'right';
+        context.fillText(amount, width - padding - 24, totalTop + 56);
+        context.textAlign = 'left';
+        context.fillStyle = colors.muted;
+        context.font = '15px Arial, sans-serif';
+        const note = receipt.querySelector('.receipt-note')?.textContent?.trim() || '';
+        context.fillText(fitText(note, width - padding * 2), padding, totalTop + 126);
+
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((image) => {
+                if (image) resolve(image);
+                else reject(new Error('Gambar struk gagal dibuat.'));
+            }, 'image/png');
+        });
+        return new File([blob], `struk-koskosan-${receiptNumber || 'pembayaran'}.png`, { type: 'image/png' });
+    };
+    const downloadReceiptImage = (file) => {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    document.querySelectorAll('[data-download-receipt-image]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                downloadReceiptImage(await renderReceiptImage());
+            } catch (error) {
+                console.error('Unable to create receipt image.', error);
+                window.alert(error instanceof Error ? error.message : 'Gambar struk tidak dapat dibuat.');
+            }
+        });
     });
     const tableViewIcons = {
         table: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M3 8h14M3 11.5h14M3 15h14"/><path d="M6 3v14"/></svg>',
@@ -1907,6 +2257,13 @@ const initializeApp = () => {
                 body,
             });
         };
+        const apiPostAttachment = (fields, attachment) => {
+            const body = new FormData();
+            body.append('csrf_token', chatWidget.dataset.chatCsrf || '');
+            Object.entries(fields).forEach(([name, value]) => body.append(name, value));
+            body.append('attachment', attachment);
+            return requestJson('index.php?chat_api=1', { method: 'POST', body });
+        };
         const showError = (error) => {
             if (status) status.textContent = error.message || 'Chat tidak dapat dimuat.';
         };
@@ -2074,8 +2431,26 @@ const initializeApp = () => {
                 payload.messages.forEach((message) => {
                     const bubble = document.createElement('article');
                     bubble.className = `chat-message${Number(message.sender_user_id) === Number(chatWidget.dataset.chatUserId) ? ' mine' : ''}`;
-                    const body = document.createElement('p');
-                    body.textContent = message.body;
+                    if (!message.attachment_type) {
+                        const body = document.createElement('p');
+                        body.textContent = message.body;
+                        bubble.append(body);
+                    }
+                    if (message.attachment_url && message.attachment_type === 'image') {
+                        const image = document.createElement('img');
+                        image.className = 'chat-message-attachment';
+                        image.src = message.attachment_url;
+                        image.alt = 'Foto lampiran chat';
+                        image.loading = 'lazy';
+                        bubble.append(image);
+                    } else if (message.attachment_url && message.attachment_type === 'video') {
+                        const video = document.createElement('video');
+                        video.className = 'chat-message-attachment';
+                        video.src = message.attachment_url;
+                        video.controls = true;
+                        video.preload = 'metadata';
+                        bubble.append(video);
+                    }
                     const time = document.createElement('small');
                     time.textContent = formatMessageTime(message.created_at);
                     const metadata = document.createElement('div');
@@ -2097,7 +2472,7 @@ const initializeApp = () => {
                             : '<svg viewBox="0 0 20 14" aria-hidden="true"><path d="m1 7 4 4L15 1"/><path d="m7 7 4 4L19 1"/></svg>';
                         metadata.append(receipt);
                     }
-                    bubble.append(body, metadata);
+                    bubble.append(metadata);
                     messages.append(bubble);
                 });
                 if (compose) compose.hidden = !payload.conversation.can_send;
@@ -2256,20 +2631,32 @@ const initializeApp = () => {
         });
         compose?.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (!(messageInput instanceof HTMLTextAreaElement) || !messageInput.value.trim()) return;
+            const attachmentInput = compose.querySelector('input[name="attachment"]');
+            const attachment = attachmentInput instanceof HTMLInputElement ? attachmentInput.files?.[0] : null;
+            if (!(messageInput instanceof HTMLTextAreaElement)
+                || (!messageInput.value.trim() && !attachment)) return;
             const sendingConversationId = activeConversationId;
             const messageBody = messageInput.value;
             conversationDrafts.set(sendingConversationId, messageBody);
             const sendButton = compose.querySelector('button[type="submit"]');
             if (sendButton instanceof HTMLButtonElement) sendButton.disabled = true;
             try {
-                await apiPost({
+                const fields = {
                     chat_action: 'send',
                     conversation_id: String(sendingConversationId),
                     message: messageBody,
-                });
+                };
+                if (attachment) {
+                    await apiPostAttachment(fields, attachment);
+                } else {
+                    await apiPost(fields);
+                }
                 conversationDrafts.delete(sendingConversationId);
                 if (activeConversationId === sendingConversationId) messageInput.value = '';
+                if (attachmentInput instanceof HTMLInputElement) {
+                    attachmentInput.value = '';
+                    attachmentInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
                 lastMessageId = 0;
                 await loadMessages();
             } catch (error) {
@@ -2325,147 +2712,3 @@ if (document.readyState === 'loading') {
 } else {
     initializeApp();
 }
-    const renderReceiptImage = async () => {
-        const receipt = document.querySelector('.payment-receipt');
-        if (!receipt) throw new Error('Struk pembayaran tidak ditemukan.');
-
-        const width = 800;
-        const padding = 40;
-        const details = [...receipt.querySelectorAll('.receipt-details > div')].map((item) => ({
-            label: item.querySelector('dt')?.textContent?.trim() || '',
-            value: item.querySelector('dd')?.textContent?.trim() || '',
-        }));
-        const detailTop = 260;
-        const rowHeight = 70;
-        const totalTop = detailTop + details.length * rowHeight + 16;
-        const height = totalTop + 166;
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('Browser tidak dapat membuat gambar struk.');
-
-        const computed = window.getComputedStyle(receipt);
-        const colors = {
-            card: computed.backgroundColor,
-            ink: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#243044',
-            muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#768196',
-            line: getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#e5e9f0',
-        };
-        const roundRect = (x, y, rectWidth, rectHeight, radius, fill) => {
-            context.beginPath();
-            context.moveTo(x + radius, y);
-            context.arcTo(x + rectWidth, y, x + rectWidth, y + rectHeight, radius);
-            context.arcTo(x + rectWidth, y + rectHeight, x, y + rectHeight, radius);
-            context.arcTo(x, y + rectHeight, x, y, radius);
-            context.arcTo(x, y, x + rectWidth, y, radius);
-            context.closePath();
-            context.fillStyle = fill;
-            context.fill();
-        };
-        const fitText = (value, maxWidth) => {
-            let text = value;
-            while (text && context.measureText(text).width > maxWidth) text = `${text.slice(0, -2)}…`;
-            return text;
-        };
-
-        context.fillStyle = '#edf1f6';
-        context.fillRect(0, 0, width, height);
-        roundRect(32, 32, width - 64, height - 64, 24, colors.card);
-        context.strokeStyle = colors.line;
-        context.lineWidth = 2;
-        context.stroke();
-
-        roundRect(padding, 70, 64, 64, 18, '#6958dc');
-        context.fillStyle = '#fff';
-        context.font = '700 38px Manrope, Arial, sans-serif';
-        context.textAlign = 'center';
-        context.fillText('K', padding + 32, 115);
-        context.textAlign = 'left';
-        context.fillStyle = colors.ink;
-        context.font = '700 28px Manrope, Arial, sans-serif';
-        context.fillText('KosKosan', padding + 82, 96);
-        context.fillStyle = colors.muted;
-        context.font = '18px Arial, sans-serif';
-        context.fillText('Struk pembayaran sewa', padding + 82, 124);
-
-        const status = receipt.querySelector('.receipt-status')?.textContent?.trim() || 'Dikonfirmasi';
-        roundRect(width - 250, 82, 164, 40, 20, '#e7f6ef');
-        context.fillStyle = '#247b55';
-        context.font = '700 16px Arial, sans-serif';
-        context.textAlign = 'center';
-        context.fillText(status, width - 168, 108);
-        context.textAlign = 'left';
-
-        context.strokeStyle = colors.line;
-        context.beginPath();
-        context.moveTo(padding, 160);
-        context.lineTo(width - padding, 160);
-        context.stroke();
-        const receiptNumber = receipt.querySelector('.receipt-number strong')?.textContent?.trim() || '';
-        context.fillStyle = colors.muted;
-        context.font = '16px Arial, sans-serif';
-        context.fillText('Nomor struk', padding, 202);
-        context.fillStyle = colors.ink;
-        context.font = '700 20px Manrope, Arial, sans-serif';
-        context.textAlign = 'right';
-        context.fillText(receiptNumber, width - padding, 202);
-        context.textAlign = 'left';
-
-        details.forEach((detail, index) => {
-            const y = detailTop + index * rowHeight;
-            context.strokeStyle = colors.line;
-            context.beginPath();
-            context.moveTo(padding, y + rowHeight - 8);
-            context.lineTo(width - padding, y + rowHeight - 8);
-            context.stroke();
-            context.fillStyle = colors.muted;
-            context.font = '15px Arial, sans-serif';
-            context.fillText(fitText(detail.label, 180), padding, y + 30);
-            context.fillStyle = colors.ink;
-            context.font = '700 17px Manrope, Arial, sans-serif';
-            context.textAlign = 'right';
-            context.fillText(fitText(detail.value, width - padding * 2 - 195), width - padding, y + 30);
-            context.textAlign = 'left';
-        });
-
-        const amount = receipt.querySelector('.receipt-total strong')?.textContent?.trim() || '';
-        roundRect(padding, totalTop, width - padding * 2, 88, 16, '#294258');
-        context.fillStyle = '#fff';
-        context.font = '18px Arial, sans-serif';
-        context.fillText('Jumlah dibayarkan', padding + 24, totalTop + 53);
-        context.font = '700 30px Manrope, Arial, sans-serif';
-        context.textAlign = 'right';
-        context.fillText(amount, width - padding - 24, totalTop + 56);
-        context.textAlign = 'left';
-        context.fillStyle = colors.muted;
-        context.font = '15px Arial, sans-serif';
-        const note = receipt.querySelector('.receipt-note')?.textContent?.trim() || '';
-        context.fillText(fitText(note, width - padding * 2), padding, totalTop + 126);
-
-        const blob = await new Promise((resolve, reject) => {
-            canvas.toBlob((image) => {
-                if (image) resolve(image);
-                else reject(new Error('Gambar struk gagal dibuat.'));
-            }, 'image/png');
-        });
-        return new File([blob], `struk-koskosan-${receiptNumber || 'pembayaran'}.png`, { type: 'image/png' });
-    };
-    const downloadReceiptImage = (file) => {
-        const url = URL.createObjectURL(file);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.name;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    };
-    document.querySelectorAll('[data-download-receipt-image]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            try {
-                downloadReceiptImage(await renderReceiptImage());
-            } catch (error) {
-                console.error('Unable to create receipt image.', error);
-                window.alert(error instanceof Error ? error.message : 'Gambar struk tidak dapat dibuat.');
-            }
-        });
-    });

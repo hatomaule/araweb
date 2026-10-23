@@ -51,12 +51,19 @@ $platformCards = [
     ['Pengunjung unik', $platformMetrics['visitors'], '◉', 'orange', '?page=home'],
 ];
 ?>
-<section class="page-heading"><div><span class="eyebrow">DASHBOARD PLATFORM</span><h2>Ringkasan aktivitas KosKosan</h2><p>Akumulasi booking, pencarian, pengguna, properti, penghuni, dan pengunjung.</p></div></section>
-<div class="stats-grid">
-<?php foreach ($platformCards as [$label, $value, $icon, $color, $target]): ?>
-    <article class="stat-card"><a class="stat-icon <?= e($color) ?> stat-icon-link" href="index.php<?= e($target) ?>" aria-label="Buka <?= e($label) ?>"><?= e($icon) ?></a><div><span><?= e($label) ?></span><strong><?= number_format($value, 0, ',', '.') ?></strong></div></article>
+<?php foreach ([
+    'Properti' => array_slice($platformCards, 5, 3),
+    'Akun dan aktivitas' => array_merge(array_slice($platformCards, 0, 5), [$platformCards[8]]),
+] as $groupLabel => $cards): ?>
+    <section class="dashboard-group">
+        <h2 class="dashboard-section-title"><?= e($groupLabel) ?></h2>
+        <div class="stats-grid">
+        <?php foreach ($cards as [$label, $value, $icon, $color, $target]): ?>
+            <article class="stat-card"><a class="stat-icon <?= e($color) ?> stat-icon-link" href="index.php<?= e($target) ?>" aria-label="Buka <?= e($label) ?>"><?= e($icon) ?></a><div><a class="stat-card-label-link" href="index.php<?= e($target) ?>"><?= e($label) ?></a><strong><?= number_format($value, 0, ',', '.') ?></strong></div></article>
+        <?php endforeach; ?>
+        </div>
+    </section>
 <?php endforeach; ?>
-</div>
 <section class="panel" id="platform-booking-activity">
     <div class="panel-heading"><div><h2>Aktivitas 12 bulan terakhir</h2><p>Grafik bulanan untuk booking, hasil pencarian, dan pengunjung unik.</p></div><a class="text-link" href="index.php?page=activity">Lihat aktivitas →</a></div>
     <div style="display:grid;grid-template-columns:repeat(12,minmax(34px,1fr));gap:8px;align-items:end;min-height:240px;padding:12px 8px 0;overflow-x:auto">
