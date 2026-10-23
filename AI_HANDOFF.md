@@ -1030,3 +1030,14 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   terang tetap `rgb(111, 152, 68)`; `git diff --check` lulus dengan penanganan
   CRLF. Tidak ada migrasi. Siap dikomit terpisah; jangan masukkan perubahan
   kerja lain yang tidak berkaitan.
+- **Perbaikan kartu kosong mode Kartu (2026-10-23):** Screenshot
+  memperlihatkan baris `Tidak ada data yang cocok...` tetap dirender sebagai
+  kartu meskipun JS sudah menetapkan `hidden`. Aturan `display:grid` kartu
+  bertabrakan dengan perilaku default atribut HTML `[hidden]`. Ditambahkan
+  aturan global `[hidden]{display:none!important}` agar baris kosong dan item
+  tersembunyi benar-benar tidak terlihat pada seluruh halaman/role/tampilan,
+  tanpa menghapus pesan saat tabel berada di mode Tabel. Validasi browser
+  memastikan baris kosong tersembunyi tetap `display:none` (tinggi 0px) setelah
+  CSS kartu diterapkan, sementara baris data tetap tampil sebagai grid. Asset
+  cache disegarkan konsisten pada aplikasi utama, autentikasi, dan halaman
+  publik. PHP lint dan pemeriksaan diff lulus; tidak ada migrasi.
