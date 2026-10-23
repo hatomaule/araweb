@@ -1001,6 +1001,7 @@ const initializeApp = () => {
             const cardView = view === 'cards';
             cardGrid.hidden = !cardView;
             tableView.hidden = cardView;
+            list.classList.toggle('building-cards-active', cardView);
             syncDataViewPicker(pickerHost, buttons, view);
             try {
                 localStorage.setItem(storageKey, view);
@@ -1022,7 +1023,7 @@ const initializeApp = () => {
             const visibleIds = new Set(Array.from(visibleCards, (card) => card.dataset.buildingId));
             buildingRows.forEach((row) => { row.hidden = !visibleIds.has(row.dataset.buildingId); });
             pageSizeSelect.closest('label')?.toggleAttribute('hidden', matches.length <= 5);
-            empty.hidden = matches.length > 0;
+            empty.hidden = matches.length > 0 || (selectedView === 'cards' && cards.length > 0);
             if (matches.length === 0) {
                 summary.textContent = cards.length ? 'Tidak ada hasil' : '0 gedung';
             } else {
@@ -1074,14 +1075,13 @@ const initializeApp = () => {
         const summary = management.querySelector('[data-room-summary]');
         const previous = management.querySelector('[data-room-previous]');
         const next = management.querySelector('[data-room-next]');
-        const cardEmpty = management.querySelector('[data-room-card-empty]');
         const storageKey = management.dataset.roomViewStorageKey || 'roomManagementView';
         if (!(table instanceof HTMLTableElement) || !tableView || !cardView
             || !(buildingFilter instanceof HTMLSelectElement) || !(typeFilter instanceof HTMLSelectElement)
             || !(search instanceof HTMLInputElement) || !pagination
             || !(pageSizeSelect instanceof HTMLSelectElement) || !summary
             || !(previous instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)
-            || !cardEmpty || !(viewPicker instanceof HTMLDetailsElement) || !viewButtons.size) return;
+            || !(viewPicker instanceof HTMLDetailsElement) || !viewButtons.size) return;
 
         const tbody = table.tBodies[0];
         const rows = Array.from(tbody.querySelectorAll('[data-room-row]'));
@@ -1138,8 +1138,6 @@ const initializeApp = () => {
             cardView.querySelectorAll('[data-room-building-group]').forEach((buildingGroup) => {
                 buildingGroup.hidden = !buildingGroup.querySelector('[data-room-group]:not([hidden])');
             });
-            cardEmpty.hidden = matchingCards.length > 0;
-
             const pageSize = pageSizeSelect.value === 'all'
                 ? matchingRows.length || 1 : Number(pageSizeSelect.value);
             const pageCount = Math.max(1, Math.ceil(matchingRows.length / pageSize));
@@ -1334,6 +1332,9 @@ const initializeApp = () => {
             const selectedView = cardView ? 'cards' : 'table';
             syncDataViewPicker(viewSwitch, viewButtons, selectedView);
             tableContainer.classList.toggle('data-table-card-view', cardView);
+            tableContainer.classList.toggle('floating-card-table', cardView);
+            tools.classList.toggle('floating-card-tools', cardView);
+            table.closest('.panel')?.classList.toggle('floating-table-cards', cardView);
             try {
                 localStorage.setItem(storageKey, selectedView);
             } catch (error) {
@@ -1357,6 +1358,7 @@ const initializeApp = () => {
         viewButtons.forEach((button, view) => {
             button.addEventListener('click', () => {
                 applyView(view);
+                render();
                 viewSwitch.open = false;
             });
         });
@@ -1400,7 +1402,8 @@ const initializeApp = () => {
             const visibleRows = matchingRows.slice(start, start + pageSize);
             const visibleSet = new Set(visibleRows);
             rows.forEach((row) => { row.hidden = !visibleSet.has(row); });
-            emptyRow.hidden = matchingRows.length !== 0;
+            emptyRow.hidden = matchingRows.length !== 0
+                || tableContainer.classList.contains('data-table-card-view');
 
             const groupCounts = new Map();
             matchingRows.forEach((row) => {
@@ -1701,8 +1704,6 @@ const initializeApp = () => {
         });
     });
 
-    document.querySelectorAll('dialog.auth-dialog').forEach((dialog) => {
-        let backdropPointerDown = false;
     const confirmationDialog = document.createElement('dialog');
     confirmationDialog.className = 'action-dialog';
     confirmationDialog.setAttribute('aria-labelledby', 'app-confirmation-title');
@@ -1745,6 +1746,8 @@ const initializeApp = () => {
         dismissConfirmation(false);
     });
 
+    document.querySelectorAll('dialog.auth-dialog').forEach((dialog) => {
+        let backdropPointerDown = false;
         dialog.addEventListener('pointerdown', (event) => {
             backdropPointerDown = event.target === dialog;
         });
@@ -1838,8 +1841,6 @@ const initializeApp = () => {
             approvedForms.delete(form);
             return;
         }
-    });
-
         event.preventDefault();
         void confirmAction(form.dataset.confirm || 'Lanjutkan tindakan ini?').then((confirmed) => {
             if (!confirmed || !form.isConnected) return;
@@ -1897,6 +1898,8 @@ const initializeApp = () => {
         if (!(input instanceof HTMLInputElement)) return;
         input.addEventListener('input', () => formatMoney(input));
         formatMoney(input);
+    });
+
     const chatWidget = document.querySelector('[data-chat-widget]');
     if (chatWidget) {
         const panel = chatWidget.querySelector('#chat-widget-panel');
@@ -1976,14 +1979,40 @@ const initializeApp = () => {
             visible.forEach((conversation) => {
                 const row = document.createElement('div');
                 row.className = 'chat-widget-conversation-row';
+                const avatarElement = conversation.profile_photo
+                    ? document.createElement('img')
+                    : document.createElement('span');
+                avatarElement.className = 'chat-avatar';
+                if (conversation.profile_photo) {
+                    avatarElement.src = conversation.profile_photo;
+                    avatarElement.alt = '';
+                    avatarElement.addEventListener('error', () => {
+                        const fallback = document.createElement('span');
+                        fallback.className = 'chat-avatar';
+                        fallback.textContent = conversation.profile_name
+                            ? String(conversation.profile_name).slice(0, 1).toLocaleUpperCase('id')
+                            : '?';
+                        avatarElement.replaceWith(fallback);
+                    }, {once: true});
+                } else {
+                    avatarElement.textContent = conversation.profile_name
+                        ? String(conversation.profile_name).slice(0, 1).toLocaleUpperCase('id')
+                        : '?';
+                }
+                if (conversation.profile_url) {
+                    const profileLink = document.createElement('a');
+                    profileLink.className = 'chat-widget-profile-link';
+                    profileLink.href = conversation.profile_url;
+                    profileLink.setAttribute('aria-label', `Lihat profil ${conversation.profile_name || conversation.title}`);
+                    profileLink.title = `Lihat profil ${conversation.profile_name || conversation.title}`;
+                    profileLink.append(avatarElement);
+                    row.append(profileLink);
+                } else {
+                    row.append(avatarElement);
+                }
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = `chat-widget-conversation${Number(conversation.id) === activeConversationId ? ' active' : ''}`;
-                const avatar = document.createElement('span');
-                avatar.className = 'chat-avatar';
-                avatar.textContent = conversation.type === 'support'
-                    ? (chatWidget.dataset.chatRole === 'admin' ? String(conversation.title).slice(0, 1) : '?')
-                    : String(conversation.title).slice(0, 1);
                 const copy = document.createElement('span');
                 copy.className = 'chat-widget-conversation-copy';
                 const title = document.createElement('strong');
@@ -1991,7 +2020,7 @@ const initializeApp = () => {
                 const subtitle = document.createElement('small');
                 subtitle.textContent = conversation.last_message || conversation.subtitle;
                 copy.append(title, subtitle);
-                button.append(avatar, copy);
+                button.append(copy);
                 if (conversation.unread_count > 0) {
                     const unread = document.createElement('i');
                     unread.className = 'chat-unread-count';
@@ -2014,34 +2043,6 @@ const initializeApp = () => {
                 list.append(row);
             });
         };
-        const loadConversations = async () => {
-            const payload = await apiGet('list');
-            listItems = payload.conversations || [];
-            const unreadCount = listItems.reduce((total, item) => total + Number(item.unread_count || 0), 0);
-            if (unreadBadge) {
-                unreadBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-                unreadBadge.hidden = unreadCount === 0;
-            }
-            renderConversations();
-            if (emptyTrashButton instanceof HTMLButtonElement) {
-                emptyTrashButton.hidden = currentFolder !== 'trash' || listItems.length === 0;
-            }
-            if (status) status.textContent = listItems.length
-                ? `${listItems.length} percakapan`
-                : (chatWidget.dataset.chatRole === 'admin' ? 'Belum ada chat masuk' : 'Mulai chat atau minta bantuan admin');
-        };
-        const loadMessages = async () => {
-            if (!activeConversationId || loadingMessages || !messages) return;
-            const requestedConversationId = activeConversationId;
-            loadingMessages = true;
-            try {
-                const payload = await apiGet('messages', requestedConversationId);
-                if (Number(payload.conversation.id) !== activeConversationId) return;
-                const currentLatestId = payload.messages.length
-                    ? Number(payload.messages[payload.messages.length - 1].id) : 0;
-                const shouldScroll = currentLatestId !== lastMessageId;
-                lastMessageId = currentLatestId;
-                const title = document.createElement('strong');
         const renderThreadActions = (conversation) => {
             if (!threadActions) return;
             threadActions.replaceChildren();
@@ -2075,6 +2076,35 @@ const initializeApp = () => {
                 addAction('Pulihkan', 'restore_trash');
             }
         };
+        const loadConversations = async () => {
+            const payload = await apiGet('list');
+            listItems = payload.conversations || [];
+            const unreadCount = listItems.reduce((total, item) => total + Number(item.unread_count || 0), 0);
+            if (unreadBadge) {
+                unreadBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+                unreadBadge.hidden = unreadCount === 0;
+            }
+            renderConversations();
+            renderThreadActions(listItems.find((item) => Number(item.id) === activeConversationId));
+            if (emptyTrashButton instanceof HTMLButtonElement) {
+                emptyTrashButton.hidden = currentFolder !== 'trash' || listItems.length === 0;
+            }
+            if (status) status.textContent = listItems.length
+                ? `${listItems.length} percakapan`
+                : (chatWidget.dataset.chatRole === 'admin' ? 'Belum ada chat masuk' : 'Mulai chat atau minta bantuan admin');
+        };
+        const loadMessages = async () => {
+            if (!activeConversationId || loadingMessages || !messages) return;
+            const requestedConversationId = activeConversationId;
+            loadingMessages = true;
+            try {
+                const payload = await apiGet('messages', requestedConversationId);
+                if (Number(payload.conversation.id) !== activeConversationId) return;
+                const currentLatestId = payload.messages.length
+                    ? Number(payload.messages[payload.messages.length - 1].id) : 0;
+                const shouldScroll = currentLatestId !== lastMessageId;
+                lastMessageId = currentLatestId;
+                const title = document.createElement('strong');
                 title.textContent = payload.conversation.title;
                 const subtitle = document.createElement('small');
                 subtitle.textContent = payload.conversation.subtitle;
@@ -2084,7 +2114,6 @@ const initializeApp = () => {
                 if (!payload.messages.length) {
                     const empty = document.createElement('div');
                     empty.className = 'chat-widget-empty';
-            renderThreadActions(listItems.find((item) => Number(item.id) === activeConversationId));
                     empty.textContent = 'Belum ada pesan. Tulis pesan untuk memulai.';
                     messages.append(empty);
                 }

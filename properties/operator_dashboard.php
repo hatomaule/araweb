@@ -109,7 +109,7 @@ $compactMoney = static function (float $amount): string {
     return 'Rp' . number_format($amount, 0, ',', '.');
 };
 ?>
-<div class="welcome-row"><div><h2>Dashboard</h2><p>Rekap properti, kamar, dan keuangan kos yang terdaftar pada akun Anda.</p></div><div class="actions"><a class="button secondary" href="index.php?page=rooms">Kelola kamar</a><a class="button primary" href="index.php?page=building_form">＋ Tambah gedung</a></div></div>
+<div class="welcome-row"><div><h2>Dashboard</h2><p>Rekap properti, kamar, dan keuangan kos yang terdaftar pada akun Anda.</p></div></div>
 <div class="stats-grid operator-finance-stats">
     <article class="stat-card"><a class="stat-icon purple stat-icon-link" href="index.php?page=buildings" aria-label="Buka menu kos saya">⌂</a><div><span>Kos saya</span><strong><?= $ownerBuildingCount ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=rooms" aria-label="Buka menu kamar">▦</a><div><span>Jumlah kamar</span><strong><?= $ownerRoomCount ?></strong></div></article>

@@ -242,6 +242,5 @@ foreach ($list as $room) {
                 </div>
             </section>
         <?php endforeach; ?>
-        <p class="room-card-empty" data-room-card-empty hidden>Tidak ada kamar yang cocok dengan pencarian atau filter.</p>
     </div>
 </section>

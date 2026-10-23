@@ -157,15 +157,15 @@ $availableRooms = $user['role'] === 'owner'
                         <td><?= e($row['phone']) ?></td>
                         <td><?= (int) $row['active_rentals'] ?></td>
                         <td><span class="badge <?= e($row['status']) ?>"><?= e(status_label($row['status'])) ?></span></td>
-                        <td class="actions">
+                        <td class="actions<?= $user['role'] === 'admin' ? ' tenant-admin-actions' : '' ?>">
                             <?php if ($user['role'] === 'admin'): ?>
-                                <a class="text-link" href="index.php?page=tenant_form&amp;id=<?= (int) $row['id'] ?>">Edit</a>
-                                <form method="post">
+                                <a class="button secondary compact-button tenant-admin-edit" href="index.php?page=tenant_form&amp;id=<?= (int) $row['id'] ?>">Edit</a>
+                                <form method="post" class="tenant-admin-status-form">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="tenant_status">
                                     <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                                     <input type="hidden" name="status" value="<?= $row['status'] === 'active' ? 'inactive' : 'active' ?>">
-                                    <button class="text-button" type="submit"><?= $row['status'] === 'active' ? 'Nonaktifkan' : 'Aktifkan' ?></button>
+                                    <button class="button secondary compact-button" type="submit"><?= $row['status'] === 'active' ? 'Nonaktifkan' : 'Aktifkan' ?></button>
                                 </form>
                             <?php endif; ?>
                             <div class="tenant-contact-actions">

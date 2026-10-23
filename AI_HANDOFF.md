@@ -886,6 +886,77 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   dengan pencarian atau filter” (card nomor 4). Terapkan perilaku ini ke semua
   halaman yang menampilkan tabel dalam mode kartu; hasil kosong tidak perlu
   ditampilkan sebagai kartu.
+- **Klarifikasi permintaan kartu kosong (2026-10-23, tetap menunggu “gass
+  eksekusi”):** screenshot terbaru menunjukkan kartu paling kanan yang hanya
+  menampilkan “Tidak ada data yang cocok dengan pencarian atau filter”.
+  Pengguna meminta kartu placeholder tersebut dihilangkan pada semua halaman
+  tempat ia muncul, tanpa menyembunyikan kartu data yang cocok. Tujuannya
+  merapikan tampilan; teks itu saat ini berfungsi sebagai indikator bahwa
+  pencarian/filter tidak menghasilkan data. Belum ada perubahan aplikasi;
+  tunggu izin eksekusi sebelum menerapkan.
+- **Perbaikan kartu kosong dan latar kartu akun (2026-10-23, disetujui):**
+  pada semua tabel yang memakai kontrol kartu bersama, baris placeholder tanpa
+  hasil pencarian/filter kini disembunyikan hanya saat mode Kartu aktif; hasil
+  yang cocok tetap ditampilkan dan pesan keadaan kosong pada mode Tabel tetap
+  dipertahankan. Screenshot Admin menunjukkan latar panel tabel masih tampak
+  karena aturan tema gelap `html[data-theme="dark"] .panel` lebih spesifik
+  daripada styling panel transparan; ditambahkan aturan tema gelap yang
+  menetralkan latar/border/bayangan panel untuk kartu akun/penghuni. Verifikasi
+  DOM dengan fixture kartu mode gelap mengonfirmasi placeholder disembunyikan,
+  baris data yang tidak cocok tetap tersembunyi, panel transparan, dan class
+  mode kartu aktif. Cache CSS/JS dinaikkan ke `koskosan-empty-cards-20261023-1`
+  pada aplikasi utama, autentikasi, dan halaman publik. Belum diuji lewat akun
+  Admin/Owner/User aktif.
+- **Permintaan UI lanjutan (2026-10-23, dicatat saja; jangan eksekusi sebelum
+  pengguna mengatakan “gas eksekusi”):**
+  1. Screenshot daftar kos/halaman lainnya menunjukkan mode Kartu di sejumlah
+     halaman/role masih menampilkan latar panel/tabel di belakang kartu.
+     Terapkan pola tanpa latar yang sudah dibuat pada daftar User ke seluruh
+     halaman yang memiliki tampilan Kartu, lintas role. Pada tema gelap,
+     tampilkan kartu seolah melayang seperti kartu kamar/kos. Gunakan bayangan
+     halus dan tepi/kontras yang tetap terlihat pada tema gelap; hapus hanya
+     permukaan latar tabel/panel di belakang kumpulan kartu, bukan permukaan
+     setiap kartu datanya.
+  2. Perkecil lebar kartu secara konsisten di semua halaman dan role supaya
+     menyesuaikan isi dan tidak menyisakan ruang kosong berlebihan di samping.
+     Pertahankan responsivitas dan hindari memotong atau membuat isi sulit
+     dibaca.
+  3. Kartu placeholder “Tidak ada data yang cocok dengan pencarian atau filter”
+     masih terlihat di beberapa halaman pada screenshot terbaru walaupun
+     perbaikan sebelumnya telah diterapkan. Saat eksekusi, telusuri semua mode
+     Kartu—termasuk tabel dengan kontrol khusus—dan hilangkan placeholder
+     tersebut untuk semua halaman/role tanpa menghapus atau mengganggu kartu
+     data yang cocok.
+  4. Pada tampilan kartu Penghuni role Admin, rapikan tombol Edit dan
+     Nonaktifkan menjadi tiga tombol sejajar dan merata kiri-kanan, mengikuti
+     contoh screenshot (pertahankan tombol Histori sebagai tombol ketiga).
+  5. Pada tampilan kartu Penghuni role Owner, selaraskan tombol Histori dan
+     WhatsApp serta garis pemisah bawahnya dengan baris tombol/isi kartu
+     lainnya.
+  6. Tambahkan garis cahaya yang terus bergerak melingkari tepian tombol
+     launcher Chat melayang, meniru efek garis menyala pada contoh chat di
+     screenshot. Jangan mengubah bentuk, warna dasar, ukuran, posisi, teks,
+     interaksi, atau bagian UI lain pada launcher; hanya tambahkan efek garis
+     bercahaya bergerak di keliling tepinya.
+  7. Hapus tombol **Kelola akun** dari dashboard Admin.
+  8. Hapus tombol **Kelola kamar** dan **+ Tambah gedung** dari dashboard
+     Owner; fungsi/menu pengelolaan lainnya tetap tersedia.
+  9. Hapus kartu/CTA **Tagihan dan pembayaran** beserta tombol
+     **Buka tagihan dan pembayaran** dari dashboard User, sesuai screenshot.
+  10. Di halaman utama, hapus panel **Temukan lokasi** yang berada di sebelah
+      peta. Pindahkan bagian **Ulasan dan balasan pengelola** ke sebelah peta
+      agar susunan konten lebih rapi. Pertahankan fungsi ulasan/balasan serta
+      peta; screenshot menunjukkan kartu lokasi dan peta pada bagian bawah
+      halaman dengan ruang kosong besar di area ulasan.
+  11. Pada popup/widget chat, perbesar tombol **X/keluar** dan beri warna
+      merah yang jelas namun tidak berlebihan agar mudah terlihat dan disentuh,
+      terutama pada layar HP. Perubahan hanya untuk tombol X pada popup chat;
+      jangan mengubah tombol launcher Chat atau tombol X lain.
+  Poin 1–11 di atas masih berupa permintaan yang dicatat saja; jangan mengubah
+  aplikasi sampai pengguna memberi izin eksplisit “gas eksekusi”.
+  Pengguna meminta pencatatan saja; belum ada implementasi atau validasi untuk
+  sebelas poin ini. Perubahan lokal dari permintaan sebelumnya tetap
+  dipertahankan apa adanya.
 - **Perbaikan empat poin disetujui (2026-10-23):**
   1. HTTP 500 saat menambahkan kategori rutin telah ditelusuri: `mbstring` tidak
      tersedia pada runtime PHP lokal (`extension_loaded('mbstring')` bernilai
@@ -916,3 +987,36 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   serta modal konfirmasi yang dapat dibuka dan dibatalkan. Aksi thread chat
   sudah disesuaikan di markup/JS/CSS, tetapi belum diuji end-to-end
   menggunakan sesi chat berakun.
+- **Eksekusi sebelas perubahan UI disetujui (2026-10-23):**
+  - Tampilan kartu tabel generik dan daftar gedung kini memakai lebar maksimum
+    sekitar 300px dan membiarkan latar panel/toolbar transparan saat mode Kartu;
+    permukaan setiap kartu tetap terjaga. Perilaku ini berlaku untuk semua role
+    yang menggunakan tampilan kartu.
+  - Placeholder hasil filter kosong di mode Kartu disembunyikan pada tabel
+    generik, kartu gedung, dan daftar kamar. Baris kosong mode Tabel dan pesan
+    bahwa belum ada gedung sungguhan tetap dipertahankan.
+  - Kartu Penghuni Admin menyusun Edit, Nonaktifkan/Aktifkan, dan Histori
+    menjadi tiga tombol setara; kartu Owner menjaga Histori/WhatsApp sejajar
+    dengan garis pembatas konsisten. Foto dan informasi ID, User, Email tetap
+    tersusun berdampingan dalam kartu.
+  - Launcher Chat mendapat ring bercahaya bergerak yang menghormati
+    `prefers-reduced-motion`; tombol tutup popup berukuran 42×42px dengan
+    warna merah moderat.
+  - CTA dashboard Admin, Owner, dan User yang diminta dihapus; panel Temukan
+    Lokasi dihapus dari halaman publik dan ulasan/balasan kini berada di
+    samping peta pada desktop, lalu tersusun vertikal pada layar kecil.
+  - Cache asset JS/CSS diperbarui konsisten pada `index.php`, `accounts/auth.php`,
+    dan `portal/public.php`. Tidak ada migrasi database.
+  - Validasi: PHP lint untuk template yang disentuh lulus; `git diff --check`
+    dijalankan dengan `core.whitespace=cr-at-eol` karena sumber PHP/CSS
+    menggunakan CRLF; browser lokal mengonfirmasi ulasan dan peta berdampingan
+    di desktop, susunan satu kolom di ponsel, panel lokasi lama tidak ada,
+    lebar kartu desktop 300px, panel kartu transparan, tiga kolom aksi Admin,
+    ring Chat bergerak, tombol X 42×42px, kartu tema gelap tetap memiliki
+    permukaan/bayangan, serta ring berhenti pada reduced motion. `node` tidak
+    tersedia di lingkungan ini; JS dimuat pada browser lokal tanpa kegagalan
+    parse yang tampak.
+  - Commit dilakukan selektif hanya untuk berkas UI/handoff yang terkait; push
+    tidak dilakukan dan diserahkan kepada pengguna. Jangan ikutkan perubahan
+    chat PHP yang terpisah, file upload/data, backup SQL, atau artefak tak
+    dikenal.

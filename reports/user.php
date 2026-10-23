@@ -34,4 +34,3 @@ $accountSummary = one(
     <article class="stat-card"><a class="stat-icon red stat-icon-link" href="index.php?page=my_payments" aria-label="Buka tagihan yang lewat jatuh tempo">!</a><div><span>Tunggakan lewat jatuh tempo</span><strong><?= e(money($accountSummary['overdue'])) ?></strong></div></article>
     <article class="stat-card"><a class="stat-icon blue stat-icon-link" href="index.php?page=my_payments" aria-label="Buka pembayaran">◌</a><div><span>Pembayaran menunggu verifikasi</span><strong><?= e(money($accountSummary['pending_total'])) ?></strong></div></article>
 </div>
-<section class="panel dashboard-payment-link"><div class="panel-heading"><div><h2>Tagihan dan pembayaran</h2><p>Tagihan dan rincian transaksi akun Anda tersedia pada satu menu.</p></div><a class="button primary" href="index.php?page=my_payments">Buka tagihan dan pembayaran →</a></div></section>
