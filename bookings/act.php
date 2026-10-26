@@ -104,7 +104,8 @@ if ($action === 'create_customer_booking') {
                 $roomCheck = $pdo->prepare(
                     "SELECT rm.*,b.owner_user_id,b.name AS building_name FROM rooms rm
                      JOIN kos_buildings b ON b.id=rm.building_id
-                     WHERE rm.id=:id AND rm.status='available' AND b.status='active' FOR UPDATE"
+                     WHERE rm.id=:id AND rm.status='available' AND b.status='active'
+                       AND (b.owner_user_id IS NULL OR b.publication_status='published') FOR UPDATE"
                 );
                 $roomCheck->execute(['id' => $roomId]);
                 $room = $roomCheck->fetch();

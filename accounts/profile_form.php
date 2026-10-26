@@ -1,7 +1,20 @@
 <?php
 $profile = one($pdo, 'SELECT * FROM users WHERE id=:id', ['id' => $user['id']]);
+$ownerProfileProgress = $user['role'] === 'owner'
+    ? owner_profile_completion($pdo, (int) $user['id']) : null;
 ?>
 <div class="form-panel"><div class="panel-heading"><div><h2>Profil <?= e(['admin' => 'admin platform', 'owner' => 'Owner', 'seeker' => 'User'][$user['role']]) ?></h2><p>Perbarui username, informasi akun, alamat, jenis kelamin, dan foto profil.</p></div></div>
+<?php if ($ownerProfileProgress): ?>
+    <section class="owner-profile-progress-panel">
+        <div><strong>Kelengkapan profil Owner: <?= $ownerProfileProgress['percent'] ?>%</strong><small><?= $ownerProfileProgress['completed'] ?> dari <?= $ownerProfileProgress['total'] ?> data profil terisi. Perubahan dapat disimpan kapan saja dan dilanjutkan kembali.</small></div>
+        <progress max="100" value="<?= $ownerProfileProgress['percent'] ?>"><?= $ownerProfileProgress['percent'] ?>%</progress>
+        <ul class="owner-profile-checklist">
+            <?php foreach ($ownerProfileProgress['items'] as $label => $complete): ?>
+                <li class="<?= $complete ? 'complete' : 'incomplete' ?>"><?= $complete ? '✓' : '○' ?> <?= e($label) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+<?php endif; ?>
 <form method="post" enctype="multipart/form-data" class="form-grid profile-form"><?= csrf_field() ?><input type="hidden" name="action" value="save_profile">
     <div class="profile-photo-editor full-span">
         <?= avatar_markup($profile, 'profile-photo-preview') ?>

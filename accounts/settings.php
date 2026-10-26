@@ -14,6 +14,10 @@ $linkedProviders = rows(
     'SELECT provider,created_at FROM user_auth_providers WHERE user_id=:id ORDER BY id',
     ['id' => $user['id']]
 );
+$googleLinked = count(array_filter(
+    $linkedProviders,
+    static fn(array $provider): bool => $provider['provider'] === 'google'
+)) > 0;
 $activeAccountRental = (bool) one(
     $pdo,
     "SELECT r.id FROM rentals r JOIN tenants t ON t.id=r.tenant_id
@@ -51,7 +55,12 @@ $activeAccountRental = (bool) one(
     <?php if ($linkedProviders): ?>
         <ul class="linked-provider-list"><?php foreach ($linkedProviders as $provider): ?><li><strong><?= e(ucfirst($provider['provider'])) ?></strong><span>Tertaut sejak <?= e(date_id($provider['created_at'])) ?></span></li><?php endforeach; ?></ul>
     <?php else: ?><p class="muted">Belum ada akun pihak ketiga yang tertaut.</p><?php endif; ?>
-    <small class="subline">Pengaitan akun tambahan akan tersedia setelah metode login terkait diaktifkan.</small>
+    <?php if (!$googleLinked && google_oauth_config()): ?>
+        <a class="button secondary" href="index.php?page=google_link">Tautkan akun Google</a>
+        <small class="subline">Google hanya ditautkan setelah Anda masuk ke akun KosKosan ini. Role dan email akun tidak akan diganti.</small>
+    <?php elseif (!$googleLinked): ?>
+        <small class="subline">Penautan Google tersedia setelah administrator mengatur OAuth Google di server.</small>
+    <?php endif; ?>
 </section>
 <?php if ($user['role'] === 'seeker'): ?>
 <section class="panel account-settings-panel account-lifecycle-panel">

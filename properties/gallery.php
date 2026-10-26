@@ -38,7 +38,7 @@ if ($roomTypes && !in_array($selectedRoomType, $roomTypes, true)) {
 $galleryPhotos = $selectedRoomType
     ? rows(
         $pdo,
-        'SELECT g.id,g.category,g.photo_path,g.created_at,rm.room_number
+        'SELECT g.id,g.category,g.photo_path,g.created_at,g.room_id,rm.room_number
          FROM room_type_gallery_photos g
          LEFT JOIN rooms rm ON rm.id=g.room_id
          WHERE g.building_id=:building_id AND g.room_type=:room_type
@@ -62,17 +62,17 @@ $galleryCategories = [
     ],
     'room' => [
         'title' => 'Foto kamar',
-        'description' => 'Foto dipakai bersama oleh kamar bertipe sama dan dapat dipilih sebagai foto profil kamar.',
+        'description' => 'Foto kamar ditampilkan bersama untuk tipe yang sama. Terapkan foto sebagai foto profil semua kamar dengan tombol di bawah foto.',
         'icon' => '▧',
     ],
     'room_facility' => [
         'title' => 'Fasilitas kamar',
-        'description' => 'Contoh: kamar mandi dalam, AC, lemari, atau meja belajar.',
+        'description' => 'Foto fasilitas ini tampil di profil semua kamar bertipe sama. Contoh: kamar mandi dalam, AC, lemari, atau meja belajar.',
         'icon' => '✳',
     ],
     'general_facility' => [
         'title' => 'Fasilitas umum',
-        'description' => 'Contoh: dapur bersama, area parkir, ruang santai, atau halaman.',
+        'description' => 'Foto fasilitas umum tampil di profil kamar dan halaman gedung. Contoh: dapur bersama, area parkir, ruang santai, atau halaman.',
         'icon' => '⌂',
     ],
 ];
@@ -128,7 +128,19 @@ foreach ($galleryPhotos as $galleryPhoto) {
                         <article class="gallery-photo-card">
                             <img src="<?= e($photo['photo_path']) ?>" alt="<?= e($categoryInfo['title'] . ' ' . $selectedRoomType) ?>" loading="lazy">
                             <?php if ($category === 'room' && !empty($photo['room_number'])): ?><small class="gallery-photo-room-label">Khusus Kamar <?= e($photo['room_number']) ?></small><?php endif; ?>
-                            <?php if ($category === 'room' && $matchingRooms): ?>
+                            <?php if ($category !== 'building' && $matchingRooms): ?>
+                                <form method="post" class="gallery-apply-all-form" data-confirm="<?= e($category === 'room'
+                                    ? 'Terapkan foto ini sebagai foto profil semua kamar tipe ' . $selectedRoomType . ' di gedung ' . $building['name'] . '?'
+                                    : 'Tampilkan foto ini pada semua profil kamar tipe ' . $selectedRoomType . ' di gedung ' . $building['name'] . '?') ?>">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="apply_gallery_photo_to_all_rooms">
+                                    <input type="hidden" name="building_id" value="<?= $buildingId ?>">
+                                    <input type="hidden" name="room_type" value="<?= e($selectedRoomType) ?>">
+                                    <input type="hidden" name="photo_id" value="<?= (int) $photo['id'] ?>">
+                                    <button class="button primary compact-button" type="submit">Terapkan ke semua Kamar</button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if ($category === 'room' && $matchingRooms && empty($photo['room_id'])): ?>
                                 <form method="post" class="gallery-profile-select">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="select_room_gallery_photo">

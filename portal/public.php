@@ -71,6 +71,7 @@ if ($page === 'room') {
          FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
          LEFT JOIN users u ON u.id=b.owner_user_id
          WHERE rm.id=:id AND b.status='active'
+           AND (b.owner_user_id IS NULL OR b.publication_status='published' OR :admin_preview=1)
            AND (b.owner_user_id IS NULL OR EXISTS (
                SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
                  AND owner.status='active' AND owner.self_deactivated_at IS NULL
@@ -79,6 +80,7 @@ if ($page === 'room') {
             'id' => $roomId,
             'admin_view' => $user && $user['role'] === 'admin' ? 1 : 0,
             'admin_view_photo' => $user && $user['role'] === 'admin' ? 1 : 0,
+            'admin_preview' => $user && $user['role'] === 'admin' ? 1 : 0,
         ]
     );
     if (!$room) {
@@ -271,6 +273,7 @@ if ($page === 'room') {
                 <button class="button primary full" type="submit">Masuk</button>
             </form>
             <div class="auth-dialog-meta">
+                <?php if (google_oauth_config()): ?><a class="button secondary full" href="index.php?page=google_login">Lanjutkan dengan Google</a><?php endif; ?>
                 <a href="index.php?page=forgot_password">Lupa kata sandi?</a>
                 <span>Belum punya akun? <a href="index.php?page=register">Daftar</a></span>
             </div>
@@ -286,12 +289,19 @@ if ($page === 'property') {
     $buildingId = max(0, (int) ($_GET['id'] ?? 0));
     $property = one(
         $pdo,
-        "SELECT b.*,u.name AS owner_name,
+        "SELECT b.*,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM kos_buildings gold_building
+                    WHERE gold_building.owner_user_id=b.owner_user_id
+                      AND gold_building.gold_verification_status='verified'
+                ) THEN 'gold' ELSE 'basic' END AS owner_membership_level,
+                u.name AS owner_name,
                 CASE WHEN u.hide_phone_public=1 AND :admin_view=0 THEN NULL ELSE u.phone END AS owner_phone,
                 CASE WHEN u.hide_profile_photo_public=1 AND :admin_view_photo=0 THEN NULL ELSE u.profile_photo_path END AS owner_photo,
                 u.gender AS owner_gender,u.avatar_key AS owner_avatar
          FROM kos_buildings b LEFT JOIN users u ON u.id=b.owner_user_id
          WHERE b.id=:id AND b.status='active'
+           AND (b.owner_user_id IS NULL OR b.publication_status='published' OR :admin_preview=1)
            AND (b.owner_user_id IS NULL OR EXISTS (
                SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
                  AND owner.status='active' AND owner.self_deactivated_at IS NULL
@@ -300,6 +310,7 @@ if ($page === 'property') {
             'id' => $buildingId,
             'admin_view' => $user && $user['role'] === 'admin' ? 1 : 0,
             'admin_view_photo' => $user && $user['role'] === 'admin' ? 1 : 0,
+            'admin_preview' => $user && $user['role'] === 'admin' ? 1 : 0,
         ]
     );
     if (!$property) {
@@ -503,6 +514,7 @@ if ($page === 'property') {
     <nav class="property-tabs"><a href="#foto">Foto properti</a><a href="#fasilitas-kamar">Fasilitas kamar</a><a href="#fasilitas-umum">Fasilitas umum</a><a href="#lokasi">Lokasi</a><a href="#review">Review</a><a href="#pemilik">Pemilik kos</a></nav></header>
     <main class="property-detail-main">
         <a class="text-link" href="index.php?page=home">← Kembali ke pencarian</a>
+        <?php if ($user && $user['role'] === 'admin' && $property['publication_status'] !== 'published'): ?><div class="alert info">Pratinjau Admin — gedung ini belum disetujui untuk ditampilkan kepada publik.</div><?php endif; ?>
         <?php if (!$user): ?><div class="property-user-actions"><button type="button" class="button secondary compact-button" data-dialog-open="public-login-dialog">Masuk untuk menyimpan atau melaporkan kos</button></div><?php endif; ?>
         <section id="foto" class="property-gallery property-banner">
             <div class="property-gallery-main property-profile-photo">
@@ -540,7 +552,7 @@ if ($page === 'property') {
             </div>
         </section>
         <div class="property-detail-layout"><div class="property-detail-content">
-            <section class="property-intro"><span class="badge active"><?= e($genderLabel) ?></span><span class="verification-badge tier-<?= e($property['verification_tier']) ?>"><?= e($property['verification_status'] === 'verified' ? ucfirst($property['verification_tier']) . ' · Terverifikasi' : 'Basic · Belum terverifikasi') ?></span><h1><?= e($property['name']) ?></h1><p><?= e($property['address']) ?></p><?php if ($averageRating !== null): ?><strong class="property-rating">★ <?= number_format($averageRating,1) ?> <small>(<?= count($propertyReviews) ?> ulasan)</small></strong><?php else: ?><span class="muted">Belum ada review</span><?php endif; ?><?php if ($property['description']): ?><p><?= nl2br(e($property['description'])) ?></p><?php endif; ?><div class="property-user-actions"><?php if ($user && $user['role'] === 'seeker'): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="toggle_saved_property"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button class="button secondary compact-button" type="submit"><?= $propertySaved ? '♥ Tersimpan' : '♡ Simpan kos' ?></button></form><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><button class="button secondary compact-button" type="button" data-dialog-open="report-property-dialog">Laporkan</button><?php else: ?><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><?php endif; ?><?php if ($user && $user['role'] === 'owner' && $canManageProperty && $property['verification_status'] !== 'verified'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-verification-dialog">Ajukan verifikasi</button><?php endif; ?></div></section>
+            <section class="property-intro"><span class="badge active"><?= e($genderLabel) ?></span><span class="owner-level-badge owner-level-<?= e($property['owner_membership_level']) ?>"><?= e(ucfirst($property['owner_membership_level'])) ?></span><h1><?= e($property['name']) ?></h1><p><?= e($property['address']) ?></p><?php if ($averageRating !== null): ?><strong class="property-rating">★ <?= number_format($averageRating,1) ?> <small>(<?= count($propertyReviews) ?> ulasan)</small></strong><?php else: ?><span class="muted">Belum ada review</span><?php endif; ?><?php if ($property['description']): ?><p><?= nl2br(e($property['description'])) ?></p><?php endif; ?><div class="property-user-actions"><?php if ($user && $user['role'] === 'seeker'): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="toggle_saved_property"><input type="hidden" name="building_id" value="<?= $buildingId ?>"><button class="button secondary compact-button" type="submit"><?= $propertySaved ? '♥ Tersimpan' : '♡ Simpan kos' ?></button></form><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><button class="button secondary compact-button" type="button" data-dialog-open="report-property-dialog">Laporkan</button><?php else: ?><button class="button secondary compact-button" type="button" data-share-title="<?= e($property['name']) ?>" data-share-url="<?= e('index.php?page=property&id=' . $buildingId) ?>">Bagikan</button><?php endif; ?><?php if ($user && $user['role'] === 'owner' && $canManageProperty && $property['verification_status'] !== 'verified'): ?><button class="button secondary compact-button" type="button" data-dialog-open="property-verification-dialog">Ajukan verifikasi</button><?php endif; ?></div></section>
             <section class="property-section property-room-types" id="fasilitas-kamar">
                 <h2>Kamar dan fasilitas</h2>
                 <p class="muted">Informasi kamar dan foto fasilitas mengikuti data yang dikelola untuk gedung ini.</p>
@@ -662,6 +674,7 @@ if (in_array($page, ['home', 'search'], true)) {
          FROM kos_buildings b
          JOIN indonesia_regions ir ON ir.code=b.regency_code AND ir.level='regency'
          WHERE b.status='active'
+           AND (b.owner_user_id IS NULL OR b.publication_status='published')
          GROUP BY ir.code,ir.name
          ORDER BY property_count DESC,ir.name
          LIMIT 6"
@@ -685,7 +698,12 @@ if (in_array($page, ['home', 'search'], true)) {
         $pdo,
         "SELECT rm.*, b.name AS building_name, b.address AS building_address,
                 b.description AS building_description, b.gender_policy,
-                b.verification_tier,b.verification_status,
+                b.verification_tier,b.verification_status,b.gold_verification_status,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM kos_buildings gold_building
+                    WHERE gold_building.owner_user_id=b.owner_user_id
+                      AND gold_building.gold_verification_status='verified'
+                ) THEN 'gold' ELSE 'basic' END AS owner_membership_level,
                 b.latitude AS building_latitude, b.longitude AS building_longitude,
                 b.profile_photo_path AS building_profile_photo_path,
                 CASE WHEN rm.status='available' AND NOT EXISTS (
@@ -701,6 +719,7 @@ if (in_array($page, ['home', 'search'], true)) {
                 ) THEN 1 ELSE 0 END AS is_available
          FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
          WHERE b.status='active'
+           AND (b.owner_user_id IS NULL OR b.publication_status='published')
          AND (b.owner_user_id IS NULL OR EXISTS (
              SELECT 1 FROM users owner WHERE owner.id=b.owner_user_id
                AND owner.status='active' AND owner.self_deactivated_at IS NULL
@@ -773,6 +792,8 @@ if (in_array($page, ['home', 'search'], true)) {
                 'address' => $room['building_address'],
                 'verification_tier' => $room['verification_tier'],
                 'verification_status' => $room['verification_status'],
+                'gold_verification_status' => $room['gold_verification_status'],
+                'owner_membership_level' => $room['owner_membership_level'],
                 'latitude' => $room['building_latitude'],
                 'longitude' => $room['building_longitude'],
                 'rooms' => [],
@@ -929,6 +950,7 @@ if (in_array($page, ['home', 'search'], true)) {
          LEFT JOIN users u ON u.id=t.user_id
          LEFT JOIN users reviewer ON reviewer.id=pr.reviewer_user_id
          WHERE pr.status='published' AND b.status='active'
+           AND (b.owner_user_id IS NULL OR b.publication_status='published')
          ORDER BY pr.created_at DESC,pr.id DESC LIMIT 6"
     );
     ?>
@@ -1041,7 +1063,7 @@ if (in_array($page, ['home', 'search'], true)) {
                                         <span class="availability-pill"><i></i> <?= (int) $listing['available_count'] ?> kamar tersedia</span>
                                     </a>
                                     <div class="property-result-body">
-                                        <div class="property-result-heading"><div><span class="section-eyebrow">KOS DI SEKITARMU</span><h3><?= e($listing['name']) ?></h3><span class="verification-badge tier-<?= e($listing['verification_tier']) ?>"><?= e($listing['verification_status'] === 'verified' ? ucfirst($listing['verification_tier']) . ' · Terverifikasi' : 'Basic') ?></span></div><span class="listing-type-count"><?= count($listingTypes) ?> tipe</span></div>
+                                        <div class="property-result-heading"><div><span class="section-eyebrow">KOS DI SEKITARMU</span><h3><?= e($listing['name']) ?></h3><span class="owner-level-badge owner-level-<?= e($listing['owner_membership_level']) ?>"><?= e(ucfirst($listing['owner_membership_level'])) ?></span></div><span class="listing-type-count"><?= count($listingTypes) ?> tipe</span></div>
                                         <div class="listing-type-chips"><?php foreach ($listingTypes as $listingType): ?><span><?= e($listingType) ?></span><?php endforeach; ?></div>
                                         <?php if ($listingFacilities): ?><div class="listing-facility-chips"><?php foreach ($listingFacilities as $facility): ?><span><?= e($facility) ?></span><?php endforeach; ?></div><?php endif; ?>
                                         <div class="property-result-footer"><div><small>Mulai dari</small><strong><?= e(money($listing['minimum_rate'])) ?><small> / bulan</small></strong></div><a class="room-cta" href="index.php?page=property&amp;id=<?= (int) $listing['id'] ?>">Lihat kos <span>↗</span></a></div>
@@ -1081,7 +1103,7 @@ if (in_array($page, ['home', 'search'], true)) {
                                             </div>
                                             <div class="property-carousel-card-body">
                                                 <h4><?= e($listing['name']) ?></h4>
-                                                <span class="verification-badge tier-<?= e($listing['verification_tier']) ?>"><?= e($listing['verification_status'] === 'verified' ? ucfirst($listing['verification_tier']) . ' · Terverifikasi' : 'Basic') ?></span>
+                                                <span class="owner-level-badge owner-level-<?= e($listing['owner_membership_level']) ?>"><?= e(ucfirst($listing['owner_membership_level'])) ?></span>
                                                 <?php if ($listing['average_rating'] !== null): ?><p class="property-carousel-rating">★ <?= number_format($listing['average_rating'], 1) ?><span>(<?= (int) $listing['review_count'] ?> ulasan)</span></p><?php elseif ($propertyRow['id'] === 'favorite-kost'): ?><p class="property-carousel-rating"><span><?= (int) $listing['view_count'] ?> kali dilihat</span></p><?php else: ?><p class="property-carousel-rating"><span><?= (int) $listing['available_count'] ?> kamar tersedia</span></p><?php endif; ?>
                                                 <div class="property-carousel-price"><span>Mulai dari</span><strong><?= e(money($listing['minimum_rate'])) ?><small> / bulan</small></strong></div>
                                             </div>

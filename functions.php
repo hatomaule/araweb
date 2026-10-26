@@ -467,6 +467,91 @@ function facebook_graph_get(string $url): array
     return $decoded;
 }
 
+function google_oauth_config(): ?array
+{
+    $clientId = getenv('GOOGLE_CLIENT_ID') ?: '';
+    $clientSecret = getenv('GOOGLE_CLIENT_SECRET') ?: '';
+    $redirectUri = getenv('GOOGLE_REDIRECT_URI') ?: '';
+    if ($clientId === '' || $clientSecret === '' || !filter_var($redirectUri, FILTER_VALIDATE_URL)
+        || parse_url($redirectUri, PHP_URL_SCHEME) !== 'https'
+        || !is_string(parse_url($redirectUri, PHP_URL_HOST))) {
+        return null;
+    }
+
+    return [
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'redirect_uri' => $redirectUri,
+    ];
+}
+
+function google_oauth_request(
+    string $url,
+    string $method,
+    array $parameters,
+    ?string $bearerToken = null
+): array
+{
+    if (!str_starts_with($url, 'https://') || !in_array($method, ['GET', 'POST'], true)) {
+        throw new RuntimeException('Permintaan verifikasi Google tidak valid.');
+    }
+    $headers = ['Accept: application/json'];
+    if ($bearerToken !== null && $bearerToken !== '') {
+        $headers[] = 'Authorization: Bearer ' . $bearerToken;
+    }
+    $content = '';
+    if ($method === 'POST') {
+        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        $content = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+    } elseif ($parameters !== []) {
+        $url .= '?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => $method,
+            'header' => implode("\r\n", $headers),
+            'content' => $content,
+            'timeout' => 12,
+            'ignore_errors' => true,
+            'follow_location' => 0,
+            'max_redirects' => 0,
+        ],
+        'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+    ]);
+    $networkError = null;
+    set_error_handler(static function (int $severity, string $message) use (&$networkError): bool {
+        $networkError = $message;
+        return true;
+    });
+    try {
+        $response = file_get_contents($url, false, $context);
+    } finally {
+        restore_error_handler();
+    }
+    $statusLine = $http_response_header[0] ?? '';
+    if (!is_string($response) || !preg_match('/\s([1-5][0-9]{2})\s/', $statusLine, $statusMatch)
+        || (int) $statusMatch[1] < 200 || (int) $statusMatch[1] >= 300) {
+        error_log('Google OAuth request failed: '
+            . (preg_match('/\s([1-5][0-9]{2})\s/', $statusLine, $statusMatch)
+                ? 'HTTP ' . $statusMatch[1]
+                : 'network error' . ($networkError ? ': ' . $networkError : '')));
+        throw new RuntimeException('Google tidak dapat memverifikasi akun saat ini. Silakan coba lagi.');
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Google mengirim respons yang tidak dapat dibaca.');
+    }
+
+    return $decoded;
+}
+
+function oauth_base64url(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
 function money($amount): string
 {
     return 'Rp ' . number_format((float) $amount, 0, ',', '.');

@@ -4,6 +4,7 @@ $roomsToBook = rows($pdo, "SELECT rm.id, rm.room_number, rm.room_type, rm.monthl
         b.name AS building_name
     FROM rooms rm JOIN kos_buildings b ON b.id=rm.building_id
     WHERE rm.status='available' AND b.status='active'
+      AND (b.owner_user_id IS NULL OR b.publication_status='published')
     AND NOT EXISTS (SELECT 1 FROM rentals r WHERE r.room_id=rm.id
         AND ((r.status='active' AND r.start_date<=CURDATE()
               AND (r.end_date IS NULL OR r.end_date>=CURDATE()))

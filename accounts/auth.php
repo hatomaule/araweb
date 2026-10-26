@@ -7,6 +7,7 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
     $registerRole = isset($_GET['role']) && in_array($_GET['role'], ['owner', 'operator'], true) ? 'owner' : 'seeker';
     $registerLabel = $registerRole === 'owner' ? 'Owner kos' : 'User';
     $facebookConfigured = facebook_oauth_config() !== null;
+    $googleConfigured = google_oauth_config() !== null;
     $nextBookingId = ($isRegister && ($_GET['next'] ?? '') === 'booking')
         ? max(0, (int) ($_GET['id'] ?? 0)) : 0;
     $authTitle = $isForgot ? 'Lupa password' : ($isReset ? 'Atur password baru'
@@ -61,6 +62,10 @@ if (!$user && in_array($page, ['login', 'setup', 'register', 'forgot_password', 
         <?php if (!$isSetup && !$isForgot && !$isReset && (!$isRegister || $registerRole === 'seeker')): ?>
             <?php if ($facebookConfigured): ?><a class="button secondary full facebook-login-button" href="index.php?page=facebook_login">Lanjutkan dengan Facebook</a>
             <?php else: ?><p class="auth-facebook-note">Login Facebook tersedia setelah pengaturan aplikasi Meta dikonfigurasi di server.</p><?php endif; ?>
+        <?php endif; ?>
+        <?php if (!$isSetup && !$isForgot && !$isReset): ?>
+            <?php if ($googleConfigured): ?><a class="button secondary full" href="index.php?page=google_login">Lanjutkan dengan Google</a>
+            <?php else: ?><p class="auth-facebook-note">Login Google tersedia setelah administrator mengatur OAuth Google di server.</p><?php endif; ?>
         <?php endif; ?>
         <?php if (!$isSetup && !$isForgot && !$isReset): ?><p class="auth-switch"><?= $isRegister ? 'Sudah punya akun?' : 'Belum punya akun User?' ?> <a href="index.php?page=<?= $isRegister ? 'login' : 'register' ?>"><?= $isRegister ? 'Masuk' : 'Daftar sekarang' ?></a></p><?php endif; ?>
         <?php if ($page === 'login'): ?><p class="auth-switch"><a href="index.php?page=forgot_password">Lupa password?</a></p><?php elseif ($isForgot): ?><p class="auth-switch">Sudah menerima kode? <a href="index.php?page=reset_password">Masukkan kode reset</a></p><?php elseif ($isReset): ?><p class="auth-switch">Belum menerima kode? <a href="index.php?page=forgot_password">Kirim ulang kode</a></p><?php endif; ?>

@@ -3,6 +3,295 @@ declare(strict_types=1);
 
 function handle_property_action(PDO $pdo, array $user, string $action): void
 {
+if ($action === 'submit_basic_listing') {
+    $buildingId = (int) post_value('building_id');
+    if ($user['role'] !== 'owner' || $buildingId < 1
+        || !can_manage_building($pdo, $user, $buildingId)) {
+        set_flash('error', 'Pengajuan publikasi gedung tidak valid.');
+        redirect('buildings');
+    }
+    $building = one(
+        $pdo,
+        'SELECT id,status,publication_status FROM kos_buildings WHERE id=:id',
+        ['id' => $buildingId]
+    );
+    $progress = building_completion($pdo, $buildingId);
+    if (!$building || $building['status'] !== 'active'
+        || !in_array($building['publication_status'], ['draft', 'revision', 'rejected'], true)
+        || $progress['percent'] < 50 || !$progress['core_complete']) {
+        set_flash(
+            'error',
+            'Pengajuan membutuhkan minimal 50% kelengkapan dan data inti lengkap: nama, alamat, lokasi peta, foto gedung, serta kamar berharga dan berfoto.'
+        );
+        redirect('building_form&id=' . $buildingId);
+    }
+    $pdo->prepare(
+        "UPDATE kos_buildings
+         SET publication_status='pending',listing_review_note=NULL,
+             listing_reviewed_by=NULL,listing_reviewed_at=NULL,
+             approval_status='pending',approval_note=NULL,reviewed_by=NULL,reviewed_at=NULL
+         WHERE id=:id AND owner_user_id=:owner_id"
+    )->execute(['id' => $buildingId, 'owner_id' => $user['id']]);
+    set_flash('success', 'Data gedung berhasil diajukan kepada Admin untuk ditinjau sebelum tampil ke publik.');
+    redirect('buildings');
+}
+
+if ($action === 'review_basic_listing') {
+    $buildingId = (int) post_value('building_id');
+    $decision = post_value('decision');
+    $note = post_value('admin_note');
+    if ($user['role'] !== 'admin' || $buildingId < 1
+        || !in_array($decision, ['approved', 'revision', 'rejected', 'suspended'], true)
+        || strlen($note) > 2000) {
+        set_flash('error', 'Keputusan publikasi gedung tidak valid.');
+        redirect('platform_property_verification');
+    }
+    $pdo->beginTransaction();
+    try {
+        $pendingBuilding = one(
+            $pdo,
+            "SELECT id,status FROM kos_buildings
+             WHERE id=:id AND publication_status='pending' FOR UPDATE",
+            ['id' => $buildingId]
+        );
+        if (!$pendingBuilding) {
+            throw new RuntimeException('Pengajuan publikasi tidak ditemukan atau sudah diproses.');
+        }
+        $progress = building_completion($pdo, $buildingId);
+        if ($decision === 'approved'
+            && ($pendingBuilding['status'] !== 'active' || $progress['percent'] < 50
+                || !$progress['core_complete'])) {
+            throw new RuntimeException('Gedung belum memenuhi data inti atau ambang 50% untuk disetujui tayang.');
+        }
+        $publicationStatus = $decision === 'approved' ? 'published' : $decision;
+        $approvalStatus = match ($decision) {
+            'approved' => 'approved',
+            'revision' => 'revision',
+            default => 'rejected',
+        };
+        $pdo->prepare(
+            'UPDATE kos_buildings
+             SET publication_status=:publication_status,listing_review_note=:note,
+                 listing_reviewed_by=:reviewer,listing_reviewed_at=NOW(),
+                 approval_status=:approval_status,approval_note=:note_2,
+                 reviewed_by=:reviewer_2,reviewed_at=NOW()
+             WHERE id=:id'
+        )->execute([
+            'publication_status' => $publicationStatus,
+            'note' => $note !== '' ? $note : null,
+            'reviewer' => $user['id'],
+            'approval_status' => $approvalStatus,
+            'note_2' => $note !== '' ? $note : null,
+            'reviewer_2' => $user['id'],
+            'id' => $buildingId,
+        ]);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
+    }
+    set_flash(
+        'success',
+        match ($decision) {
+            'approved' => 'Gedung disetujui dan dapat tampil kepada publik.',
+            'revision' => 'Gedung dikembalikan kepada Owner untuk perbaikan.',
+            'suspended' => 'Publikasi gedung ditangguhkan.',
+            default => 'Pengajuan publikasi gedung ditolak.',
+        }
+    );
+    redirect('platform_property_verification');
+}
+
+if (in_array($action, ['admin_suspend_listing', 'admin_restore_listing'], true)) {
+    $buildingId = (int) post_value('building_id');
+    $note = trim(post_value('admin_note'));
+    $suspend = $action === 'admin_suspend_listing';
+    $expectedStatus = $suspend ? 'published' : 'suspended';
+    if ($user['role'] !== 'admin' || $buildingId < 1 || strlen($note) > 2000
+        || ($suspend && $note === '')) {
+        set_flash('error', 'Perubahan status publikasi tidak valid. Alasan penangguhan wajib diisi.');
+        redirect('buildings');
+    }
+    $statement = $pdo->prepare(
+        'UPDATE kos_buildings
+         SET publication_status=:publication_status,listing_review_note=:note,
+             listing_reviewed_by=:reviewer,listing_reviewed_at=NOW(),
+             approval_status=:approval_status,approval_note=:approval_note,
+             reviewed_by=:reviewer_2,reviewed_at=NOW()
+         WHERE id=:id AND publication_status=:expected_status'
+    );
+    $statement->execute([
+        'publication_status' => $suspend ? 'suspended' : 'published',
+        'note' => $suspend ? $note : null,
+        'reviewer' => $user['id'],
+        'approval_status' => $suspend ? 'rejected' : 'approved',
+        'approval_note' => $suspend ? $note : null,
+        'reviewer_2' => $user['id'],
+        'id' => $buildingId,
+        'expected_status' => $expectedStatus,
+    ]);
+    if ($statement->rowCount() !== 1) {
+        set_flash('error', 'Gedung tidak ditemukan atau status publikasinya sudah berubah.');
+        redirect('buildings');
+    }
+    set_flash('success', $suspend
+        ? 'Publikasi gedung ditangguhkan. Gedung lain milik Owner tidak terpengaruh.'
+        : 'Publikasi gedung dipulihkan.');
+    redirect('buildings');
+}
+
+if ($action === 'submit_gold_verification') {
+    $buildingId = (int) post_value('building_id');
+    if ($user['role'] !== 'owner' || $buildingId < 1
+        || !can_manage_building($pdo, $user, $buildingId)) {
+        set_flash('error', 'Pengajuan verifikasi Gold tidak valid.');
+        redirect('buildings');
+    }
+    $building = one(
+        $pdo,
+        'SELECT status,publication_status,gold_verification_status FROM kos_buildings WHERE id=:id',
+        ['id' => $buildingId]
+    );
+    $progress = building_completion($pdo, $buildingId);
+    $ownerProfileProgress = owner_profile_completion($pdo, (int) $user['id']);
+    $pending = one(
+        $pdo,
+        "SELECT id FROM owner_gold_verification_requests
+         WHERE building_id=:id AND status='pending' LIMIT 1",
+        ['id' => $buildingId]
+    );
+    $note = trim(post_value('owner_note'));
+    if (!$building || $building['status'] !== 'active'
+        || $building['publication_status'] !== 'published'
+        || $building['gold_verification_status'] === 'verified' || $pending
+        || $progress['percent'] < 100 || !$progress['core_complete']
+        || $ownerProfileProgress['percent'] < 100 || strlen($note) > 2000) {
+        set_flash('error', 'Verifikasi Gold membutuhkan profil Owner dan data gedung 100% lengkap, gedung sudah tayang, serta tidak ada pengajuan yang sedang diproses.');
+        redirect('buildings');
+    }
+
+    $evidence = store_owner_verification_evidence();
+    try {
+        $pdo->beginTransaction();
+        $lockedBuilding = one(
+            $pdo,
+            'SELECT publication_status,gold_verification_status
+             FROM kos_buildings WHERE id=:id AND owner_user_id=:owner_id FOR UPDATE',
+            ['id' => $buildingId, 'owner_id' => $user['id']]
+        );
+        $pendingAfterLock = one(
+            $pdo,
+            "SELECT id FROM owner_gold_verification_requests
+             WHERE building_id=:id AND status='pending' LIMIT 1",
+            ['id' => $buildingId]
+        );
+        if (!$lockedBuilding || $lockedBuilding['publication_status'] !== 'published'
+            || $lockedBuilding['gold_verification_status'] === 'verified' || $pendingAfterLock) {
+            throw new RuntimeException('Status gedung berubah atau sudah memiliki pengajuan Gold yang sedang diproses.');
+        }
+        $pdo->prepare(
+            "INSERT INTO owner_gold_verification_requests
+                (building_id,owner_user_id,evidence_file,evidence_mime,evidence_original_name,owner_note)
+             VALUES (:building_id,:owner_id,:evidence_file,:evidence_mime,:original_name,:owner_note)"
+        )->execute([
+            'building_id' => $buildingId,
+            'owner_id' => $user['id'],
+            'evidence_file' => $evidence['filename'],
+            'evidence_mime' => $evidence['mime'],
+            'original_name' => $evidence['original_name'],
+            'owner_note' => $note !== '' ? $note : null,
+        ]);
+        $pdo->prepare(
+            "UPDATE kos_buildings SET gold_verification_status='pending'
+             WHERE id=:id AND owner_user_id=:owner_id"
+        )->execute(['id' => $buildingId, 'owner_id' => $user['id']]);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if (is_file($evidence['path']) && !unlink($evidence['path'])) {
+            error_log('Unable to remove failed owner verification upload: ' . $evidence['path']);
+        }
+        throw $exception;
+    }
+    set_flash('success', 'Bukti dan pengajuan Gold tersimpan secara privat untuk ditinjau Admin.');
+    redirect('buildings');
+}
+
+if ($action === 'review_gold_verification') {
+    $requestId = (int) post_value('request_id');
+    $decision = post_value('decision');
+    $note = post_value('admin_note');
+    if ($user['role'] !== 'admin' || $requestId < 1
+        || !in_array($decision, ['approved', 'rejected'], true) || strlen($note) > 2000) {
+        set_flash('error', 'Keputusan verifikasi Gold tidak valid.');
+        redirect('platform_property_verification');
+    }
+    $pdo->beginTransaction();
+    try {
+        $request = one(
+            $pdo,
+            "SELECT id,building_id,evidence_file FROM owner_gold_verification_requests
+             WHERE id=:id AND status='pending' FOR UPDATE",
+            ['id' => $requestId]
+        );
+        if (!$request) {
+            throw new RuntimeException('Pengajuan Gold tidak ditemukan atau sudah diproses.');
+        }
+        if ($decision === 'approved') {
+            $building = one(
+                $pdo,
+                'SELECT status,publication_status,owner_user_id FROM kos_buildings WHERE id=:id FOR UPDATE',
+                ['id' => $request['building_id']]
+            );
+            $progress = building_completion($pdo, (int) $request['building_id']);
+            $ownerProfileProgress = $building
+                ? owner_profile_completion($pdo, (int) $building['owner_user_id'])
+                : ['percent' => 0];
+            $evidenceFilename = (string) $request['evidence_file'];
+            $evidencePath = owner_verification_storage_directory()
+                . DIRECTORY_SEPARATOR . $evidenceFilename;
+            if (!$building || $building['status'] !== 'active'
+                || $building['publication_status'] !== 'published'
+                || $progress['percent'] < 100 || !$progress['core_complete']
+                || $ownerProfileProgress['percent'] < 100
+                || !preg_match('/\A[a-f0-9]{32}\.(?:pdf|jpg|png|webp)\z/', $evidenceFilename)
+                || !is_file($evidencePath) || !is_readable($evidencePath)) {
+                throw new RuntimeException('Gedung, data inti, atau bukti privat belum memenuhi syarat verifikasi Gold.');
+            }
+        }
+        $pdo->prepare(
+            'UPDATE owner_gold_verification_requests
+             SET status=:status,admin_note=:note,reviewed_by=:reviewer,reviewed_at=NOW()
+             WHERE id=:id AND status=\'pending\''
+        )->execute([
+            'status' => $decision,
+            'note' => $note !== '' ? $note : null,
+            'reviewer' => $user['id'],
+            'id' => $requestId,
+        ]);
+        $pdo->prepare(
+            'UPDATE kos_buildings SET gold_verification_status=:status WHERE id=:building_id'
+        )->execute([
+            'status' => $decision === 'approved' ? 'verified' : 'rejected',
+            'building_id' => $request['building_id'],
+        ]);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
+    }
+    set_flash('success', $decision === 'approved'
+        ? 'Gedung lolos verifikasi Gold. Owner memperoleh status Gold.'
+        : 'Pengajuan Gold ditolak. Status publikasi gedung tidak diubah.');
+    redirect('platform_property_verification');
+}
+
 if ($action === 'submit_property_verification') {
     $buildingId = (int) post_value('building_id');
     $requestedTier = post_value('requested_tier');
@@ -211,6 +500,7 @@ if ($action === 'upload_room_type_gallery_photos') {
                 }
                 throw $exception;
             }
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             set_flash('success', $uploadedCount . ' foto berhasil disimpan ke galeri ' . $roomType . '.');
             redirect($returnToGallery);
         }
@@ -247,7 +537,69 @@ if ($action === 'upload_room_type_gallery_photos') {
             }
             $pdo->prepare('UPDATE rooms SET profile_photo_path=:photo_path WHERE id=:room_id')
                 ->execute(['photo_path' => $photo['photo_path'], 'room_id' => $roomId]);
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             set_flash('success', 'Foto galeri diterapkan sebagai foto profil kamar.');
+            redirect($returnToGallery);
+        }
+
+        if ($action === 'apply_gallery_photo_to_all_rooms') {
+            if (!in_array($user['role'], ['admin', 'owner'], true)) {
+                set_flash('error', 'Anda tidak memiliki akses mengubah foto kamar.');
+                redirect('home');
+            }
+            $buildingId = (int) post_value('building_id');
+            $photoId = (int) post_value('photo_id');
+            $roomType = post_value('room_type');
+            $returnToGallery = 'gallery&building_id=' . $buildingId . '&room_type=' . rawurlencode($roomType);
+            if (!can_manage_building($pdo, $user, $buildingId)) {
+                set_flash('error', 'Anda tidak dapat mengubah foto kamar gedung tersebut.');
+                redirect('gallery');
+            }
+            $photo = one(
+                $pdo,
+                "SELECT id,category,room_id FROM room_type_gallery_photos
+                 WHERE id=:photo_id AND building_id=:building_id
+                   AND BINARY room_type=BINARY :room_type
+                   AND category IN ('room','room_facility','general_facility')",
+                ['photo_id' => $photoId, 'building_id' => $buildingId, 'room_type' => $roomType]
+            );
+            if (!$photo) {
+                set_flash('error', 'Foto tidak ditemukan pada galeri tipe kamar yang dipilih.');
+                redirect($returnToGallery);
+            }
+            $matchingRoomQuery = $pdo->prepare(
+                'SELECT COUNT(*) FROM rooms
+                 WHERE building_id=:building_id AND BINARY room_type=BINARY :room_type'
+            );
+            $matchingRoomQuery->execute(['building_id' => $buildingId, 'room_type' => $roomType]);
+            $matchingRoomCount = (int) $matchingRoomQuery->fetchColumn();
+            if ($matchingRoomCount < 1) {
+                throw new RuntimeException('Tidak ada kamar yang cocok dengan tipe galeri tersebut.');
+            }
+            $makeShared = $pdo->prepare(
+                'UPDATE room_type_gallery_photos SET room_id=NULL
+                 WHERE id=:photo_id AND building_id=:building_id
+                   AND BINARY room_type=BINARY :room_type
+                   AND category=:category'
+            );
+            $makeShared->execute([
+                'photo_id' => $photoId,
+                'building_id' => $buildingId,
+                'room_type' => $roomType,
+                'category' => $photo['category'],
+            ]);
+            if ($makeShared->rowCount() > 0) {
+                mark_owner_listing_for_review($pdo, $user, $buildingId);
+            }
+            $successMessage = match ($photo['category']) {
+                'room' => 'Foto profil diterapkan ke ' . $matchingRoomCount . ' kamar tipe ' . $roomType . '.',
+                'room_facility' => 'Foto fasilitas kamar ditampilkan pada ' . $matchingRoomCount . ' kamar tipe ' . $roomType . '.',
+                'general_facility' => 'Foto fasilitas umum ditampilkan pada ' . $matchingRoomCount . ' kamar tipe ' . $roomType . '.',
+            };
+            set_flash(
+                'success',
+                $successMessage
+            );
             redirect($returnToGallery);
         }
 
@@ -339,6 +691,7 @@ if ($action === 'upload_room_type_gallery_photos') {
                 }
                 throw $exception;
             }
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             set_flash('success', 'Foto galeri berhasil dihapus.');
             redirect($returnToGallery);
         }
@@ -387,6 +740,7 @@ if ($action === 'update_building_profile_photo') {
                 }
                 throw $exception;
             }
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             if ($building['profile_photo_path'] && $building['profile_photo_path'] !== $newPath) {
                 try {
                     delete_uploaded_image(
@@ -410,7 +764,7 @@ if ($action === 'update_building_profile_photo') {
                 set_flash('error', 'Anda tidak dapat mengelola foto kamar tersebut.');
                 redirect('rooms');
             }
-            $room = one($pdo, 'SELECT profile_photo_path FROM rooms WHERE id=:id', ['id' => $roomId]);
+            $room = one($pdo, 'SELECT profile_photo_path,building_id FROM rooms WHERE id=:id', ['id' => $roomId]);
             if (!$room) {
                 set_flash('error', 'Kamar tidak ditemukan.');
                 redirect('rooms');
@@ -448,6 +802,7 @@ if ($action === 'update_building_profile_photo') {
                 }
                 throw $exception;
             }
+            mark_owner_listing_for_review($pdo, $user, (int) $room['building_id']);
             if ($room['profile_photo_path'] && $room['profile_photo_path'] !== $newPath) {
                 try {
                     delete_uploaded_image(
@@ -502,7 +857,7 @@ if ($action === 'save_building') {
                 redirect('buildings');
             }
             $previousBuilding = $id > 0
-                ? one($pdo, 'SELECT status FROM kos_buildings WHERE id=:id', ['id' => $id])
+                ? one($pdo, 'SELECT status,publication_status FROM kos_buildings WHERE id=:id', ['id' => $id])
                 : null;
             $status = $user['role'] === 'admin' ? (post_value('status') ?: 'active') : 'active';
             if (!in_array($status, ['active', 'inactive'], true)) {
@@ -531,28 +886,28 @@ if ($action === 'save_building') {
             ];
             if ($id > 0) {
                 $values['id'] = $id;
-                $approvalSql = $user['role'] === 'owner'
-                    ? ", approval_status='approved', approval_note=NULL, reviewed_by=NULL, reviewed_at=NOW()"
-                    : '';
                 $building = $pdo->prepare(
                     'UPDATE kos_buildings SET name=:name, address=:address, province_code=:province_code,
                      regency_code=:regency_code, district_code=:district_code, village_code=:village_code,
                      street_name=:street_name, address_rt=:address_rt, address_rw=:address_rw,
                      address_block=:address_block, latitude=:latitude,
                      longitude=:longitude, description=:description, gender_policy=:gender_policy,
-                     general_facilities=:general_facilities, house_rules=:house_rules, status=:status'
-                     . $approvalSql . ' WHERE id=:id'
+                     general_facilities=:general_facilities, house_rules=:house_rules, status=:status
+                     WHERE id=:id'
                 );
             } else {
                 $values['owner_user_id'] = $user['role'] === 'owner' ? $user['id'] : null;
+                $values['approval_status'] = $user['role'] === 'admin' ? 'approved' : 'pending';
+                $values['publication_status'] = $user['role'] === 'admin' ? 'published' : 'draft';
                 $building = $pdo->prepare(
                     "INSERT INTO kos_buildings
                      (owner_user_id, name, address, province_code, regency_code, district_code, village_code,
                       street_name, address_rt, address_rw, address_block, latitude, longitude, description,
-                      gender_policy, general_facilities, house_rules, status, approval_status)
+                      gender_policy, general_facilities, house_rules, status, approval_status, publication_status)
                      VALUES (:owner_user_id, :name, :address, :province_code, :regency_code, :district_code,
                       :village_code, :street_name, :address_rt, :address_rw, :address_block, :latitude,
-                      :longitude, :description, :gender_policy, :general_facilities, :house_rules, :status, 'approved')"
+                      :longitude, :description, :gender_policy, :general_facilities, :house_rules, :status,
+                      :approval_status, :publication_status)"
                 );
             }
             $movedPhotoPaths = [];
@@ -595,13 +950,33 @@ if ($action === 'save_building') {
                 }
                 throw $exception;
             }
-            if (!$previousBuilding || $previousBuilding['status'] !== $status) {
+            mark_owner_listing_for_review($pdo, $user, $id);
+            $currentPublication = one(
+                $pdo,
+                'SELECT publication_status FROM kos_buildings WHERE id=:id',
+                ['id' => $id]
+            );
+            if ($user['role'] === 'owner' || !$previousBuilding
+                || $previousBuilding['status'] !== $status) {
+                $isOwnerDraft = $user['role'] === 'owner'
+                    && (!$previousBuilding || $currentPublication['publication_status'] !== 'published');
                 activity_log_record(
                     $pdo,
                     $user,
                     'business',
-                    $status === 'active' ? 'property_listing_published' : 'property_listing_hidden',
-                    $name . ($status === 'active' ? ' ditampilkan pada pencarian pengguna.' : ' disembunyikan dari pencarian pengguna.'),
+                    $user['role'] === 'owner'
+                        ? (!$previousBuilding ? 'property_listing_draft_saved'
+                            : ($isOwnerDraft ? 'property_listing_review_required' : 'property_listing_updated'))
+                        : ($status === 'active' ? 'property_listing_published' : 'property_listing_hidden'),
+                    $user['role'] === 'owner'
+                        ? (!$previousBuilding
+                            ? $name . ' disimpan sebagai draft dan belum tampil ke publik.'
+                            : ($isOwnerDraft
+                                ? $name . ' diperbarui dan menunggu pengajuan serta tinjauan Admin.'
+                                : $name . ' diperbarui.'))
+                        : $name . ($status === 'active'
+                            ? ' ditampilkan pada pencarian pengguna.'
+                            : ' disembunyikan dari pencarian pengguna.'),
                     'success',
                     'buildings',
                     'property',
@@ -630,16 +1005,28 @@ if ($action === 'save_building') {
                 set_flash('error', 'Status gedung tidak valid.');
                 redirect('buildings');
             }
-            $previousStatus = one($pdo, 'SELECT name,status FROM kos_buildings WHERE id=:id', ['id' => $buildingId]);
+            $previousStatus = one(
+                $pdo,
+                'SELECT name,status,publication_status FROM kos_buildings WHERE id=:id',
+                ['id' => $buildingId]
+            );
             $building = $pdo->prepare('UPDATE kos_buildings SET status=:status WHERE id=:id');
             $building->execute(['status' => $status, 'id' => $buildingId]);
             if ($previousStatus && $previousStatus['status'] !== $status) {
+                $isPublicAfterChange = $status === 'active'
+                    && $previousStatus['publication_status'] === 'published';
                 activity_log_record(
                     $pdo,
                     $user,
                     'business',
-                    $status === 'active' ? 'property_listing_published' : 'property_listing_hidden',
-                    $previousStatus['name'] . ($status === 'active' ? ' ditampilkan pada pencarian pengguna.' : ' disembunyikan dari pencarian pengguna.'),
+                    $status === 'active'
+                        ? ($isPublicAfterChange ? 'property_listing_published' : 'property_status_changed')
+                        : 'property_listing_hidden',
+                    $previousStatus['name'] . ($status === 'active'
+                        ? ($isPublicAfterChange
+                            ? ' ditampilkan pada pencarian pengguna.'
+                            : ' diaktifkan, tetapi masih draft atau menunggu peninjauan.')
+                        : ' disembunyikan dari pencarian pengguna.'),
                     'success',
                     'buildings',
                     'property',
@@ -682,6 +1069,7 @@ if ($action === 'save_building') {
                 throw new RuntimeException('Foto tidak dapat dihapus. Periksa izin folder uploads/properties.');
             }
             $pdo->prepare('DELETE FROM property_photos WHERE id=:id')->execute(['id' => $photoId]);
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             set_flash('success', 'Foto properti berhasil dihapus.');
             redirect('building_form&id=' . $buildingId);
         }
@@ -894,6 +1282,7 @@ if ($action === 'save_building') {
                 throw $exception;
             }
 
+            mark_owner_listing_for_review($pdo, $user, $buildingId);
             $photoCount = count($roomUploads) + count($facilityUploads);
             set_flash('success', $id > 0 && (int) post_value('id') === 0
                 ? $quantity . ' unit kamar berhasil dibuat dengan nomor otomatis.'
@@ -940,6 +1329,10 @@ if ($action === 'save_building') {
             }
             $delete = $pdo->prepare('DELETE FROM room_photos WHERE id=:id');
             $delete->execute(['id' => $photoId]);
+            $roomBuilding = one($pdo, 'SELECT building_id FROM rooms WHERE id=:id', ['id' => $roomId]);
+            if ($roomBuilding) {
+                mark_owner_listing_for_review($pdo, $user, (int) $roomBuilding['building_id']);
+            }
             set_flash('success', 'Foto berhasil dihapus.');
             redirect('room_form&id=' . $roomId);
         }

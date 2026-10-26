@@ -1,8 +1,267 @@
 <?php
 declare(strict_types=1);
 
+function google_auth_destination(string $role): string
+{
+    return match ($role) {
+        'admin' => 'platform_dashboard',
+        'owner' => 'dashboard',
+        default => 'home',
+    };
+}
+
+function handle_google_oauth_route(PDO $pdo, ?array $user, string $page): void
+{
+    if ($page === 'google_register' && $user) {
+        redirect(google_auth_destination($user['role']));
+    }
+    if ($page === 'google_login' || $page === 'google_link') {
+        $isLink = $page === 'google_link';
+        if ($isLink && !$user) {
+            set_flash('error', 'Masuk terlebih dahulu sebelum menautkan Google.');
+            redirect('login');
+        }
+        if (!$isLink && $user) {
+            redirect(google_auth_destination($user['role']));
+        }
+        $oauth = google_oauth_config();
+        if (!$oauth) {
+            set_flash('error', 'Login Google belum dikonfigurasi oleh administrator.');
+            redirect($isLink ? 'account_settings' : 'login');
+        }
+
+        if (!$isLink) {
+            unset($_SESSION['google_new_account']);
+        }
+        $state = bin2hex(random_bytes(32));
+        $verifier = oauth_base64url(random_bytes(64));
+        $_SESSION['google_oauth'] = [
+            'state' => $state,
+            'verifier' => $verifier,
+            'intent' => $isLink ? 'link' : 'login',
+            'user_id' => $isLink ? (int) $user['id'] : null,
+            'created_at' => time(),
+        ];
+        $authorizeUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+            'client_id' => $oauth['client_id'],
+            'redirect_uri' => $oauth['redirect_uri'],
+            'response_type' => 'code',
+            'scope' => 'openid email profile',
+            'state' => $state,
+            'code_challenge' => oauth_base64url(hash('sha256', $verifier, true)),
+            'code_challenge_method' => 'S256',
+            'prompt' => 'select_account',
+        ], '', '&', PHP_QUERY_RFC3986);
+        header('Location: ' . $authorizeUrl);
+        exit;
+    }
+
+    if ($page !== 'google_callback') {
+        return;
+    }
+
+    $flow = $_SESSION['google_oauth'] ?? null;
+    unset($_SESSION['google_oauth']);
+    $returnPage = is_array($flow) && ($flow['intent'] ?? '') === 'link'
+        ? 'account_settings' : 'login';
+    $receivedState = isset($_GET['state']) && is_string($_GET['state']) ? $_GET['state'] : '';
+    if (!is_array($flow) || !isset($flow['state'], $flow['verifier'], $flow['created_at'])
+        || !is_string($flow['state']) || !is_string($flow['verifier'])
+        || time() - (int) $flow['created_at'] > 600 || $receivedState === ''
+        || !hash_equals($flow['state'], $receivedState)) {
+        set_flash('error', 'Sesi verifikasi Google tidak valid atau sudah kedaluwarsa. Silakan coba lagi.');
+        redirect($returnPage);
+    }
+    if (!empty($_GET['error']) || !isset($_GET['code']) || !is_string($_GET['code'])
+        || $_GET['code'] === '') {
+        set_flash('error', 'Login Google dibatalkan. Silakan coba lagi atau masuk dengan metode lain.');
+        redirect($returnPage);
+    }
+
+    $oauth = google_oauth_config();
+    if (!$oauth) {
+        set_flash('error', 'Login Google belum dikonfigurasi oleh administrator.');
+        redirect($returnPage);
+    }
+
+    try {
+        $token = google_oauth_request('https://oauth2.googleapis.com/token', 'POST', [
+            'code' => $_GET['code'],
+            'client_id' => $oauth['client_id'],
+            'client_secret' => $oauth['client_secret'],
+            'redirect_uri' => $oauth['redirect_uri'],
+            'grant_type' => 'authorization_code',
+            'code_verifier' => $flow['verifier'],
+        ]);
+        if (!isset($token['access_token']) || !is_string($token['access_token'])
+            || $token['access_token'] === '') {
+            throw new RuntimeException('Google tidak memberikan token login yang valid.');
+        }
+        $profile = google_oauth_request(
+            'https://openidconnect.googleapis.com/v1/userinfo',
+            'GET',
+            [],
+            $token['access_token']
+        );
+        $googleId = isset($profile['sub']) && is_string($profile['sub']) ? trim($profile['sub']) : '';
+        $googleEmail = isset($profile['email']) && is_string($profile['email'])
+            ? strtolower(trim($profile['email'])) : '';
+        $googleName = isset($profile['name']) && is_string($profile['name'])
+            ? trim($profile['name']) : '';
+        $emailVerified = ($profile['email_verified'] ?? false) === true
+            || ($profile['email_verified'] ?? '') === 'true';
+        if ($googleId === '' || strlen($googleId) > 191 || !$emailVerified
+            || !filter_var($googleEmail, FILTER_VALIDATE_EMAIL) || strlen($googleEmail) > 255
+            || $googleName === '') {
+            throw new RuntimeException('Google tidak memberikan profil dengan email terverifikasi yang lengkap.');
+        }
+        $nameCharacters = preg_split('//u', $googleName, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($nameCharacters)) {
+            throw new RuntimeException('Nama pada profil Google tidak valid.');
+        }
+        $googleName = implode('', array_slice($nameCharacters, 0, 100));
+
+        $linkedAccount = one(
+            $pdo,
+            'SELECT u.id,u.role,u.status FROM user_auth_providers ap
+             JOIN users u ON u.id=ap.user_id
+             WHERE ap.provider=\'google\' AND ap.provider_user_id=:subject LIMIT 1',
+            ['subject' => $googleId]
+        );
+        if (($flow['intent'] ?? '') === 'link') {
+            $currentUser = current_user();
+            if (!$currentUser || (int) $currentUser['id'] !== (int) ($flow['user_id'] ?? 0)) {
+                throw new RuntimeException('Sesi akun berubah. Masuk kembali sebelum menautkan Google.');
+            }
+            if ($linkedAccount) {
+                if ((int) $linkedAccount['id'] !== (int) $currentUser['id']) {
+                    throw new RuntimeException('Akun Google ini sudah tertaut ke akun KosKosan lain.');
+                }
+                set_flash('success', 'Akun Google ini sudah tertaut.');
+                redirect('account_settings');
+            }
+            if (one($pdo, 'SELECT id FROM user_auth_providers WHERE user_id=:id AND provider=\'google\'', [
+                'id' => $currentUser['id'],
+            ])) {
+                throw new RuntimeException('Akun KosKosan ini sudah memiliki tautan Google.');
+            }
+            $pdo->prepare(
+                'INSERT INTO user_auth_providers (user_id,provider,provider_user_id)
+                 VALUES (:user_id,\'google\',:subject)'
+            )->execute(['user_id' => $currentUser['id'], 'subject' => $googleId]);
+            set_flash('success', 'Akun Google berhasil ditautkan. Role dan email akun KosKosan tidak diubah.');
+            redirect('account_settings');
+        }
+
+        if ($linkedAccount) {
+            if ($linkedAccount['status'] !== 'active') {
+                throw new RuntimeException('Akun KosKosan ini tidak aktif.');
+            }
+            unset($_SESSION['google_new_account']);
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int) $linkedAccount['id'];
+            redirect(google_auth_destination($linkedAccount['role']));
+        }
+        if (one($pdo, 'SELECT id FROM users WHERE email=:email LIMIT 1', ['email' => $googleEmail])) {
+            unset($_SESSION['google_new_account']);
+            set_flash('error', 'Email Google sudah terdaftar. Masuk dengan metode akun lama, lalu tautkan Google dari Pengaturan akun.');
+            redirect('login');
+        }
+        $_SESSION['google_new_account'] = [
+            'subject' => $googleId,
+            'email' => $googleEmail,
+            'name' => $googleName,
+            'created_at' => time(),
+        ];
+        redirect('google_register');
+    } catch (PDOException $exception) {
+        error_log('Google account operation failed: ' . $exception->getMessage());
+        set_flash('error', 'Akun Google tidak dapat ditautkan. Periksa apakah email atau akun Google sudah digunakan.');
+        redirect($returnPage);
+    } catch (RuntimeException $exception) {
+        error_log('Google authentication failed: ' . $exception->getMessage());
+        set_flash('error', $exception->getMessage());
+        redirect($returnPage);
+    }
+}
+
 function handle_auth_action(PDO $pdo, int $userCount, string $page, string $action): void
 {
+        if ($action === 'google_create_account') {
+            if (current_user()) {
+                redirect('home');
+            }
+            $googleAccount = $_SESSION['google_new_account'] ?? null;
+            if (!is_array($googleAccount) || !isset(
+                $googleAccount['subject'],
+                $googleAccount['email'],
+                $googleAccount['name'],
+                $googleAccount['created_at']
+            ) || time() - (int) $googleAccount['created_at'] > 900
+                || !filter_var($googleAccount['email'], FILTER_VALIDATE_EMAIL)) {
+                unset($_SESSION['google_new_account']);
+                set_flash('error', 'Sesi pendaftaran Google kedaluwarsa. Silakan mulai lagi.');
+                redirect('login');
+            }
+            $role = post_value('role');
+            if (!in_array($role, ['owner', 'seeker'], true)) {
+                set_flash('error', 'Pilih peran Owner atau User. Pendaftaran Admin tidak tersedia.');
+                redirect('google_register');
+            }
+            if (one($pdo, 'SELECT id FROM users WHERE email=:email LIMIT 1', [
+                'email' => $googleAccount['email'],
+            ])) {
+                unset($_SESSION['google_new_account']);
+                set_flash('error', 'Email Google sudah terdaftar. Masuk dengan metode akun lama, lalu tautkan Google dari Pengaturan akun.');
+                redirect('login');
+            }
+
+            $pdo->beginTransaction();
+            try {
+                $account = $pdo->prepare(
+                    'INSERT INTO users (name,username,email,password_hash,role)
+                     VALUES (:name,:username,:email,:password_hash,:role)'
+                );
+                $account->execute([
+                    'name' => $googleAccount['name'],
+                    'username' => generate_unique_username($pdo, $googleAccount['name']),
+                    'email' => $googleAccount['email'],
+                    'password_hash' => password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
+                    'role' => $role,
+                ]);
+                $userId = (int) $pdo->lastInsertId();
+                if ($role === 'owner') {
+                    seed_default_owner_expense_categories($pdo, $userId);
+                } else {
+                    $pdo->prepare(
+                        'INSERT INTO tenants (user_id,full_name,phone,email)
+                         VALUES (:user_id,:name,\'\',:email)'
+                    )->execute([
+                        'user_id' => $userId,
+                        'name' => $googleAccount['name'],
+                        'email' => $googleAccount['email'],
+                    ]);
+                }
+                $pdo->prepare(
+                    'INSERT INTO user_auth_providers (user_id,provider,provider_user_id)
+                     VALUES (:user_id,\'google\',:subject)'
+                )->execute(['user_id' => $userId, 'subject' => $googleAccount['subject']]);
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $exception;
+            }
+            unset($_SESSION['google_new_account']);
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $userId;
+            set_flash('success', $role === 'owner'
+                ? 'Akun Owner berhasil dibuat. Lengkapi profil dan data gedung secara bertahap.'
+                : 'Akun User berhasil dibuat.');
+            redirect(google_auth_destination($role));
+        }
+
 if ($action === 'request_password_reset') {
             $email = strtolower(post_value('email'));
             if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {

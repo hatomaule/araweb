@@ -1636,6 +1636,13 @@ html[data-theme="dark"] .data-table-card-view table tbody tr:not([data-table-gro
 .verification-badge{display:inline-flex;align-items:center;min-height:25px;margin-left:7px;padding:0 9px;border:1px solid #e2ddc1;border-radius:18px;background:#f7f5e9;color:#787143;font-size:9px;font-weight:800;vertical-align:middle}
 .verification-badge.tier-premium{border-color:#c9d8f1;background:#edf3ff;color:#526f9c}
 .verification-badge.tier-exclusive{border-color:#e3d2ad;background:#fbf3df;color:#96713c}
+.owner-level-badge{display:inline-flex;align-items:center;min-height:25px;margin:4px 6px 4px 0;padding:0 10px;border:1px solid transparent;border-radius:18px;font-size:10px;font-weight:800;vertical-align:middle}
+.owner-level-basic{border-color:#d8dde5;background:#edf0f4;color:#626d7d}
+.owner-level-gold{border-color:#dfc16c;background:#fff3c8;color:#805e08}
+.owner-level-platinum{border-color:#aa8be8;background:#eee5ff;color:#6542a6}
+html[data-theme="dark"] .owner-level-basic{border-color:#495362;background:#303a48;color:#d4d9e2}
+html[data-theme="dark"] .owner-level-gold{border-color:#88723a;background:#42391e;color:#f0d47c}
+html[data-theme="dark"] .owner-level-platinum{border-color:#795db0;background:#382c50;color:#d1b9ff}
 .review-star-field{margin:0;padding:0;border:0}
 .review-star-field legend{margin-bottom:7px;color:var(--ink);font-size:11px;font-weight:700}
 .review-stars{display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:3px}
@@ -1688,6 +1695,34 @@ html[data-theme="dark"] .saved-property-photo{background:var(--canvas);color:var
 @media(max-width:1050px){body.public-page:not(.property-page) .public-header{height:auto;min-height:72px}body.public-page:not(.property-page) .public-nav{height:auto;min-height:72px;flex-wrap:wrap;padding-block:9px}body.public-page:not(.property-page) .public-search{display:grid;order:6;flex:1 0 100%;grid-template-columns:minmax(0,1fr) auto auto;width:100%;max-width:none;padding:8px;border-radius:13px}body.public-page:not(.property-page) .public-search>input[name="q"]{grid-column:1/-1;min-height:38px;padding:0 5px;border-bottom:1px solid var(--line)}body.public-page:not(.property-page) .public-search .select-control{min-width:0}body.public-page:not(.property-page) .public-search .button{min-height:38px}body.public-page:not(.property-page) .search-nearby-status{grid-column:1/-1}}
 
 .property-card-location-tag,.building-card-location-tag,.saved-property-location-tag,.room-vcard-location-tag{position:absolute;z-index:2;top:10px;left:10px;max-width:calc(100% - 20px);overflow:hidden;padding:6px 10px;border-radius:0 0 7px 0;background:#2462a0;color:#fff;font-size:10px;font-weight:800;line-height:1.2;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 2px 8px #10182725}
+.owner-onboarding-summary{padding:0 18px 15px}
+.owner-onboarding-summary progress,.owner-profile-progress-panel progress,.owner-listing-progress progress{display:block;width:100%;height:9px;margin:7px 0;accent-color:#2872b8}
+.owner-profile-progress-panel{display:grid;gap:10px;margin:0 0 18px;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--canvas)}
+.owner-profile-progress-panel>div{display:grid;gap:4px}
+.owner-profile-progress-panel small,.owner-profile-checklist{color:var(--muted);font-size:11px}
+.owner-profile-checklist{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px;margin:0;padding:0;list-style:none}
+.owner-profile-checklist .complete{color:#287b4c}
+.owner-profile-checklist .incomplete{color:var(--muted)}
+.owner-listing-progress{display:grid;gap:3px;margin:14px 0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--canvas)}
+.owner-listing-progress>div{display:flex;justify-content:space-between;gap:12px;font-size:11px}
+.owner-listing-progress .subline{margin:0}
+.owner-listing-submit-form,.owner-gold-request{display:grid;gap:8px;margin:10px 0}
+.owner-listing-submit-form .subline,.owner-gold-request .subline{display:block}
+.owner-listing-guidance{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);color:var(--muted);font-size:11px;line-height:1.5}
+.owner-listing-guidance strong{display:block;margin-bottom:4px;color:var(--ink);font-size:11px}
+.owner-listing-guidance ul{display:grid;gap:3px;margin:0;padding-left:18px}
+.owner-gold-request{padding:10px;border:1px solid var(--line);border-radius:10px}
+.owner-gold-request summary{cursor:pointer;color:var(--ink);font-size:11px;font-weight:800}
+.owner-gold-request form{margin-top:10px}
+.owner-onboarding-summary>.field-help{display:block;margin-bottom:4px;color:var(--ink)}
+.building-table-view progress{width:85px;height:8px;accent-color:#2872b8;vertical-align:middle}
+.admin-listing-suspension{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:8px}
+.admin-listing-suspension summary{cursor:pointer;color:var(--ink);font-size:10px;font-weight:800}
+.admin-listing-suspension form{display:grid;gap:7px;margin-top:8px}
+.admin-listing-suspension .field{margin:0}
+html[data-theme="dark"] .owner-profile-progress-panel,html[data-theme="dark"] .owner-listing-progress,html[data-theme="dark"] .owner-gold-request{background:var(--canvas);border-color:var(--line)}
+html[data-theme="dark"] .owner-profile-checklist .complete{color:#8bd2a5}
+@media(max-width:700px){.owner-onboarding-summary .panel-heading{align-items:flex-start;flex-direction:column}.owner-onboarding-summary .panel-heading .button{width:100%}.owner-profile-checklist{grid-template-columns:1fr 1fr}}
 .property-result-card,.property-carousel-card,.saved-property-card,.building-card,.room-vcard,.property-room-vcard{border:1px solid rgba(35,48,66,.1);border-radius:12px;background:var(--paper);box-shadow:0 5px 9px rgba(31,41,55,.1),0 12px 24px rgba(31,41,55,.07);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
 .property-result-card:hover,.property-carousel-card:hover,.saved-property-card:hover,.building-card:hover,.room-vcard:hover,.property-room-vcard:hover{transform:translateY(-3px);border-color:rgba(35,98,160,.22);box-shadow:0 9px 14px rgba(31,41,55,.13),0 18px 32px rgba(31,41,55,.1)}
 .property-result-card{border-radius:12px}
@@ -1888,6 +1923,8 @@ html[data-theme="dark"] .receipt-total{background:#263f56;color:#f3f7fb}
 .gallery-upload-field .photo-upload-pending>img{height:75px}
 .gallery-photo-delete{margin-top:auto}
 .gallery-profile-select{display:grid;gap:7px;padding:8px 9px 0}
+.gallery-apply-all-form{display:grid;gap:7px;padding:8px 9px 0}
+.gallery-apply-all-form .button{width:100%;min-height:33px;padding:0 8px;font-size:9px}
 .gallery-profile-select .field{gap:4px;color:var(--muted);font-size:9px}
 .gallery-profile-select .field select{min-height:33px;padding:4px 7px;font-size:10px}
 .gallery-profile-select .button{justify-self:start;min-height:31px;padding:0 9px;font-size:9px}

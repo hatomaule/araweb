@@ -6,7 +6,8 @@ function handle_portal_action(PDO $pdo, array $user, string $action): void
         if ($action === 'toggle_saved_property') {
             $buildingId = (int) post_value('building_id');
             if ($user['role'] !== 'seeker' || $buildingId < 1
-                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'", ['id' => $buildingId])) {
+                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'
+                    AND (owner_user_id IS NULL OR publication_status='published')", ['id' => $buildingId])) {
                 set_flash('error', 'Kos ini tidak dapat disimpan dengan akun saat ini.');
                 redirect('home');
             }
@@ -37,7 +38,8 @@ function handle_portal_action(PDO $pdo, array $user, string $action): void
             if ($user['role'] !== 'seeker' || $buildingId < 1
                 || !in_array($reason, ['misleading', 'fake', 'inappropriate', 'other'], true)
                 || strlen($details) > 2000
-                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'", ['id' => $buildingId])) {
+                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'
+                    AND (owner_user_id IS NULL OR publication_status='published')", ['id' => $buildingId])) {
                 set_flash('error', 'Laporan kos tidak valid.');
                 redirect('home');
             }
@@ -66,7 +68,8 @@ if ($action === 'submit_review') {
             $tenant = one($pdo, 'SELECT id FROM tenants WHERE user_id=:id', ['id' => $user['id']]);
             if ($buildingId < 1 || $rating < 1 || $rating > 5
                 || $reviewText === '' || strlen($reviewText) > 3000
-                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'", ['id' => $buildingId])) {
+                || !one($pdo, "SELECT id FROM kos_buildings WHERE id=:id AND status='active'
+                    AND (owner_user_id IS NULL OR publication_status='published')", ['id' => $buildingId])) {
                 set_flash('error', 'Pilih nilai 1–5 dan tulis ulasan maksimal 3.000 karakter.');
                 redirect('property&id=' . $buildingId . '#review');
             }

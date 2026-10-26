@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/core/bootstrap.php';
+require_once __DIR__ . '/core/owner_onboarding.php';
 require_once __DIR__ . '/core/modules.php';
 require_once __DIR__ . '/core/activity_log.php';
 require_once __DIR__ . '/core/web_push.php';
@@ -33,7 +34,9 @@ $allowedPages = [
     'account_settings', 'chat', 'admin_chat', 'chat_profile', 'notifications', 'saved_properties',
     'activity', 'activity_log', 'reviews', 'finance', 'finance_settings',
     'operator_bookings', 'tenant_profile', 'facebook_login',
-    'facebook_callback', 'login', 'register', 'setup', 'forgot_password', 'reset_password',
+    'facebook_callback', 'google_login', 'google_link', 'google_callback', 'google_register',
+    'owner_verification_file',
+    'login', 'register', 'setup', 'forgot_password', 'reset_password',
 ];
 $page = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] : 'home';
 if (!in_array($page, $allowedPages, true)) {
@@ -81,7 +84,9 @@ $featureSchema = $pdo->prepare(
      WHERE TABLE_SCHEMA=DATABASE() AND (
         (TABLE_NAME='users' AND COLUMN_NAME IN
             ('username','hide_phone_public','hide_profile_photo_public','self_deactivated_at','deletion_requested_at','deletion_due_at'))
-        OR (TABLE_NAME='kos_buildings' AND COLUMN_NAME IN ('verification_tier','verification_status'))
+        OR         (TABLE_NAME='kos_buildings' AND COLUMN_NAME IN
+            ('verification_tier','verification_status','publication_status','listing_review_note',
+             'listing_reviewed_by','listing_reviewed_at','gold_verification_status'))
         OR (TABLE_NAME='room_type_gallery_photos' AND COLUMN_NAME='room_id')
         OR (TABLE_NAME='property_reviews' AND COLUMN_NAME='reviewer_user_id')
         OR (TABLE_NAME='chat_conversations' AND COLUMN_NAME IN
@@ -95,7 +100,8 @@ $featureTables = $pdo->prepare(
      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN
         ('property_verification_requests','property_user_actions','notification_preferences',
          'notifications','chat_conversations','chat_messages','activity_logs','web_push_subscriptions',
-         'user_activity_events','chat_conversation_hidden','chat_conversation_user_state')"
+         'user_activity_events','chat_conversation_hidden','chat_conversation_user_state',
+         'owner_gold_verification_requests')"
 );
 $featureTables->execute();
 $ownerRoleColumns = (int) $pdo->query(
@@ -105,7 +111,7 @@ $ownerRoleColumns = (int) $pdo->query(
          OR (TABLE_NAME='activity_logs' AND COLUMN_NAME='actor_role')
          OR (TABLE_NAME='user_activity_events' AND COLUMN_NAME='account_role'))"
 )->fetchColumn();
-if ($requiredFeatureColumns !== 14 || (int) $featureTables->fetchColumn() !== 11
+if ($requiredFeatureColumns !== 19 || (int) $featureTables->fetchColumn() !== 12
     || $ownerRoleColumns !== 3) {
     http_response_code(503);
     ?><!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pembaruan database diperlukan</title><link rel="stylesheet" href="style.css"></head><body><main class="auth-wrap"><section class="auth-card"><div class="brand-mark">K</div><h1>Pembaruan database diperlukan</h1><p>Skema database belum memuat semua modul aplikasi.</p><ol><li>Buat backup yang dapat dipulihkan.</li><li>Pastikan migrasi fitur akun/properti, notifikasi, chat, log, dan <code>migration_usernames_and_owner_role.sql</code> sudah dijalankan. Jalankan migrasi chat berurutan: <code>migration_chat.sql</code>, <code>migration_chat_support_admin.sql</code>, <code>migration_chat_inbox_visibility.sql</code>, lalu <code>migration_chat_personal_folders.sql</code>.</li><li>Gunakan akun administrator database khusus untuk migrasi; akun aplikasi tidak memerlukan hak DDL. Aktifkan MySQL <code>event_scheduler</code> agar Sampah kedaluwarsa otomatis setiap hari.</li></ol><p>Setelah migrasi selesai, muat ulang halaman.</p></section></main></body></html><?php
@@ -113,6 +119,10 @@ if ($requiredFeatureColumns !== 14 || (int) $featureTables->fetchColumn() !== 11
 }
 
 $user = current_user();
+handle_google_oauth_route($pdo, $user, $page);
+if ($page === 'owner_verification_file') {
+    serve_owner_verification_evidence($pdo, $user, max(0, (int) ($_GET['id'] ?? 0)));
+}
 $backgroundApiPoll = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
     && (isset($_GET['chat_api']) || isset($_GET['notifications_api']));
 if (!$backgroundApiPoll) {
@@ -571,13 +581,13 @@ if (in_array($page, ['home', 'search', 'property', 'room'], true)) {
 if ($userCount === 0 && (!$user || $user['role'] !== 'admin')
     && !in_array($page, ['home', 'search', 'property', 'room', 'setup', 'login', 'register',
         'forgot_password', 'reset_password',
-        'facebook_login', 'facebook_callback'], true)) {
+        'facebook_login', 'facebook_callback', 'google_login', 'google_callback', 'google_register'], true)) {
     redirect('setup');
 }
 if ($userCount > 0 && !$user
     && !in_array($page, ['home', 'search', 'property', 'room', 'login', 'register',
         'forgot_password', 'reset_password',
-        'facebook_login', 'facebook_callback'], true)) {
+        'facebook_login', 'facebook_callback', 'google_login', 'google_callback', 'google_register'], true)) {
     redirect('login');
 }
 if ($user && in_array($page, ['login', 'register', 'setup', 'forgot_password', 'reset_password'], true)) {
@@ -632,6 +642,10 @@ if ($user && $user['role'] === 'owner' && $page === 'payment_confirmations') {
 require __DIR__ . '/payments/proof.php';
 $flash = take_flash();
 $notificationUnreadCount = $user ? notification_unread_count($pdo) : 0;
+if ($page === 'google_register' && !$user) {
+    require __DIR__ . '/accounts/google_register.php';
+    exit;
+}
 require __DIR__ . '/accounts/auth.php';
 
 function rows(PDO $pdo, string $sql, array $params = []): array

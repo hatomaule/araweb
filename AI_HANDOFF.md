@@ -1164,3 +1164,290 @@ arsitektur, alur inti, cara validasi, atau batas keselamatan proyek berubah.
   dirender, composer terlihat dan menerima teks, tombol video aktif, file video
   asli tidak berubah, tombol emoji/foto/video sejajar di bawah textarea, dan
   latar bubble lampiran transparan. PHP lint dan pemeriksaan diff juga lulus.
+- **Rancangan login Google dan kepercayaan Owner (2026-10-24, diskusi saja;
+  belum disetujui untuk implementasi):**
+  - Pengguna membahas Google OAuth: tombol Masuk dengan Google membuka alur
+    resmi Google; aplikasi tidak mengumpulkan password Google. Login/password
+    yang ada sebaiknya tetap tersedia sebagai pilihan.
+  - Akun lama (termasuk Owner) dapat memakai Google bila identitas Google
+    terverifikasi cocok dan ditautkan ke akun yang benar; role/data akun lama
+    tidak boleh berubah oleh pilihan role pada layar login. Simpan subject
+    Google yang stabil, bukan hanya mencocokkan alamat email secara longgar.
+  - Akun baru dapat dibuat otomatis dari email Google terverifikasi. Pengguna
+    mengusulkan pemilihan User/Pencari Kos atau Owner mandiri; Owner baru bisa
+    langsung mendapat role Owner, tanpa persetujuan Admin. Pendaftaran publik
+    tidak pernah menawarkan Admin. Risiko keputusan Owner mandiri: pendaftar
+    mana pun dapat mendapat akses Owner, sehingga fitur destruktif/sensitif
+    perlu otorisasi, CSRF, audit log, verifikasi email, pembatasan percobaan,
+    dan pemeriksaan kepemilikan atas data setiap gedung.
+  - Akun Owner Basic dapat masuk dan mengelola data/listing sebagai draft;
+    listing tidak otomatis tayang sebelum data minimum diperiksa Admin.
+    Pemeriksaan kelayakan publikasi listing harus dibedakan dari verifikasi
+    lanjutan identitas/kewenangan Owner. Gold adalah status verifikasi
+    kewenangan yang diberikan setelah pemeriksaan Admin; tidak dibeli dan
+    tidak menyatakan bahwa pembayaran membuktikan kepemilikan.
+  - Platinum adalah status langganan/paket premium berbayar yang membuka
+    fitur Pro hanya selama paket aktif. Owner dapat memiliki Gold sekaligus
+    Platinum; status verifikasi dan langganan harus disimpan/ditampilkan
+    terpisah dan tidak mengubah role.
+  - Bedakan role (`admin`, `user`, `owner`), status akun (`active`,
+    `suspended`), status verifikasi Owner/properti (misalnya `pending`,
+    `verified`, `rejected`, `suspended` dengan alasan/revisi), tier verifikasi
+    (Basic/Gold), status langganan/tier paket (gratis/Platinum, aktif/kedaluwarsa/
+    dibatalkan), dan entitlement fitur. Owner berstatus pending/rejected tetap
+    bisa login memperbaiki profil/listing; suspended dapat dibatasi sesuai
+    lingkup penangguhan. Jangan memakai satu kolom level untuk semua konsep.
+  - Tidak ada implementasi atau migrasi yang disetujui. Tunggu instruksi
+    eksplisit “gas eksekusi”. Sebelum implementasi, sepakati alur email Google
+    pada akun lama yang alamatnya sama, aturan status akses/publikasi saat
+    pending/rejected/suspended, dokumen dan data minimum, masa aktif/pembatalan
+    Platinum, gateway pembayaran, serta fitur Pro dan batas paket. Google OAuth
+    memerlukan konfigurasi Google Cloud OAuth Client ID/Secret, URI callback
+    HTTPS yang tepat, dan penyimpanan secret di environment; jangan commit
+    secret.
+  - **Penyempurnaan konsep Owner dari gambar (2026-10-24, diskusi; belum
+    disetujui untuk implementasi):** Basic gratis untuk akun Owner dengan
+    kelengkapan data contoh 50–99%; Owner dapat mengelola dashboard, gedung,
+    kamar, dan mengedit data. Listing Basic boleh tayang hanya setelah mencapai
+    syarat kelengkapan minimum dan disetujui Admin pada pemeriksaan publikasi.
+    Persentase minimum contoh 50% hanyalah indikator awal, bukan jaminan
+    kelayakan atau publikasi: informasi dasar wajib (misalnya nama/lokasi,
+    foto yang memadai, harga dan kondisi kamar) harus divalidasi oleh aturan
+    eksplisit dan Admin. Listing kurang dari batas tetap draft/perlu dilengkapi.
+    Basic tidak mendapat lencana Gold.
+  - Gold gratis dengan kelengkapan data 100% serta pemeriksaan dan persetujuan
+    Admin atas bukti kewenangan mengelola properti. Kelengkapan formulir saja
+    tidak cukup untuk Gold. Lencana Gold dan sinyal kepercayaan di pencarian/
+    detail harus menyatakan secara jujur hal yang benar-benar ditinjau; lencana
+    bukan jaminan mutu, tidak mengubah hak akses, dan tidak otomatis menaikkan
+    harga. Owner menentukan harga; EkoSan dapat menampilkan konteks bahwa data/
+    bukti telah diperiksa tanpa mengklaim premi harga otomatis.
+  - Platinum adalah layanan premium berbayar yang hanya tersedia bagi Owner
+    Gold dengan paket aktif. Platinum membuka entitlement Pro sesuai paket;
+    saat masa paket berakhir, entitlement premium berhenti tetapi status Gold
+    terverifikasi tetap ada selama verifikasi masih berlaku. Basic dan Gold
+    tetap gratis; Platinum bukan level verifikasi atau pengganti Gold.
+  - Aturan transisi contoh dari gambar: data <50% = belum memenuhi syarat
+    publikasi; data >=50% tetapi belum diperiksa = menunggu pemeriksaan; data
+    >=50% setelah persetujuan Admin = Basic dan dapat ditampilkan; data 100%
+    tetapi bukti belum disetujui = tetap Basic / verifikasi lanjutan menunggu;
+    data 100% plus bukti kewenangan disetujui = Gold; Gold plus paket premium
+    aktif = Platinum. Pencapaian 100% tanpa bukti verifikasi tidak boleh
+    otomatis menghasilkan Gold. Aturan publikasi awal dan verifikasi Gold
+    merupakan dua keputusan Admin/dua cakupan pemeriksaan yang berbeda.
+  - Usulan harga Gold dapat lebih tinggi, tetapi sistem tidak menaikkan harga
+    secara otomatis karena tier; harga tetap diputuskan Owner dan informasi
+    status Gold ditampilkan terpisah. Pemeringkatan, label perbandingan harga,
+    persentase completeness, syarat field wajib per listing, pembatalan/
+    pencabutan verifikasi, serta definisi dokumen pendukung masih perlu
+    disepakati sebelum rancangan menjadi spesifikasi final.
+  - **Klarifikasi dari gambar lanjutan (2026-10-24, prinsip desain disepakati
+    dalam diskusi; bukan izin implementasi):** satu Owner mempertahankan satu
+    akun dan dapat mengelola banyak gedung, tetapi status verifikasi/publikasi
+    berlaku independen untuk masing-masing kost/gedung. Contoh: Gedung A Gold,
+    Gedung B Basic, Gedung C menunggu pemeriksaan; status suatu gedung tidak
+    otomatis mengubah gedung lain. Paket/layanan Platinum dan hak fitur Pro
+    terkait akun Owner, sedangkan setiap kost tetap menunjukkan status
+    verifikasinya sendiri.
+  - Usulan aturan bisnis final: Basic gratis dan dapat menampilkan kost setelah
+    persetujuan awal Admin; Gold gratis setelah semua syarat data dan bukti
+    pendukung untuk properti tersebut dipenuhi serta disetujui Admin; Platinum
+    khusus Owner Gold yang mengaktifkan layanan premium; harga tetap ditentukan
+    Owner; verifikasi dapat ditinjau kembali bila data/bukti diragukan atau
+    tidak valid; kelengkapan persentase merupakan indikator, bukan pengganti
+    field wajib atau keputusan Admin.
+  - Sebelum perancangan implementasi, definisikan daftar field wajib dan
+    pembobotan completeness yang dapat dihitung konsisten per gedung agar
+    ambang (misalnya 50%) benar-benar bermakna dan tidak sekadar angka
+    perkiraan. Tentukan juga apakah pelanggaran satu gedung menangguhkan hanya
+    listing itu atau turut membatasi akun Owner/paket Platinum; tidak boleh
+    menyiratkan verifikasi global hanya karena satu gedung lolos.
+  - **Pilihan desain yang ditunjukkan pengguna (2026-10-24; diskusi, belum
+    instruksi eksekusi):** pengguna menunjuk Pilihan B—level akun dan status
+    verifikasi kost terpisah. Modelnya: Basic/Gold/Platinum adalah level
+    keanggotaan akun Owner; Draft/Menunggu/Tayang—Basic/Terverifikasi—Gold/
+    Ditangguhkan adalah status per kost/gedung. Akun dapat tetap Gold sementara
+    sebagian listing-nya Basic, Draft, atau menunggu; label pada listing selalu
+    mencerminkan status listing itu sendiri. Platinum melekat pada keanggotaan
+    Owner yang memenuhi syarat Gold dan mengaktifkan paket, tidak menaikkan
+    status verifikasi setiap kost. Ini mengonfirmasi dan memperjelas model
+    terpisah yang direkomendasikan di atas. Belum ada implementasi, migrasi,
+    atau persetujuan untuk mulai coding; tetap tunggu “gas eksekusi”.
+  - **Alur pada diagram verifikasi (2026-10-24; dicatat untuk pembahasan):**
+    daftar melalui Google dan pilih Owner -> akun Owner mulai dari Basic ->
+    Owner melengkapi data gedung/kost dan kamar -> Admin memeriksa apakah data
+    cukup dan properti layak dipublikasikan atau perlu perbaikan. Setelah
+    pemeriksaan awal, listing dapat tayang dengan status Basic yang jelas atau
+    tetap menjadi draft/perlu perbaikan; Gold hanya setelah dokumen/bukti
+    kepemilikan atau kewenangan diperiksa dan disetujui Admin. Platinum adalah
+    langkah terpisah setelah paket premium aktif bagi Owner yang memenuhi
+    prasyarat Gold; fitur Pro mengikuti paket, dan status verifikasi listing
+    tetap tidak berubah. Perlu dirancang agar pemeriksaan publikasi Basic dan
+    pemeriksaan dokumen Gold dapat menjadi tahap terpisah/berulang tanpa
+    menahan Owner mengisi draft. Catatan ini bukan persetujuan implementasi.
+  - **Klarifikasi cakupan kelengkapan dan peninjauan Gold dari Owner
+    (2026-10-24; diskusi saja):** progres kelengkapan yang dibahas harus
+    mencakup keseluruhan informasi yang dibutuhkan untuk menilai gedung/kost
+    dan akun Owner, bukan hanya kolom gedung. Kandidat data mencakup profil
+    Owner dan data pribadi/kontak yang relevan (nama, email, alamat pemilik),
+    alamat gedung, lokasi/koordinat peta, foto gedung, data/fasilitas/harga
+    kamar, serta foto setiap kamar. Sebelum implementasi, inventarisasikan
+    field dan foto yang sudah diminta UI/skema saat ini, bedakan wajib dan
+    opsional, tentukan cakupan progres per kost versus profil Owner bersama,
+    validasi kualitas/kelengkapan media, serta lindungi data profil/alamat
+    privat agar tidak otomatis dipublikasikan hanya karena dihitung dalam
+    progres.
+  - Peninjauan Gold oleh Admin dapat mempertimbangkan verifikasi lokasi dan
+    kesesuaian data kost, serta ulasan yang relevan sebagai sinyal evaluasi.
+    Ulasan tidak menggantikan pemeriksaan fakta/lokasi dan perlu ditafsirkan
+    hati-hati (misalnya ulasan belum ada tidak otomatis berarti kualitas buruk;
+    ulasan negatif perlu ditinjau konteks/moderasi). Bobot, ambang, dan
+    prosedur tindak lanjut ulasan belum ditetapkan. Ini bukan persetujuan
+    implementasi.
+  - **Alur pengisian Owner bertahap (2026-10-24; kebutuhan dibahas, belum
+    disetujui untuk implementasi):** Owner mengisi profil bersama dan data
+    setiap gedung/kamar melalui tahapan yang dapat disimpan sebagai draft,
+    dilanjutkan di lain waktu, serta diperbarui berulang tanpa mengisi ulang
+    atau kehilangan data/foto yang sudah tersimpan. Dashboard menampilkan
+    persentase progres beserta checklist bagian belum lengkap dan membedakan
+    progres profil Owner dari progres tiap gedung/kost. Owner dapat mengajukan
+    peninjauan jika memenuhi persyaratan; status menunjukkan draft, menunggu,
+    perlu perbaikan (beserta alasan Admin), disetujui tayang-Basic, atau
+    terverifikasi-Gold. Revisi dan pengajuan ulang harus mempertahankan data
+    sebelumnya dan memperlihatkan catatan pemeriksaan; data yang sudah
+    disetujui tidak hilang hanya karena revisi baru.
+  - Rekomendasi desain lanjutan yang harus disepakati: simpan draft/edit Owner
+    terpisah dari versi listing publik terakhir yang disetujui. Saat Owner
+    mengedit kost yang sedang tayang atau mengubah data ketika pengajuan
+    menunggu, pertahankan publikasi versi yang telah disetujui sampai revisi
+    diserahkan dan ditinjau; Admin dapat meminta unpublikasi sementara bila
+    bidang inti/lokasi/dokumen menimbulkan risiko atau ada indikasi data palsu.
+    Definisikan juga autosave versus tombol simpan per bagian, aturan perubahan
+    yang memerlukan review ulang, serta perlindungan file/foto selama
+    penggantian. Ini masih rancangan, bukan persetujuan eksekusi.
+
+- **Implementasi login Google dan onboarding kepercayaan Owner (2026-10-26;
+  implementasi lokal, menunggu migrasi dan konfigurasi OAuth):**
+  - Rancangan sebelumnya telah disetujui untuk dikerjakan. Aturan yang menjadi
+    sumber kebenaran: listing Basic baru dapat diajukan mulai 50% kelengkapan,
+    data inti wajib tetap harus lengkap, dan Admin harus menyetujui sebelum
+    listing tampil. Gold diberikan pada akun jika setidaknya satu gedung milik
+    Owner lolos verifikasi; status setiap gedung tetap terpisah. Profil Owner
+    dan tiap gedung memiliki progres masing-masing. Akun lama menautkan Google
+    setelah login dengan metode lama. Penangguhan berlaku per gedung.
+  - Google OAuth memakai HTTPS callback, state acak, PKCE S256, Google
+    UserInfo API melalui TLS dengan verifikasi sertifikat, dan email
+    `email_verified`. Akun baru hanya dapat memilih Owner/User; akun yang email
+    KosKosan-nya sudah ada tidak otomatis dikaitkan dan role akun lama tidak
+    berubah. Penautan memerlukan sesi login yang sama. Konfigurasi server:
+    `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `GOOGLE_REDIRECT_URI`.
+    Belum ada kredensial Google Cloud di lingkungan ini, sehingga alur live
+    OAuth belum bisa diuji.
+  - `migration_owner_trust_and_google.sql` menambah `publication_status`,
+    `gold_verification_status`, catatan/reviewer per listing, serta tabel
+    permintaan Gold. Migrasi belum dijalankan: akun DB aplikasi tidak memiliki
+    hak DDL/admin yang dibutuhkan. Jalankan satu kali dengan akun database
+    bermigrasi setelah backup, mengikuti urutan README. Startup guard kini
+    mewajibkan kolom/tabel migrasi tersebut.
+  - Status publikasi yang diterapkan: draft, pending, published, revision,
+    rejected, suspended. Listing lama dimigrasikan tetap `published` secara
+    default agar publikasi lama tidak mendadak hilang. Listing Owner baru
+    mulai sebagai draft. Pemilik dapat mengedit draft berulang, lalu
+    mengajukan ulang setelah revisi. Perubahan gedung/kamar/foto pada listing
+    Owner yang sudah tayang atau sedang ditinjau memindahkannya ke revision
+    dan menyembunyikannya sampai Admin meninjau ulang; versi snapshot lama
+    tidak disimpan. Ini berbeda dari rekomendasi terdahulu untuk
+    mempertahankan snapshot tayang, dan perlu dibahas bila Owner menginginkan
+    listing lama tetap terlihat selama revisi.
+  - Persentase gedung dihitung dari sembilan kelompok: nama, alamat, pin peta,
+    deskripsi, foto gedung, fasilitas umum, aturan, data/tarif/foto semua
+    kamar, dan fasilitas kamar. Tayang Basic mensyaratkan minimal 50% ditambah
+    data inti (nama, alamat, koordinat, foto gedung, minimal satu kamar,
+    tarif positif dan foto untuk seluruh kamar) serta persetujuan Admin.
+    Verifikasi Gold mensyaratkan profil Owner dan gedung 100% lengkap ditambah
+    bukti privat dan keputusan Admin. Profil Owner punya enam checklist
+    terpisah (nama, email, telepon, alamat wilayah lengkap, gender, foto) dan
+    progresnya tidak ditampilkan publik.
+  - Pengajuan Gold meminta bukti PDF/JPG/PNG/WebP maksimal 5 MB; file
+    disimpan di luar document root dengan permission privat (default
+    `../ekosan-private/owner_verification`). Endpoint hanya mengizinkan Owner
+    pemilik atau Admin dan memakai no-store/nosniff. Admin melihat data
+    lokasi, dokumen, rating/jumlah ulasan; tidak ada rating minimum, dan
+    ketiadaan ulasan tidak menjadi kegagalan otomatis. Gold adalah verifikasi
+    kewenangan, tidak mengubah role. Penangguhan listing dan pemulihannya
+    ditangani per gedung.
+  - Status Platinum/paket, harga, durasi, gateway, dan fitur Pro belum
+    diimplementasikan karena keputusan bisnisnya belum tersedia; tidak ada
+    status Premium palsu yang diaktifkan. Kolom lama
+    `verification_tier` Basic/Premium/Eksklusif dan tipe kamar Premium/
+    Eksklusif tidak diubah atau dipakai sebagai level keanggotaan Owner.
+  - Filter publik kini mengabaikan gedung Owner yang bukan `published`,
+    termasuk pencarian, detail, simpanan, laporan/ulasan, dan booking. Admin
+    dapat membuka pratinjau listing belum tayang; Owner hanya melihat status
+    dan progres di halaman Gedung.
+  - Validasi lokal: PHP lint untuk permukaan PHP yang disentuh telah lulus;
+    penghitungan checklist diuji pada data DB baca-saja dan menghasilkan nilai
+    0–100% sesuai 9/6 item. Migrasi, alur Admin setelah migrasi, upload
+    privat, dan Google live belum diuji end-to-end. Tidak ada commit/push pada
+    sesi ini. Jangan stage unggahan, backup, berkas bernama aneh, atau
+    penghapusan foto lokal yang sudah ada sebelumnya.
+
+### Validasi lanjutan dan status migrasi Owner/Google
+
+- PHP lint ulang lulus untuk seluruh 17 file PHP yang diubah pada implementasi
+  ini. `git -c core.whitespace=cr-at-eol diff --check` lulus.
+- Uji konfigurasi OAuth dengan nilai dummy lulus: callback HTTPS diterima dan
+  callback HTTP ditolak.
+- Schema guard mewajibkan 19 kolom, 12 tabel, dan 3 kolom role Owner; migrasi
+  baru menyediakan `owner_gold_verification_requests` serta lima kolom dan
+  indeks status gedung yang dibutuhkan.
+- Migrasi belum dijalankan. Koneksi aplikasi `araweb_app@localhost` hanya
+  memiliki SELECT/INSERT/UPDATE/DELETE pada `manajemen_kos`; autentikasi sudo
+  non-interaktif juga tidak tersedia. Jalankan migrasi satu kali oleh
+  administrator database setelah backup, lalu uji schema guard dan halaman
+  aplikasi. Jangan memberikan hak DDL permanen ke akun aplikasi.
+- Google OAuth live dan alur Gold berbasis database belum bisa diuji sampai
+  migrasi tersedia; OAuth juga memerlukan Client ID/Secret dan callback HTTPS
+  dari environment.
+- Tidak ada commit atau push. Worktree masih berisi file unggahan, backup,
+  file bernama aneh, dan penghapusan foto yang berasal dari pekerjaan lokal
+  sebelumnya; jangan stage atau hapus file tersebut.
+
+### Petunjuk data gedung yang belum lengkap
+
+- Halaman Gedung Owner kini menampilkan daftar kekurangan per gedung dengan
+  nama/nomor kamar untuk tarif atau foto yang belum ada, serta alasan inti
+  pengajuan tayang belum aktif. Daftar dihitung dari helper progres yang sama
+  dengan validasi server; tidak menambah atau mengubah syarat publikasi.
+- Pemeriksaan database lokal untuk gedung “Tiara Kost 2” menunjukkan progres
+  89% dan kekurangan foto kamar A41 sampai A55 (15 kamar). Gedung berstatus
+  Aktif dan publikasi `revision`; tambahkan foto untuk kamar tersebut sebelum
+  pengajuan tayang. Setelah simpan foto, muat ulang halaman untuk menghitung
+  progres terbaru.
+
+### Penerapan foto galeri ke semua kamar bertipe sama
+
+- Galeri kini menampilkan tombol ringkas **Terapkan ke semua Kamar** untuk
+  foto kamar, fasilitas kamar, dan fasilitas umum. Foto kamar menjadi foto
+  profil seluruh kamar bertipe sama. Foto fasilitas kamar tampil di detail
+  kamar sesuai tipe; foto fasilitas umum tampil pada detail kamar dan halaman
+  gedung. Aksi massal membagikan foto yang khusus untuk satu kamar (`room_id`
+  terisi) ke semua kamar bertipe sama dengan mengubah tautannya menjadi foto
+  bersama (`room_id IS NULL`).
+- Tombol meminta konfirmasi, lalu server memvalidasi akses pengelola, foto
+  galeri, kategori, gedung, dan kecocokan tipe sebelum menerapkan foto.
+
+### Penyederhanaan label level Owner
+
+- Label klasifikasi pada kartu/detail kos dan daftar simpanan hanya menampilkan
+  satu badge level keanggotaan Owner. Status akun Gold jika minimal satu
+  gedungnya verified; karena itu kartu semua gedung milik Owner tersebut
+  menampilkan Gold, bukan badge Basic gedung ditambah Gold akun. Owner lain
+  menampilkan Basic. Warna Basic abu-abu, Gold emas, dan kelas warna Platinum
+  ungu telah disediakan untuk pemakaian saat paket tersedia.
+- Badge klasifikasi gedung lama Premium/Eksklusif dihilangkan dari kartu/detail
+  publik agar tidak tercampur dengan level Owner. Nilai dan alur verifikasi
+  properti lamanya tetap tersimpan dan tidak diubah. Platinum belum ditampilkan
+  sebagai status aktif karena paket/entitlement belum tersedia.
+- Perubahan foto Owner pada listing tayang mengikuti perilaku yang sudah ada:
+  publikasi masuk status revisi untuk peninjauan Admin kembali.
